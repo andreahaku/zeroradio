@@ -621,6 +621,24 @@ void AdsbScreen::update_list(const std::vector<Row>& rows) {
     }
 }
 
+void AdsbScreen::record_trails(const std::vector<Row>& rows) {
+    // Append each aircraft's current position to its history and drop vanished
+    // ones. Runs every tick (independent of the visible screen) so trails stay
+    // current on both the radar and the Detail mini-radar.
+    const size_t cap = vm_.trail_len() > 0 ? static_cast<size_t>(vm_.trail_len()) : 1;
+    std::map<std::string, std::deque<toolkit::geo::LatLon>> kept;
+    for (const auto& r : rows) {
+        if (!r.has_pos) continue;
+        auto& hist = trails_[r.hex];
+        if (hist.empty() || hist.back().lat != r.pos.lat || hist.back().lon != r.pos.lon) {
+            hist.push_back(r.pos);
+        }
+        while (hist.size() > cap) hist.pop_front();
+        kept[r.hex] = std::move(hist);
+    }
+    trails_.swap(kept);
+}
+
 void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     if (!ppi_canvas_) {
         return;
@@ -682,22 +700,8 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     const uint16_t trail_sel_col = sel_ac_col;                              // selected trail: orange
     const double max_nm = static_cast<double>(vm_.range_nm());
 
-    // --- Trails: append the current position to each aircraft's history, prune
-    // vanished aircraft, then (when enabled) draw the recent track of each. ---
-    {
-        std::map<std::string, std::deque<toolkit::geo::LatLon>> kept;
-        const size_t cap = trail_cap > 0 ? trail_cap : 1;
-        for (const auto& r : rows) {
-            if (!r.has_pos) continue;
-            auto& hist = trails_[r.hex];
-            if (hist.empty() || hist.back().lat != r.pos.lat || hist.back().lon != r.pos.lon) {
-                hist.push_back(r.pos);
-            }
-            while (hist.size() > cap) hist.pop_front();
-            kept[r.hex] = std::move(hist);
-        }
-        trails_.swap(kept); // drop aircraft no longer present
-    }
+    // Trails are recorded once per tick in record_trails(); here we only draw the
+    // recent track of each aircraft when enabled.
     if (trails_on) {
         const std::string& sel_hex = vm_.selected_hex();
         for (const auto& r : rows) {
@@ -916,6 +920,7 @@ void AdsbScreen::tick() {
     // Drop stale entries (TTL from settings), then snapshot + sort.
     store_.sweep(vm_.ttl_seconds());
     const auto rows = build_rows();
+    record_trails(rows); // every tick, regardless of the visible screen
 
     // Report the current sorted aircraft order so prev/next move by identity and
     // a vanished selection snaps to the nearest aircraft.

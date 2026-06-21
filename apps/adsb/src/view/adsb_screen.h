@@ -71,6 +71,7 @@ private:
     };
 
     std::vector<Row> build_rows();   // snapshot + sort per the viewmodel
+    void record_trails(const std::vector<Row>& rows); // append history each tick
     // Index in `rows` of the given hex, or -1 if absent/empty.
     int row_of(const std::vector<Row>& rows, const std::string& hex) const;
     void update_header(int signal_quality);
