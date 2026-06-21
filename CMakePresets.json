@@ -1,0 +1,65 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 31,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "cp0-cross",
+            "displayName": "CardputerZero Cross Build",
+            "description": "Configure cross build for CardputerZero with Ninja Multi-Config",
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
+                "FETCHCONTENT_BASE_DIR": "${sourceDir}/.cache/cp0-deps",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/${presetName}/install",
+                "USE_DESKTOP": "OFF",
+                "APP_USE_DRM": "OFF",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/cp0-aarch64-linux-gnu.cmake",
+                "CM0_SDK_ROOT": "${sourceDir}/.cache/sdk_bsp-src",
+                "CMAKE_SYSROOT": "${sourceDir}/.cache/sdk_bsp-src",
+                "CM0_ALLOW_FETCH_DEPS": "ON"
+            }
+        },
+        {
+            "name": "linux-x86-64",
+            "displayName": "Linux Desktop Builds",
+            "description": "Configure for x86_64 Linux using Ninja Multi-Config",
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
+                "FETCHCONTENT_BASE_DIR": "${sourceDir}/.cache/linux-x86_64-deps",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/${presetName}/install",
+                "CMAKE_C_COMPILER": "/usr/bin/gcc",
+                "CMAKE_CXX_COMPILER": "/usr/bin/g++",
+                "USE_DESKTOP": "ON"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "cp0-cross-dbg",
+            "configurePreset": "cp0-cross",
+            "configuration": "Debug"
+        },
+        {
+            "name": "cp0-cross-rel",
+            "configurePreset": "cp0-cross",
+            "configuration": "Release"
+        },
+        {
+            "name": "linux-x86-64-dbg",
+            "configurePreset": "linux-x86-64",
+            "configuration": "Debug"
+        },
+        {
+            "name": "linux-x86-64-rel",
+            "configurePreset": "linux-x86-64",
+            "configuration": "Release"
+        }
+    ]
+}

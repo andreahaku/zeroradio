@@ -1,0 +1,99 @@
+{
+  "now": 1718900000.0,
+  "messages": 184213,
+  "aircraft": [
+    {
+      "hex": "4ca7b5",
+      "flight": "RYR1234 ",
+      "lat": 45.61,
+      "lon": 9.28,
+      "track": 215,
+      "alt_baro": 37000,
+      "gs": 442,
+      "squawk": "1000",
+      "category": "A3",
+      "seen": 2.1
+    },
+    {
+      "hex": "3c6dd2",
+      "flight": "DLH88X  ",
+      "lat": 45.39,
+      "lon": 9.02,
+      "track": 95,
+      "alt_baro": 28000,
+      "gs": 388,
+      "squawk": "2456",
+      "category": "A4",
+      "seen": 0.4
+    },
+    {
+      "hex": "4400f5",
+      "flight": "EZY45RT ",
+      "lat": 45.52,
+      "lon": 9.47,
+      "track": 310,
+      "alt_baro": 15200,
+      "gs": 301,
+      "squawk": "3702",
+      "category": "A3",
+      "seen": 5.8
+    },
+    {
+      "hex": "48ae21",
+      "flight": "WZZ6201 ",
+      "lat": 45.30,
+      "lon": 9.31,
+      "track": 180,
+      "alt_baro": 9800,
+      "gs": 274,
+      "squawk": "4571",
+      "category": "A3",
+      "seen": 3.3
+    },
+    {
+      "hex": "ac82ef",
+      "flight": "N512SR  ",
+      "lat": 45.47,
+      "lon": 9.05,
+      "track": 47,
+      "alt_baro": 4200,
+      "gs": 142,
+      "squawk": "1200",
+      "category": "A1",
+      "seen": 8.0
+    },
+    {
+      "hex": "3950cd",
+      "flight": "AFR1180 ",
+      "lat": 45.44,
+      "lon": 9.22,
+      "track": 270,
+      "alt_baro": 23000,
+      "gs": 410,
+      "squawk": "7700",
+      "category": "A5",
+      "seen": 1.0
+    },
+    {
+      "hex": "4ba9c1",
+      "flight": "GRND01  ",
+      "lat": 45.4498,
+      "lon": 9.2782,
+      "track": 0,
+      "alt_baro": "ground",
+      "gs": 4,
+      "squawk": "0021",
+      "category": "A1",
+      "seen": 0.9
+    },
+    {
+      "hex": "071bf0",
+      "flight": "NOPOS77 ",
+      "alt_baro": 19000,
+      "gs": 355,
+      "squawk": "5123",
+      "category": "A3",
+      "seen": 12.5
+    }
+  ]
+}
