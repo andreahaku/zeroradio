@@ -20,10 +20,17 @@ items that matter once this runs on the constrained ARM target with a live feed.
   switcher (maximum flexibility, consistent with SDRTerminal). ADS-B now uses **2 tool pages**, so no key
   is wasted: page 0 = view/sort/range−/range+, page 1 = prev/next/detail/(reserved). `select_prev/next` and
   `open_detail` are now wired (this was the open TODO).
+- **HIGH #1 — ADS-B field presence semantics** (Codex `adsb-presence`): **fixed.** `Aircraft` now tracks
+  `on_ground` / `has_seen` / `has_category` separately; `apply_to_store` is truly sparse (writes only
+  present fields), altitude and ground clear each other, squawk+emergency travel together, and the UI shows
+  `grnd` (ground) vs `-` (unknown) vs altitude distinctly. Validated by a 3rd reviewer (kimi via /ollama).
+- **HIGH #2 — numeric parse hardening** (Codex `numeric-validation` + Gemini `string-numeric-parsing`):
+  **fixed.** `read_number` trims, requires full consumption, rejects `null`/`nan`/`inf`; a `to_ll` helper
+  guards every `double→long long` cast against out-of-range UB.
 
 ## Open findings (prioritized)
 
-### High
+### High — ✅ RESOLVED (see "Already addressed" above)
 1. **ADS-B field presence semantics** (Codex `adsb-presence`, `apps/adsb/src/model/aircraft.cpp`).
    - Absent `alt_baro` and the explicit `"ground"` value both yield `has_alt=false` → the UI shows "grnd"
      for *unknown* altitude too. They are different states.
