@@ -46,6 +46,10 @@ public:
     void set_selected(int index);
     void open_detail();
 
+    // The screen reports the current visible row count each tick so the NavBar's
+    // "next" action can clamp without the viewmodel knowing about the table.
+    void set_visible_count(int count);
+
     // --- NavProvider ---
     int nav_page_count() const override;
     void nav_fill(int page, NavProvider::NavSlot out[5]) const override;
@@ -56,6 +60,7 @@ private:
     reactive::IntSubject sort_mode_subject_{static_cast<int>(Sort::Range)};
     reactive::IntSubject range_index_subject_{1}; // index into the ring ladder
     reactive::IntSubject selected_index_subject_{0};
+    int visible_count_{0}; // last row count reported by the screen (UI thread only)
 };
 
 } // namespace adsb

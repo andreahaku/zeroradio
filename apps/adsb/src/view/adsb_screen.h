@@ -86,6 +86,10 @@ private:
     lv_obj_t* detail_box_     = nullptr;
     lv_obj_t* detail_label_   = nullptr;
 
+    // Pooled callsign labels overlaid on the PPI (positioned per aircraft each
+    // tick; unused ones are hidden). Children of body_, so they sit on the canvas.
+    std::vector<lv_obj_t*> ppi_labels_;
+
     // PPI canvas backing store (RGB565).
     std::vector<uint16_t> ppi_buf_;
 

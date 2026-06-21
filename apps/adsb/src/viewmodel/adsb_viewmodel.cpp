@@ -16,13 +16,12 @@ namespace {
 // Range-ring ladder (NM): the outer ring cycles through these.
 constexpr std::array<int, 3> kRingLadder = {50, 100, 200};
 
-// Per-slot labels for the single tool page. Slots 1..4:
-//   1: cycle view (PPI/List/Detail)
-//   2: cycle sort (range/alt/callsign)
-//   3: range- (smaller outer ring)
-//   4: range+ (larger outer ring)
-// Slot "8" (detail/select) is mapped via select on the active list; documented
-// as a follow-up in the handover (kept to one page for simplicity).
+// Two tool pages drive the 5 keys (slot 0 / key 4 always cycles the page, as in
+// SDRTerminal — maximum flexibility). Slots 1..4 map to keys 5..8:
+//   Page 0 (view):  1 cycle view  2 cycle sort   3 range-      4 range+
+//   Page 1 (list):  1 select prev 2 select next  3 open detail 4 (reserved)
+enum class Page : int { View = 0, List = 1 };
+constexpr int kPageCount = 2;
 
 } // namespace
 
@@ -120,23 +119,42 @@ void AdsbViewModel::open_detail() {
     bump_nav_refresh();
 }
 
+void AdsbViewModel::set_visible_count(int count) {
+    visible_count_ = count < 0 ? 0 : count;
+}
+
 int AdsbViewModel::nav_page_count() const {
-    return 1;
+    return kPageCount;
 }
 
 void AdsbViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
-    LV_UNUSED(page);
     // Slot 0 is overridden by the NavBar (page number); we still fill it for
     // clarity but its text is ignored.
     out[0] = {"#", true, true};
-    out[1] = {view::ICON_MODE, false, true};   // cycle view
-    out[2] = {view::ICON_BAND, false, true};   // cycle sort
-    out[3] = {view::ICON_MINUS, false, true};  // range- (smaller outer ring)
-    out[4] = {view::ICON_PLUS, false, true};   // range+ (larger outer ring)
+    if (page == static_cast<int>(Page::List)) {
+        out[1] = {view::ICON_CARET_LEFT, false, true};   // select previous
+        out[2] = {view::ICON_CARET_RIGHT, false, true};  // select next
+        out[3] = {view::ICON_INFO, false, true};         // open detail of selection
+        out[4] = {"", false, false};                     // reserved (filters later)
+    } else { // Page::View
+        out[1] = {view::ICON_MODE, false, true};   // cycle view
+        out[2] = {view::ICON_BAND, false, true};   // cycle sort
+        out[3] = {view::ICON_MINUS, false, true};  // range- (smaller outer ring)
+        out[4] = {view::ICON_PLUS, false, true};   // range+ (larger outer ring)
+    }
 }
 
 void AdsbViewModel::nav_activate(int page, int slot) {
-    LV_UNUSED(page);
+    if (page == static_cast<int>(Page::List)) {
+        switch (slot) {
+            case 1: select_prev(); break;
+            case 2: select_next(visible_count_); break;
+            case 3: open_detail(); break;
+            default: break;
+        }
+        return;
+    }
+    // Page::View
     switch (slot) {
         case 1: cycle_view(); break;
         case 2: cycle_sort(); break;

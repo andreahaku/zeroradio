@@ -23,11 +23,13 @@ namespace {
 // (much lighter than SDRTerminal's 30 fps waterfall).
 constexpr uint32_t kTickPeriodMs = 300;
 
-// PPI canvas geometry: a ~150px square centred in the body.
-constexpr int32_t kPpiSize = 150;
-
 // Header height inside the content area.
 constexpr int32_t kHeaderHeight = 18;
+
+// PPI canvas geometry: a square that fits the body (screen 170 - nav 30 - header
+// 18 = ~122px tall), kept 4-byte-stride aligned (120*2 = 240 bytes). A larger
+// square would be clipped vertically by the body.
+constexpr int32_t kPpiSize = 120;
 
 long field_long(const toolkit::Entity& e, const char* key, bool& has) {
     auto it = e.fields.find(key);
@@ -81,6 +83,28 @@ void plot_ring(uint16_t* buf, int w, int h, int cx, int cy, int r, uint16_t colo
         }
     }
 }
+
+// Plot a straight line (Bresenham) from (x0,y0) to (x1,y1).
+void plot_line(uint16_t* buf, int w, int h, int x0, int y0, int x1, int y1, uint16_t color) {
+    const int dx = std::abs(x1 - x0);
+    const int dy = -std::abs(y1 - y0);
+    const int sx = x0 < x1 ? 1 : -1;
+    const int sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy;
+    for (;;) {
+        if (x0 >= 0 && x0 < w && y0 >= 0 && y0 < h) buf[y0 * w + x0] = color;
+        if (x0 == x1 && y0 == y1) break;
+        const int e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+}
+
+// Max callsign labels overlaid on the PPI (one per visible aircraft, pooled).
+constexpr size_t kMaxPpiLabels = 16;
+
+// Length of the heading vector drawn from each aircraft dot, in pixels.
+constexpr int kHeadingVectorPx = 10;
 
 } // namespace
 
@@ -171,6 +195,21 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     lv_obj_remove_flag(ppi_canvas_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(ppi_canvas_, LV_OBJ_FLAG_CLICKABLE);
 
+    // Callsign label pool overlaid on the PPI. Children of body_, centred like the
+    // canvas, so a (dx,dy) offset from the centre lands on the matching dot. The
+    // PPI background is always black, so the labels use a fixed light colour.
+    ppi_labels_.reserve(kMaxPpiLabels);
+    for (size_t i = 0; i < kMaxPpiLabels; ++i) {
+        lv_obj_t* lbl = lv_label_create(body_);
+        lv_label_set_text(lbl, "");
+        lv_obj_set_style_text_font(lbl, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
+        lv_obj_set_style_text_color(lbl, lv_color_hex(0xc8d6c8), 0);
+        lv_obj_add_flag(lbl, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_remove_flag(lbl, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_remove_flag(lbl, LV_OBJ_FLAG_CLICKABLE);
+        ppi_labels_.push_back(lbl);
+    }
+
     // Detail view (all fields of the selected aircraft as label rows).
     detail_box_ = lv_obj_create(body_);
     lv_obj_remove_style_all(detail_box_);
@@ -199,6 +238,14 @@ void AdsbScreen::show_view(int view_mode) {
     if (list_table_)  lv_obj_set_flag(list_table_,  LV_OBJ_FLAG_HIDDEN, !list);
     if (ppi_canvas_)  lv_obj_set_flag(ppi_canvas_,  LV_OBJ_FLAG_HIDDEN, !ppi);
     if (detail_box_)  lv_obj_set_flag(detail_box_,  LV_OBJ_FLAG_HIDDEN, !detail);
+
+    // The PPI callsign labels only belong to the PPI view; hide them otherwise
+    // (update_ppi re-shows the ones it uses on each PPI tick).
+    if (!ppi) {
+        for (lv_obj_t* lbl : ppi_labels_) {
+            if (lbl) lv_obj_add_flag(lbl, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
 }
 
 std::vector<AdsbScreen::Row> AdsbScreen::build_rows() {
@@ -334,8 +381,11 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     // Home dot at the centre.
     plot_disc(buf, w, h, cx, cy, 2, home_col);
 
-    // One dot per positioned aircraft within range.
+    // One dot per positioned aircraft within range, with a heading vector and a
+    // pooled callsign label overlaid.
+    const uint16_t vec_col = lv_color_to_u16(lv_color_hex(0x88cc88));
     const double max_nm = static_cast<double>(vm_.range_nm());
+    size_t label_i = 0;
     for (const auto& r : rows) {
         if (!r.has_pos) continue;
         int dx = 0;
@@ -343,7 +393,38 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
         if (!toolkit::geo::project(config_.home, r.pos, max_nm, radius_px, dx, dy)) {
             continue;
         }
-        plot_disc(buf, w, h, cx + dx, cy + dy, 2, r.emergency ? emg_col : ac_col);
+        const int px = cx + dx;
+        const int py = cy + dy;
+        const uint16_t col = r.emergency ? emg_col : ac_col;
+
+        // Heading vector: a short line from the dot along the reported track
+        // (north-up: 0 deg points up, 90 deg points right).
+        if (r.has_track) {
+            const double trk = static_cast<double>(r.track) * 3.14159265358979323846 / 180.0;
+            const int ex = px + static_cast<int>(std::lround(kHeadingVectorPx * std::sin(trk)));
+            const int ey = py - static_cast<int>(std::lround(kHeadingVectorPx * std::cos(trk)));
+            plot_line(buf, w, h, px, py, ex, ey, r.emergency ? emg_col : vec_col);
+        }
+
+        plot_disc(buf, w, h, px, py, 2, col);
+
+        // Callsign label next to the dot (offset so it does not cover it).
+        if (label_i < ppi_labels_.size()) {
+            lv_obj_t* lbl = ppi_labels_[label_i++];
+            const std::string call = r.flight.empty() ? r.hex : r.flight;
+            lv_label_set_text(lbl, call.c_str());
+            lv_obj_set_style_text_color(lbl, r.emergency ? lv_color_hex(0xff6060)
+                                                         : lv_color_hex(0xc8d6c8), 0);
+            lv_obj_remove_flag(lbl, LV_OBJ_FLAG_HIDDEN);
+            // Labels are centred on body_, which shares the canvas centre, so the
+            // (dx,dy) projection offset maps straight onto the dot.
+            lv_obj_align(lbl, LV_ALIGN_CENTER, dx + 5, dy - 7);
+        }
+    }
+
+    // Hide any pool labels left unused this tick.
+    for (size_t i = label_i; i < ppi_labels_.size(); ++i) {
+        if (ppi_labels_[i]) lv_obj_add_flag(ppi_labels_[i], LV_OBJ_FLAG_HIDDEN);
     }
 
     lv_obj_invalidate(ppi_canvas_);
@@ -411,6 +492,9 @@ void AdsbScreen::tick() {
     // Drop stale entries, then snapshot + sort.
     store_.sweep(config_.ttl_seconds);
     const auto rows = build_rows();
+
+    // Let the NavBar's "next" action clamp against the live row count.
+    vm_.set_visible_count(static_cast<int>(rows.size()));
 
     const int view_mode = vm_.view_mode();
     if (view_mode != last_view_) {
