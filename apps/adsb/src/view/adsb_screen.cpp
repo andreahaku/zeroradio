@@ -383,6 +383,19 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     lv_obj_remove_flag(detail_canvas_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(detail_canvas_, LV_OBJ_FLAG_CLICKABLE);
 
+    // Range-ring scale labels for the mini-radar (same as the PPI's). Children of
+    // detail_box_ so they hide with it; positioned over the canvas in render_scope.
+    detail_ring_labels_.reserve(3);
+    for (int i = 0; i < 3; ++i) {
+        lv_obj_t* lbl = lv_label_create(detail_box_);
+        lv_label_set_text(lbl, "");
+        lv_obj_set_style_text_font(lbl, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
+        lv_obj_set_style_text_color(lbl, lv_color_hex(0x7aa07a), 0);
+        lv_obj_remove_flag(lbl, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_remove_flag(lbl, LV_OBJ_FLAG_CLICKABLE);
+        detail_ring_labels_.push_back(lbl);
+    }
+
     // Settings view: a 2-column table (name | value) with the focused row
     // highlighted, matching the List screen's look.
     settings_box_ = lv_obj_create(body_);
@@ -670,18 +683,14 @@ void AdsbScreen::record_trails(const std::vector<Row>& rows) {
     }
 }
 
-void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
-    if (!ppi_canvas_) {
-        return;
-    }
+void AdsbScreen::render_scope(uint16_t* buf, int size, lv_obj_t* canvas,
+                             std::vector<lv_obj_t*>& ring_labels,
+                             const std::vector<Row>& rows, int sel) {
+    if (!canvas) return;
+    const int w = size, h = size;
+    std::fill(buf, buf + static_cast<size_t>(w) * h, lv_color_to_u16(lv_color_black()));
 
-    uint16_t* buf = ppi_buf_.data();
-    const int w = kPpiSize;
-    const int h = kPpiSize;
-    std::fill(ppi_buf_.begin(), ppi_buf_.end(), lv_color_to_u16(lv_color_black()));
-
-    const int cx = w / 2;
-    const int cy = h / 2;
+    const int cx = w / 2, cy = h / 2;
     const int radius_px = (std::min(w, h) / 2) - 4;
 
     const uint16_t ring_col = lv_color_to_u16(lv_color_hex(0x224422));
@@ -689,51 +698,38 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     const uint16_t home_col = lv_color_to_u16(lv_color_white());
     const uint16_t ac_col = lv_color_to_u16(view::palette(false).primary);
     const uint16_t emg_col = lv_color_to_u16(lv_color_hex(0xff4040));
+    const uint16_t sel_ac_col = lv_color_to_u16(lv_color_hex(0xff9933)); // selected: orange
+    const uint16_t trail_col = lv_color_to_u16(lv_color_hex(0x55aa55));  // others' trail
+    const uint16_t trail_sel_col = sel_ac_col;                          // selected trail
 
     // Concentric range rings (1/3, 2/3, full).
-    plot_ring(buf, w, h, cx, cy, radius_px / 3, ring_col);
-    plot_ring(buf, w, h, cx, cy, (radius_px * 2) / 3, ring_col);
-    plot_ring(buf, w, h, cx, cy, radius_px, ring_col);
+    const int ring_px[3] = {radius_px / 3, (radius_px * 2) / 3, radius_px};
+    for (int rp : ring_px) plot_ring(buf, w, h, cx, cy, rp, ring_col);
 
-    // North tick: a short line straight up from the centre.
-    for (int y = cy - radius_px; y < cy - radius_px + 8; ++y) {
+    // North tick (short line up from centre) + home dot.
+    for (int y = cy - radius_px; y < cy - radius_px + 8; ++y)
         if (y >= 0 && y < h) buf[y * w + cx] = north_col;
-    }
-
-    // Home dot at the centre.
     plot_disc(buf, w, h, cx, cy, 2, home_col);
 
-    // Range-ring scale labels (NM) along the north axis: one per ring so the
-    // scale is readable (the rings sit at 1/3, 2/3, full of the current range).
+    // Range-ring scale labels (NM), one per ring, over the canvas's north axis.
     const int ring_nm = vm_.range_nm();
     const bool ring_km = vm_.units_km();
-    const int ring_px[3] = {radius_px / 3, (radius_px * 2) / 3, radius_px};
-    for (size_t i = 0; i < ppi_ring_labels_.size(); ++i) {
-        lv_obj_t* lbl = ppi_ring_labels_[i];
+    for (size_t i = 0; i < ring_labels.size(); ++i) {
+        lv_obj_t* lbl = ring_labels[i];
         if (!lbl) continue;
         lv_label_set_text_fmt(lbl, "%.0f",
                               to_unit(ring_nm * (static_cast<double>(i) + 1) / 3.0, ring_km));
         lv_obj_remove_flag(lbl, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_align(lbl, LV_ALIGN_CENTER, 4, -ring_px[i] + 6);
+        lv_obj_align_to(lbl, canvas, LV_ALIGN_CENTER, 4, -ring_px[i] + 6);
     }
 
-    // One dot per positioned aircraft within range, with a heading vector. Only
-    // the *selected* contact (and any emergency) gets a callsign label — labelling
-    // every aircraft overlaps illegibly when the sky is busy. The selection (same
-    // sorted order as the list) is shown with a larger dot ringed in white; scroll
-    // it with the list keys to read each callsign in turn.
-    const int sel = row_of(rows, vm_.selected_hex());
     const bool trails_on = vm_.show_trails(); // length is the Trails setting; on/off is the key
-
-    const uint16_t sel_ac_col = lv_color_to_u16(lv_color_hex(0xff9933));     // selected: orange
-    const uint16_t trail_col = lv_color_to_u16(lv_color_hex(0x55aa55));      // others' trail: green
-    const uint16_t trail_sel_col = sel_ac_col;                              // selected trail: orange
     const double max_nm = static_cast<double>(vm_.range_nm());
+    const std::string& sel_hex = vm_.selected_hex();
 
     // Trails are recorded once per tick in record_trails(); here we only draw the
     // recent track of each aircraft when enabled.
     if (trails_on) {
-        const std::string& sel_hex = vm_.selected_hex();
         for (const auto& r : rows) {
             if (!r.has_pos) continue;
             auto it = trails_.find(r.hex);
@@ -752,25 +748,30 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
             }
         }
     }
+
+    // One arrowhead per positioned aircraft (pointing along its track): emergency
+    // red, the selected contact orange and larger, everyone else primary green.
     for (size_t i = 0; i < rows.size(); ++i) {
         const Row& r = rows[i];
         if (!r.has_pos) continue;
-        int dx = 0;
-        int dy = 0;
-        if (!toolkit::geo::project(config_.home, r.pos, max_nm, radius_px, dx, dy)) {
-            continue;
-        }
-        const int px = cx + dx;
-        const int py = cy + dy;
+        int dx = 0, dy = 0;
+        if (!toolkit::geo::project(config_.home, r.pos, max_nm, radius_px, dx, dy)) continue;
         const bool is_sel = (static_cast<int>(i) == sel);
-        // Colour: emergency red, selected orange, everyone else the primary green.
-        // The selected aircraft (and its trail) stand out by colour, not a ring.
         const uint16_t col = r.emergency ? emg_col : (is_sel ? sel_ac_col : ac_col);
-
-        // The aircraft is an arrowhead pointing along its track (lines are reserved
-        // for trails). The callsign now lives in the title, not on the scope.
-        plot_aircraft(buf, w, h, px, py, r.has_track, r.track, col, is_sel ? 1.6f : 1.0f);
+        plot_aircraft(buf, w, h, cx + dx, cy + dy, r.has_track, r.track, col,
+                      is_sel ? 1.6f : 1.0f);
     }
+
+    // Compact trails indicator: a small dot in the top-left corner.
+    plot_disc(buf, w, h, 6, 6, 3,
+              lv_color_to_u16(trails_on ? lv_color_hex(0x66cc66) : lv_color_hex(0x3a3a3a)));
+
+    lv_obj_invalidate(canvas);
+}
+
+void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
+    const int sel = row_of(rows, vm_.selected_hex());
+    render_scope(ppi_buf_.data(), kPpiSize, ppi_canvas_, ppi_ring_labels_, rows, sel);
 
     // Side callsign lists (all aircraft), colour-coded, with the selection (●) and
     // cursor (›) marked. First half on the left column, the rest on the right.
@@ -800,12 +801,6 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
         lv_label_set_text(radar_left_, left.c_str());
         lv_label_set_text(radar_right_, right.c_str());
     }
-
-    // Compact trails indicator: a small dot in the top-left corner.
-    plot_disc(buf, w, h, 6, 6, 3,
-              lv_color_to_u16(trails_on ? lv_color_hex(0x66cc66) : lv_color_hex(0x3a3a3a)));
-
-    lv_obj_invalidate(ppi_canvas_);
 }
 
 void AdsbScreen::update_detail(const std::vector<Row>& rows) {
@@ -813,14 +808,14 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
         return;
     }
     const int sel = row_of(rows, vm_.selected_hex());
-    if (rows.empty() || sel < 0) {
+    if (sel < 0) {
+        // No selection: blank the data columns but still draw the full scope, so
+        // the mini-radar looks and reads like the Radar screen.
         if (detail_values_)   lv_label_set_text(detail_values_, "-\n-\n-\n-\n-\n-");
         if (detail_values_b_) lv_label_set_text(detail_values_b_, "-\n-\n-\n-\n-");
         if (detail_msg_)      lv_label_set_text(detail_msg_, "(no aircraft selected)");
-        if (detail_canvas_) {
-            std::fill(detail_buf_.begin(), detail_buf_.end(), lv_color_to_u16(lv_color_black()));
-            lv_obj_invalidate(detail_canvas_);
-        }
+        render_scope(detail_buf_.data(), kDetailRadarSize, detail_canvas_,
+                     detail_ring_labels_, rows, sel);
         return;
     }
     const Row& r = rows[static_cast<size_t>(sel)];
@@ -865,45 +860,10 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
     if (detail_values_b_) lv_label_set_text(detail_values_b_, vb);
     if (detail_msg_)      lv_label_set_text(detail_msg_, msg.c_str());
 
-    // ----- Right column: mini-radar of just the selected aircraft + its trail -----
-    if (!detail_canvas_) return;
-    uint16_t* b = detail_buf_.data();
-    const int w = kDetailRadarSize, h = kDetailRadarSize;
-    std::fill(detail_buf_.begin(), detail_buf_.end(), lv_color_to_u16(lv_color_black()));
-    const int cx = w / 2, cy = h / 2, rad = (std::min(w, h) / 2) - 3;
-    const uint16_t ring = lv_color_to_u16(lv_color_hex(0x224422));
-    const uint16_t north = lv_color_to_u16(lv_color_hex(0x66aa66));
-    const uint16_t home = lv_color_to_u16(lv_color_white());
-    // The selected aircraft is orange (red if emergency); its trail matches.
-    const uint16_t ac = lv_color_to_u16(r.emergency ? lv_color_hex(0xff4040)
-                                                    : lv_color_hex(0xff9933));
-    plot_ring(b, w, h, cx, cy, rad / 2, ring);
-    plot_ring(b, w, h, cx, cy, rad, ring);
-    for (int y = cy - rad; y < cy - rad + 6; ++y) if (y >= 0 && y < h) b[y * w + cx] = north;
-    plot_disc(b, w, h, cx, cy, 2, home);
-
-    int dx = 0, dy = 0;
-    const double mnm = static_cast<double>(vm_.range_nm());
-    if (r.has_pos && toolkit::geo::project(config_.home, r.pos, mnm, rad, dx, dy)) {
-        const int px = cx + dx, py = cy + dy;
-        if (vm_.show_trails()) {
-            auto it = trails_.find(r.hex);
-            if (it != trails_.end() && it->second.size() >= 2) {
-                int pdx = 0, pdy = 0; bool hp = false;
-                for (const auto& p : it->second) {
-                    int tx = 0, ty = 0;
-                    if (!toolkit::geo::project(config_.home, p, mnm, rad, tx, ty)) { hp = false; continue; }
-                    if (hp) plot_line(b, w, h, cx + pdx, cy + pdy, cx + tx, cy + ty, ac);
-                    pdx = tx; pdy = ty; hp = true;
-                }
-            }
-        }
-        plot_aircraft(b, w, h, px, py, r.has_track, r.track, ac, 1.6f);
-    }
-    // Compact trails indicator dot (top-left corner).
-    plot_disc(b, w, h, 6, 6, 3,
-              lv_color_to_u16(vm_.show_trails() ? lv_color_hex(0x66cc66) : lv_color_hex(0x3a3a3a)));
-    lv_obj_invalidate(detail_canvas_);
+    // ----- Right column: the full radar scope, identical look/info to the Radar
+    // screen (rings + NM labels + every aircraft, the selected one highlighted).
+    render_scope(detail_buf_.data(), kDetailRadarSize, detail_canvas_,
+                 detail_ring_labels_, rows, sel);
 }
 
 void AdsbScreen::settings_draw_event_cb(lv_event_t* event) {

@@ -78,6 +78,12 @@ private:
     int row_of(const std::vector<Row>& rows, const std::string& hex) const;
     void update_header(int signal_quality);
     void update_list(const std::vector<Row>& rows);
+    // Draw the shared radar scope (rings + NM labels + north + home + trails +
+    // every aircraft, selected one highlighted) onto `canvas`'s RGB565 `buf`.
+    // Used by both the PPI (Radar) and the Detail mini-radar so they look alike.
+    void render_scope(uint16_t* buf, int size, lv_obj_t* canvas,
+                      std::vector<lv_obj_t*>& ring_labels,
+                      const std::vector<Row>& rows, int sel);
     void update_ppi(const std::vector<Row>& rows);
     void update_detail(const std::vector<Row>& rows);
     void update_settings();
@@ -115,7 +121,9 @@ private:
     static void settings_draw_event_cb(lv_event_t* event);
 
     // Range-ring scale labels (NM at each ring), one per concentric ring.
+    // PPI scope and the Detail mini-radar each get their own set.
     std::vector<lv_obj_t*> ppi_ring_labels_;
+    std::vector<lv_obj_t*> detail_ring_labels_;
     // Per-row text colours for the list table (index 0 = header row).
     std::vector<lv_color_t> list_row_colors_;
     int list_sel_row_ = -1; // highlighted data row, -1 when nothing selected
