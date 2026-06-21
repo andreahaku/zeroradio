@@ -209,7 +209,7 @@ void AdsbViewModel::settings_activate() {
             break;
         }
         case 4: {                                                 // Trails
-            static const int kTr[] = {0, 6, 12, 24};
+            static const int kTr[] = {0, 15, 30, 60};
             int i = 0;
             for (int k = 0; k < 4; ++k) if (trail_len_ == kTr[k]) i = k;
             trail_len_ = kTr[(i + 1) % 4];
@@ -249,7 +249,7 @@ void AdsbViewModel::load_settings() {
     if (!in) return;
     int ver = 0;
     if (!(in >> ver) || ver != 1) return;
-    int dark = 1, km = 0, ttl = 30, range = 5, trail = 12, ground = 1, emerg = 0;
+    int dark = 1, km = 0, ttl = 30, range = 5, trail = 30, ground = 1, emerg = 0;
     in >> dark >> km >> ttl >> range >> trail >> ground >> emerg;
     set_dark_mode(dark != 0);
     units_km_ = (km != 0);

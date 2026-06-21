@@ -101,7 +101,7 @@ private:
     int    settings_cursor_{0};
     bool   units_km_{false};
     double ttl_seconds_{30.0};
-    int    trail_len_{12};
+    int    trail_len_{30};
     bool   show_ground_{true};
     bool   emergency_only_{false};
     void load_settings();
