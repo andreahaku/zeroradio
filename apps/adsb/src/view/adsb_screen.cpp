@@ -154,7 +154,16 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     lv_label_set_text(header_count_, "0 trk");
     lv_obj_set_style_text_font(header_count_, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
     reactive::bind_theme(header_count_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
-    lv_obj_align(header_count_, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_align(header_count_, LV_ALIGN_CENTER, -8, 0);
+
+    // Signal-quality bar (strongest aircraft RSSI), like the SDR S-meter.
+    sig_bar_ = lv_bar_create(header_);
+    lv_obj_set_size(sig_bar_, 30, 6);
+    lv_bar_set_range(sig_bar_, 0, 100);
+    lv_obj_set_style_bg_color(sig_bar_, view::palette(false).primary, LV_PART_INDICATOR);
+    lv_obj_remove_flag(sig_bar_, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_remove_flag(sig_bar_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_align(sig_bar_, LV_ALIGN_RIGHT_MID, -18, 0);
 
     conn_dot_ = lv_obj_create(header_);
     lv_obj_remove_style_all(conn_dot_);
@@ -311,6 +320,12 @@ std::vector<AdsbScreen::Row> AdsbScreen::build_rows() {
         r.emergency = field_str(e, "emergency") == "1";
         bool has_seen = false;
         r.seen = field_long(e, "seen", has_seen);
+        {
+            const std::string rssi_s = field_str(e, "rssi");
+            if (!rssi_s.empty()) {
+                try { r.rssi = std::stod(rssi_s); r.has_rssi = true; } catch (...) {}
+            }
+        }
         if (r.has_pos) {
             r.range_nm = toolkit::geo::range_nm(config_.home, r.pos);
             r.bearing_deg = toolkit::geo::bearing_deg(config_.home, r.pos);
@@ -367,12 +382,15 @@ int AdsbScreen::selected_row(const std::vector<Row>& rows) const {
     return 0; // selection not on screen -> fall back to the first row
 }
 
-void AdsbScreen::update_header(int track_count) {
+void AdsbScreen::update_header(int track_count, int signal_quality) {
     if (header_count_) {
         // "16 trk  A150NM" — the range readout shows the current outer ring, with
         // a leading "A" when it is auto-fitting the traffic.
         lv_label_set_text_fmt(header_count_, "%d trk  %s%dNM",
                               track_count, vm_.auto_range() ? "A" : "", vm_.range_nm());
+    }
+    if (sig_bar_) {
+        lv_bar_set_value(sig_bar_, signal_quality, LV_ANIM_OFF);
     }
     if (conn_dot_) {
         const bool ok = conn_state_ ? conn_state_() : false;
@@ -616,19 +634,29 @@ void AdsbScreen::tick() {
     std::vector<std::string> order;
     order.reserve(rows.size());
     double max_nm = 0.0;
+    bool any_rssi = false;
+    double best_rssi = -120.0;
     for (const auto& r : rows) {
         order.push_back(r.hex);
         if (r.has_pos && r.range_nm > max_nm) max_nm = r.range_nm;
+        if (r.has_rssi && r.rssi > best_rssi) { best_rssi = r.rssi; any_rssi = true; }
     }
     vm_.set_visible_order(std::move(order));
     vm_.set_observed_max_nm(max_nm); // feeds the auto range (before header/PPI use it)
+
+    // Signal quality from the strongest RSSI (dBFS): map ~[-30,-3] dB -> [0,100].
+    int signal_quality = 0;
+    if (any_rssi) {
+        const double q = (best_rssi + 30.0) / 27.0 * 100.0;
+        signal_quality = q < 0.0 ? 0 : (q > 100.0 ? 100 : static_cast<int>(q));
+    }
 
     const int screen = vm_.screen();
     if (screen != last_view_) {
         show_view(screen);
     }
 
-    update_header(static_cast<int>(rows.size()));
+    update_header(static_cast<int>(rows.size()), signal_quality);
 
     switch (static_cast<AdsbViewModel::Screen>(screen)) {
         case AdsbViewModel::Screen::List:   update_list(rows); break;

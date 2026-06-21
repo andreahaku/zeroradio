@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdio>
 #include <limits>
 
 namespace adsb {
@@ -192,6 +193,12 @@ std::vector<Aircraft> parse_aircraft_json(const std::string& json_text) {
             ac.category = category_from_emitter(emitter);
         }
 
+        double rssi = 0.0;
+        if (read_number(node, "rssi", rssi)) {
+            ac.has_rssi = true;
+            ac.rssi = rssi;
+        }
+
         result.push_back(std::move(ac));
     }
 
@@ -240,6 +247,11 @@ void apply_to_store(toolkit::EntityStore& store, const std::vector<Aircraft>& ai
             }
             if (ac.has_category) {
                 e.fields["category"] = ac.category;
+            }
+            if (ac.has_rssi) {
+                char b[16];
+                std::snprintf(b, sizeof(b), "%.1f", ac.rssi);
+                e.fields["rssi"] = b;
             }
             if (ac.has_seen && to_ll(ac.seen, ll)) {
                 e.seen = ac.seen;

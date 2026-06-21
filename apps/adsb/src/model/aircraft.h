@@ -34,6 +34,8 @@ struct Aircraft {
     bool has_category{false}; // the emitter "category" field was present
     std::string category;     // light/small/large/heavy/rotorcraft/other
     bool emergency{false};    // squawk in {7500, 7600, 7700} (only meaningful with squawk)
+    bool has_rssi{false};
+    double rssi{0.0};         // recent average signal power, dBFS (valid only when has_rssi)
 };
 
 // Parse a dump1090 `aircraft.json` document into Aircraft records. Tolerant of

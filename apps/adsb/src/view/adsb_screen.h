@@ -58,6 +58,8 @@ private:
         std::string category;
         bool emergency{false};
         long seen{0};
+        bool has_rssi{false};
+        double rssi{0.0};       // dBFS signal level (from dump1090)
         double range_nm{0.0};   // computed from home when has_pos
         double bearing_deg{0.0};
     };
@@ -65,7 +67,7 @@ private:
     std::vector<Row> build_rows();   // snapshot + sort per the viewmodel
     // Index in `rows` of the viewmodel's selected hex (0 if absent/empty).
     int selected_row(const std::vector<Row>& rows) const;
-    void update_header(int track_count);
+    void update_header(int track_count, int signal_quality);
     void update_list(const std::vector<Row>& rows);
     void update_ppi(const std::vector<Row>& rows);
     void update_detail(const std::vector<Row>& rows);
@@ -80,6 +82,7 @@ private:
     lv_obj_t* header_         = nullptr;
     lv_obj_t* header_title_   = nullptr;
     lv_obj_t* header_count_   = nullptr;
+    lv_obj_t* sig_bar_        = nullptr; // signal-quality bar (strongest RSSI)
     lv_obj_t* conn_dot_       = nullptr;
 
     // Body containers (one shown at a time).
