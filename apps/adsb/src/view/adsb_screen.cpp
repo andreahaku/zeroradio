@@ -31,8 +31,8 @@ constexpr int32_t kHeaderHeight = 18;
 // square would be clipped vertically by the body.
 constexpr int32_t kPpiSize = 120;
 
-// Detail mini-radar: a smaller square on the right of the split Detail view.
-constexpr int32_t kDetailRadarSize = 118; // 118*2 = 236 bytes (4-byte aligned)
+// Detail mini-radar: a square on the right of the split Detail view.
+constexpr int32_t kDetailRadarSize = 130; // 130*2 = 260 bytes (4-byte aligned)
 
 long field_long(const toolkit::Entity& e, const char* key, bool& has) {
     auto it = e.fields.find(key);
@@ -313,12 +313,19 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     lv_obj_align(detail_box_, LV_ALIGN_TOP_LEFT, 0, 0);
     lv_obj_clear_flag(detail_box_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_pad_all(detail_box_, 4, 0);
-    detail_label_ = lv_label_create(detail_box_);
+    // Two-column field/value layout (proportional font won't align with spaces).
+    detail_label_ = lv_label_create(detail_box_);   // field-name column
     lv_label_set_text(detail_label_, "");
-    lv_obj_set_width(detail_label_, 150); // left column; the mini-radar is on the right
     lv_obj_set_style_text_font(detail_label_, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
     reactive::bind_theme(detail_label_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
     lv_obj_align(detail_label_, LV_ALIGN_TOP_LEFT, 0, 0);
+
+    detail_values_ = lv_label_create(detail_box_); // value column
+    lv_label_set_text(detail_values_, "");
+    lv_obj_set_width(detail_values_, 116);
+    lv_obj_set_style_text_font(detail_values_, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
+    reactive::bind_theme(detail_values_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
+    lv_obj_align(detail_values_, LV_ALIGN_TOP_LEFT, 36, 0);
 
     // Right: mini-radar showing only the selected aircraft + its trail.
     detail_canvas_ = lv_canvas_create(detail_box_);
@@ -756,6 +763,7 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
     const int sel = row_of(rows, vm_.selected_hex());
     if (rows.empty() || sel < 0) {
         lv_label_set_text(detail_label_, "(no aircraft selected)\n\nList: select an aircraft");
+        if (detail_values_) lv_label_set_text(detail_values_, "");
         if (detail_canvas_) {
             std::fill(detail_buf_.begin(), detail_buf_.end(), lv_color_to_u16(lv_color_black()));
             lv_obj_invalidate(detail_canvas_);
@@ -789,27 +797,19 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
                                   ? (std::to_string(static_cast<long>(r.rssi)) + " dBFS")
                                   : std::string("-");
 
-    char buf[360];
-    std::snprintf(buf, sizeof(buf),
-                  "HEX %s\n"
-                  "FLT %s\n"
-                  "ALT %s\n"
-                  "GS  %s\n"
-                  "TRK %s\n"
-                  "SQK %s\n"
-                  "CAT %s\n"
-                  "RNG %s\n"
-                  "BRG %s\n"
-                  "SIG %s\n"
-                  "SEEN %lds\n"
-                  "MSG %s",
+    // Field names in one column, values in the other, so they line up.
+    lv_label_set_text(detail_label_,
+                      "HEX\nFLT\nALT\nGS\nTRK\nSQK\nCAT\nRNG\nBRG\nSIG\nSEEN\nMSG");
+    char vals[360];
+    std::snprintf(vals, sizeof(vals),
+                  "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%lds\n%s",
                   r.hex.c_str(),
                   r.flight.empty() ? "-" : r.flight.c_str(),
                   alt_s.c_str(), gs_s.c_str(), trk_s.c_str(),
                   r.squawk.empty() ? "-" : r.squawk.c_str(),
                   r.category.empty() ? "-" : r.category.c_str(),
                   rng_s.c_str(), brg_s.c_str(), sig_s.c_str(), r.seen, msg.c_str());
-    lv_label_set_text(detail_label_, buf);
+    if (detail_values_) lv_label_set_text(detail_values_, vals);
 
     // ----- Right column: mini-radar of just the selected aircraft + its trail -----
     if (!detail_canvas_) return;
@@ -858,8 +858,14 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
             const std::string call = r.flight.empty() ? r.hex : r.flight;
             lv_label_set_text(detail_radar_label_, call.c_str());
             lv_obj_remove_flag(detail_radar_label_, LV_OBJ_FLAG_HIDDEN);
+            // Flip the label to the left of the dot near the right edge so it isn't
+            // clipped (rough width estimate: ~7 px per character).
+            const int est_w = static_cast<int>(call.size()) * 7;
+            int off_x = px + 5;
+            if (off_x + est_w > kDetailRadarSize) off_x = px - est_w - 3;
+            if (off_x < 0) off_x = 0;
             lv_obj_align_to(detail_radar_label_, detail_canvas_, LV_ALIGN_TOP_LEFT,
-                            px + 5, py - 7);
+                            off_x, py - 7);
         }
     }
     if ((!on_scope || !vm_.show_labels()) && detail_radar_label_) {
