@@ -17,8 +17,12 @@ apps/
 - **`radio_toolkit`** (static lib): generic app shell (`ShellViewModel` + `NavProvider` + `run_app`),
   generalized 5-key NavBar / widgets, `geo` (haversine range/bearing + PPI projection), thread-safe
   `EntityStore` (merge + TTL ageing), `FileJsonSource` (resilient background file poller).
-- **`adsb_app`**: dump1090 `aircraft.json` parser (emitter→category, squawk→emergency, `"ground"` alt,
-  coord validation) + List / PPI radar / Detail views, driven by a mock `aircraft.json` (no dongle needed).
+- **`adsb_app`**: dump1090 `aircraft.json` viewer with **four screens** cycled by one key — **List**
+  (colour-coded sortable table), **Radar** (north-up scope: aircraft as heading arrows, range rings, side
+  callsign lists, position trails), **Detail** (selected aircraft fields + decoded ADS-B status + a
+  per-aircraft mini-radar), and **Settings** (units, TTL, range, trails, filters, theme — persisted).
+  Hex-stable selection, auto-range, an RSSI signal bar, and a configurable home. Runs on a bundled mock
+  `aircraft.json` (no dongle) or a live dump1090 feed.
 - **`sdr_app`**: SDR receiver ported from `../SDRTerminal` onto the toolkit — FFT line chart + scrolling
   RGB565 waterfall, S-meter, freq/time grids, passband overlay, manual frequency entry, and audio demod
   (WFM/FM/AM/USB/LSB/CW). Live RTL-SDR via `rtl_tcp` when built with fftw3f + SDL2; otherwise a synthetic
@@ -30,7 +34,8 @@ cmake --preset linux-x86-64                 # configure (first run fetches LVGL 
 cmake --build --preset linux-x86-64-dbg     # → build/linux-x86-64/apps/{adsb,sdr}/Debug/*_app
 ./build/linux-x86-64/apps/adsb/Debug/adsb_app   # ADS-B viewer (mock data)
 ./build/linux-x86-64/apps/sdr/Debug/sdr_app     # SDR receiver (mock source; SDR_SOURCE=mock to force)
-# point ADS-B at your own data: ADSB_JSON=/path/to/aircraft.json ./.../adsb_app
+# live ADS-B: run `dump1090 --write-json <dir>` then ADSB_JSON=<dir>/aircraft.json ./.../adsb_app
+# centre the radar on you: ADSB_HOME_LAT=.. ADSB_HOME_LON=.. ./.../adsb_app  (default: Bologna, IT)
 # point SDR at a real receiver: SDR_RTLTCP=host:port ./.../sdr_app   (needs rtl_tcp running)
 ```
 Status, architecture, what works vs. what's stubbed, and next steps: see [`HANDOVER.md`](HANDOVER.md).
