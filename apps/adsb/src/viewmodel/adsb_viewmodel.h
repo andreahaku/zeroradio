@@ -75,12 +75,13 @@ public:
 
 private:
     reactive::IntSubject  sort_mode_subject_{static_cast<int>(Sort::Distance)};
-    reactive::IntSubject  range_index_subject_{3}; // 0..2 manual ladder, 3 = AUTO
+    reactive::IntSubject  range_index_subject_{5}; // 0..4 manual ladder, 5 = AUTO
     reactive::BoolSubject show_trails_subject_{true};
     reactive::BoolSubject show_labels_subject_{true};
     double observed_max_nm_{0.0};
     std::string cursor_hex_;                  // list highlight (up/down)
     std::string selected_hex_;                // locked selection ("" = none)
+    bool selection_init_done_{false};         // default-select the first aircraft once
     std::vector<std::string> visible_order_;  // sorted hexes reported by the screen
 
     // Scratch buffer for the dynamic sort-mode NavBar label (List page slot 1).

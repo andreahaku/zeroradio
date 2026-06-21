@@ -300,6 +300,7 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     };
     radar_left_  = make_side(LV_ALIGN_TOP_LEFT, 1);
     radar_right_ = make_side(LV_ALIGN_TOP_RIGHT, -1);
+    lv_obj_set_style_text_align(radar_right_, LV_TEXT_ALIGN_RIGHT, 0);
 
     // Detail view (all fields of the selected aircraft as label rows).
     detail_box_ = lv_obj_create(body_);
@@ -443,10 +444,10 @@ int AdsbScreen::row_of(const std::vector<Row>& rows, const std::string& hex) con
 
 void AdsbScreen::update_header(int track_count, int signal_quality) {
     if (header_count_) {
-        // "16 trk  A150NM" — the range readout shows the current outer ring, with
-        // a leading "A" when it is auto-fitting the traffic.
+        // "16 trk  auto 150NM" — the range readout shows the current outer ring,
+        // with an "auto" prefix when it is auto-fitting the traffic.
         lv_label_set_text_fmt(header_count_, "%d trk  %s%dNM",
-                              track_count, vm_.auto_range() ? "A" : "", vm_.range_nm());
+                              track_count, vm_.auto_range() ? "auto " : "", vm_.range_nm());
     }
     if (sig_bar_) {
         lv_bar_set_value(sig_bar_, signal_quality, LV_ANIM_OFF);
@@ -474,8 +475,9 @@ void AdsbScreen::list_draw_event_cb(lv_event_t* event) {
     const bool is_sel = (static_cast<int>(row) == self->list_sel_row_);
     const lv_draw_task_type_t type = lv_draw_task_get_type(task);
 
-    if (type == LV_DRAW_TASK_TYPE_FILL && is_sel) {
-        // Strong highlight: fill the selected row with the accent colour.
+    if (type == LV_DRAW_TASK_TYPE_FILL && is_sel && base->part == LV_PART_ITEMS) {
+        // Strong highlight: fill the selected row's cells with the accent colour.
+        // Guard on LV_PART_ITEMS so the scrollbar (also id1==0) isn't recoloured.
         auto* fd = static_cast<lv_draw_fill_dsc_t*>(lv_draw_task_get_draw_dsc(task));
         fd->color = view::palette(false).primary;
         fd->opa = LV_OPA_COVER;

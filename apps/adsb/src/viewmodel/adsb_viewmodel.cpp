@@ -15,19 +15,19 @@
 namespace adsb {
 namespace {
 
-// Range-ring states: three manual ladder steps (NM) plus an AUTO state at the
-// top that fits the outer ring to the farthest aircraft. range_in zooms toward
-// 50 NM; range_out widens up to AUTO (the default).
-constexpr std::array<int, 3> kRingLadder = {50, 100, 200};
-constexpr int kManualCount     = 3;
-constexpr int kRangeStateCount = kManualCount + 1; // + AUTO (index 3)
+// Range-ring states: manual ladder steps (NM) plus an AUTO state at the top that
+// fits the outer ring to the farthest aircraft. range_in zooms toward 10 NM;
+// range_out widens up to AUTO (the default).
+constexpr std::array<int, 5> kRingLadder = {10, 20, 50, 100, 200};
+constexpr int kManualCount     = 5;
+constexpr int kRangeStateCount = kManualCount + 1; // + AUTO (top index)
 
 // Short labels for the sort modes (List page slot 1).
 constexpr std::array<const char*, AdsbViewModel::kSortCount> kSortLabels = {
     "CALL", "DST", "SPD", "ALT", "TRK"};
 
 int nice_range(double nm) {
-    static constexpr int kNice[] = {25, 50, 100, 150, 200, 300, 400, 500};
+    static constexpr int kNice[] = {10, 20, 50, 100, 150, 200, 300, 400, 500};
     const double want = nm * 1.15; // ~15% headroom
     for (int v : kNice) {
         if (static_cast<double>(v) >= want) return v;
@@ -170,6 +170,12 @@ void AdsbViewModel::set_visible_order(std::vector<std::string> order) {
     // The locked selection is dropped if its aircraft is gone (deselected is valid).
     if (!present(selected_hex_)) {
         selected_hex_.clear();
+    }
+    // Select the first aircraft once, on the first populated frame, so the app
+    // opens with something selected (the user can deselect afterwards).
+    if (!selection_init_done_ && !visible_order_.empty()) {
+        selected_hex_ = visible_order_.front();
+        selection_init_done_ = true;
     }
 }
 
