@@ -23,11 +23,12 @@ apps/
   mini-radar with the same scope as Radar — rings, NM labels and all traffic, selected one highlighted),
   and **Settings** (units, TTL, range, trails, filters, theme — persisted).
   Hex-stable selection, auto-range, an RSSI signal bar, and a configurable home. Runs on a bundled mock
-  `aircraft.json` (no dongle) or a live dump1090 feed.
+  `aircraft.json` (no dongle) or a live dump1090 feed. See [`apps/adsb/README.md`](apps/adsb/README.md).
 - **`sdr_app`**: SDR receiver ported from `../SDRTerminal` onto the toolkit — FFT line chart + scrolling
   RGB565 waterfall, S-meter, freq/time grids, passband overlay, manual frequency entry, and audio demod
   (WFM/FM/AM/USB/LSB/CW). Live RTL-SDR via `rtl_tcp` when built with fftw3f + SDL2; otherwise a synthetic
   mock source drives the UI (no dongle needed). State (VFO/mode/…) persists across runs.
+  See [`apps/sdr/README.md`](apps/sdr/README.md).
 
 ## Build & run (desktop SDL simulator)
 ```bash
