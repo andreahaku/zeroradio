@@ -412,6 +412,7 @@ target_include_directories(radio_toolkit
         ${CMAKE_CURRENT_SOURCE_DIR}/toolkit/src/geo
         ${CMAKE_CURRENT_SOURCE_DIR}/toolkit/src/model
         ${CMAKE_CURRENT_SOURCE_DIR}/toolkit/src/net
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/remote-fb
 )
 
 # The AssetManager bakes in the app name and the shared assets root (fonts).

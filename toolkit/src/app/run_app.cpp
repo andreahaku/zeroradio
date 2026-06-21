@@ -9,8 +9,11 @@
 #include "asset_manager.h"
 #include "linux_input.h"
 #include "logger.h"
+#include "remote_fb.h"
 #include "theme.h"
 #include "ui_const.h"
+
+#include <cstdlib>
 
 #if !USE_DESKTOP
 #if APP_USE_DRM
@@ -43,6 +46,17 @@ void quit_requested_observer(lv_observer_t* observer, lv_subject_t* subject) {
 }
 
 lv_display_t* init_display() {
+    // Path B: if REMOTE_FB is set (a port, or "1" for the default 5800), run
+    // headless and stream the framebuffer to a desktop viewer over TCP, with key
+    // forwarding back. Works in ANY build (desktop or device), so the app can be
+    // driven with no physical display attached (e.g. a Pi Zero 2 W + RTL-SDR).
+    if (const char* env = std::getenv("REMOTE_FB")) {
+        int port = std::atoi(env);
+        if (port <= 0) {
+            port = 5800; // REMOTE_FB_DEFAULT_PORT
+        }
+        return platform::remote_fb_create(view::kScreenWidth, view::kScreenHeight, port);
+    }
 #if USE_DESKTOP
     auto* display = lv_sdl_window_create(view::kScreenWidth, view::kScreenHeight);
     if (!display) {
