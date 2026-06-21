@@ -15,8 +15,22 @@
 namespace adsb {
 namespace {
 
-// Range-ring ladder (NM): the outer ring cycles through these.
+// Range-ring states: three manual ladder steps (NM) plus an AUTO state at the
+// top that fits the outer ring to the farthest aircraft. range_in zooms toward
+// 50 NM; range_out widens up to AUTO (the default).
 constexpr std::array<int, 3> kRingLadder = {50, 100, 200};
+constexpr int kManualCount     = 3;            // ladder entries (0..2)
+constexpr int kRangeStateCount = kManualCount + 1; // + AUTO (index 3)
+
+// Round an observed max range (NM) up to a tidy outer-ring value, with headroom.
+int nice_range(double nm) {
+    static constexpr int kNice[] = {25, 50, 100, 150, 200, 300, 400, 500};
+    const double want = nm * 1.15; // ~15% headroom so dots aren't on the edge
+    for (int v : kNice) {
+        if (static_cast<double>(v) >= want) return v;
+    }
+    return 500;
+}
 
 // Two tool pages drive the 5 keys (slot 0 / key 4 always cycles the page, as in
 // SDRTerminal — maximum flexibility). Slots 1..4 map to keys 5..8:
@@ -45,10 +59,19 @@ int AdsbViewModel::range_index() const {
 }
 
 int AdsbViewModel::range_nm() const {
-    int idx = range_index();
-    if (idx < 0) idx = 0;
-    if (idx >= static_cast<int>(kRingLadder.size())) idx = static_cast<int>(kRingLadder.size()) - 1;
-    return kRingLadder[static_cast<size_t>(idx)];
+    const int idx = range_index();
+    if (idx >= kManualCount) {
+        return nice_range(observed_max_nm_); // AUTO: fit the traffic
+    }
+    return kRingLadder[static_cast<size_t>(idx < 0 ? 0 : idx)];
+}
+
+bool AdsbViewModel::auto_range() const {
+    return range_index() >= kManualCount;
+}
+
+void AdsbViewModel::set_observed_max_nm(double nm) {
+    observed_max_nm_ = nm < 0.0 ? 0.0 : nm;
 }
 
 const std::string& AdsbViewModel::selected_hex() const {
@@ -91,7 +114,7 @@ void AdsbViewModel::range_in() {
 
 void AdsbViewModel::range_out() {
     const int idx = range_index();
-    if (idx + 1 < static_cast<int>(kRingLadder.size())) {
+    if (idx + 1 < kRangeStateCount) { // widen up to AUTO
         range_index_subject_.set(idx + 1);
         bump_nav_refresh();
     }

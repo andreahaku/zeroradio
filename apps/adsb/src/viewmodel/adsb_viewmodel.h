@@ -30,8 +30,13 @@ public:
     // --- state accessors ---
     int view_mode() const;
     int sort_mode() const;
-    int range_nm() const;        // current outer ring in NM (from the ladder)
+    int range_nm() const;        // current outer ring in NM (manual ladder or auto-fit)
     int range_index() const;
+    bool auto_range() const;     // true when the outer ring auto-fits the traffic
+
+    // The screen reports the farthest in-range aircraft each tick so the auto
+    // range can fit the outer ring to the traffic.
+    void set_observed_max_nm(double nm);
 
     // Selection is tracked by the aircraft hex (stable identity), not the row
     // index: the sorted list reshuffles every refresh as aircraft move, so an
@@ -65,7 +70,8 @@ public:
 private:
     reactive::IntSubject view_mode_subject_{static_cast<int>(View::List)};
     reactive::IntSubject sort_mode_subject_{static_cast<int>(Sort::Range)};
-    reactive::IntSubject range_index_subject_{1}; // index into the ring ladder
+    reactive::IntSubject range_index_subject_{3}; // ring state: 0..2 manual ladder, 3 = AUTO
+    double observed_max_nm_{0.0};                 // farthest aircraft (for auto range)
     std::string selected_hex_;                    // selected aircraft id (UI thread only)
     std::vector<std::string> visible_order_;      // sorted hexes reported by the screen
 };

@@ -309,7 +309,10 @@ int AdsbScreen::selected_row(const std::vector<Row>& rows) const {
 
 void AdsbScreen::update_header(int track_count) {
     if (header_count_) {
-        lv_label_set_text_fmt(header_count_, "%d trk", track_count);
+        // "16 trk  A150NM" — the range readout shows the current outer ring, with
+        // a leading "A" when it is auto-fitting the traffic.
+        lv_label_set_text_fmt(header_count_, "%d trk  %s%dNM",
+                              track_count, vm_.auto_range() ? "A" : "", vm_.range_nm());
     }
     if (conn_dot_) {
         const bool ok = conn_state_ ? conn_state_() : false;
@@ -522,8 +525,13 @@ void AdsbScreen::tick() {
     // a vanished selection snaps to the nearest aircraft.
     std::vector<std::string> order;
     order.reserve(rows.size());
-    for (const auto& r : rows) order.push_back(r.hex);
+    double max_nm = 0.0;
+    for (const auto& r : rows) {
+        order.push_back(r.hex);
+        if (r.has_pos && r.range_nm > max_nm) max_nm = r.range_nm;
+    }
     vm_.set_visible_order(std::move(order));
+    vm_.set_observed_max_nm(max_nm); // feeds the auto range (before header/PPI use it)
 
     const int view_mode = vm_.view_mode();
     if (view_mode != last_view_) {
