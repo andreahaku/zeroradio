@@ -8,7 +8,9 @@
 
 #include "ui_const.h"
 
+#include <algorithm>
 #include <array>
+#include <iterator>
 
 namespace adsb {
 namespace {
@@ -49,8 +51,12 @@ int AdsbViewModel::range_nm() const {
     return kRingLadder[static_cast<size_t>(idx)];
 }
 
-int AdsbViewModel::selected_index() const {
-    return lv_subject_get_int(const_cast<lv_subject_t*>(selected_index_subject_.native()));
+const std::string& AdsbViewModel::selected_hex() const {
+    return selected_hex_;
+}
+
+void AdsbViewModel::set_selected_hex(std::string hex) {
+    selected_hex_ = std::move(hex);
 }
 
 lv_subject_t* AdsbViewModel::view_mode_subject() {
@@ -63,10 +69,6 @@ lv_subject_t* AdsbViewModel::sort_mode_subject() {
 
 lv_subject_t* AdsbViewModel::range_index_subject() {
     return range_index_subject_.native();
-}
-
-lv_subject_t* AdsbViewModel::selected_index_subject() {
-    return selected_index_subject_.native();
 }
 
 void AdsbViewModel::cycle_view() {
@@ -96,22 +98,26 @@ void AdsbViewModel::range_out() {
 }
 
 void AdsbViewModel::select_prev() {
-    const int idx = selected_index();
-    if (idx > 0) {
-        selected_index_subject_.set(idx - 1);
+    if (visible_order_.empty()) return;
+    auto it = std::find(visible_order_.begin(), visible_order_.end(), selected_hex_);
+    if (it == visible_order_.end()) {
+        selected_hex_ = visible_order_.front();
+    } else if (it != visible_order_.begin()) {
+        selected_hex_ = *std::prev(it);
     }
 }
 
-void AdsbViewModel::select_next(int count) {
-    const int idx = selected_index();
-    if (idx + 1 < count) {
-        selected_index_subject_.set(idx + 1);
+void AdsbViewModel::select_next() {
+    if (visible_order_.empty()) return;
+    auto it = std::find(visible_order_.begin(), visible_order_.end(), selected_hex_);
+    if (it == visible_order_.end()) {
+        selected_hex_ = visible_order_.front();
+        return;
     }
-}
-
-void AdsbViewModel::set_selected(int index) {
-    if (index < 0) index = 0;
-    selected_index_subject_.set(index);
+    auto next = std::next(it);
+    if (next != visible_order_.end()) {
+        selected_hex_ = *next;
+    }
 }
 
 void AdsbViewModel::open_detail() {
@@ -119,8 +125,19 @@ void AdsbViewModel::open_detail() {
     bump_nav_refresh();
 }
 
-void AdsbViewModel::set_visible_count(int count) {
-    visible_count_ = count < 0 ? 0 : count;
+void AdsbViewModel::set_visible_order(std::vector<std::string> order) {
+    visible_order_ = std::move(order);
+    if (visible_order_.empty()) {
+        selected_hex_.clear();
+        return;
+    }
+    // Keep the current selection if it is still on screen; otherwise snap to the
+    // first (nearest, by the active sort) aircraft.
+    if (selected_hex_.empty() ||
+        std::find(visible_order_.begin(), visible_order_.end(), selected_hex_) ==
+            visible_order_.end()) {
+        selected_hex_ = visible_order_.front();
+    }
 }
 
 int AdsbViewModel::nav_page_count() const {
@@ -148,7 +165,7 @@ void AdsbViewModel::nav_activate(int page, int slot) {
     if (page == static_cast<int>(Page::List)) {
         switch (slot) {
             case 1: select_prev(); break;
-            case 2: select_next(visible_count_); break;
+            case 2: select_next(); break;
             case 3: open_detail(); break;
             default: break;
         }

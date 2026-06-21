@@ -298,6 +298,15 @@ std::vector<AdsbScreen::Row> AdsbScreen::build_rows() {
     return rows;
 }
 
+int AdsbScreen::selected_row(const std::vector<Row>& rows) const {
+    if (rows.empty()) return -1;
+    const std::string& hex = vm_.selected_hex();
+    for (size_t i = 0; i < rows.size(); ++i) {
+        if (rows[i].hex == hex) return static_cast<int>(i);
+    }
+    return 0; // selection not on screen -> fall back to the first row
+}
+
 void AdsbScreen::update_header(int track_count) {
     if (header_count_) {
         lv_label_set_text_fmt(header_count_, "%d trk", track_count);
@@ -343,9 +352,8 @@ void AdsbScreen::update_list(const std::vector<Row>& rows) {
         lv_table_set_cell_value(list_table_, static_cast<uint32_t>(i), 0, line);
     }
 
-    // Highlight the selected row (clamped to the row count).
-    int sel = vm_.selected_index();
-    if (sel >= static_cast<int>(rows.size())) sel = static_cast<int>(rows.size()) - 1;
+    // Highlight the selected row (located by hex, stable across re-sorts).
+    int sel = selected_row(rows);
     if (sel < 0) sel = 0;
     lv_table_set_selected_cell(list_table_, static_cast<uint16_t>(sel), 0);
 }
@@ -388,9 +396,7 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     // every aircraft overlaps illegibly when the sky is busy. The selection (same
     // sorted order as the list) is shown with a larger dot ringed in white; scroll
     // it with the list keys to read each callsign in turn.
-    int sel = vm_.selected_index();
-    if (sel >= static_cast<int>(rows.size())) sel = static_cast<int>(rows.size()) - 1;
-    if (sel < 0) sel = 0;
+    const int sel = selected_row(rows);
 
     const uint16_t vec_col = lv_color_to_u16(lv_color_hex(0x88cc88));
     const uint16_t sel_col = lv_color_to_u16(lv_color_white());
@@ -457,8 +463,7 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
         return;
     }
 
-    int sel = vm_.selected_index();
-    if (sel >= static_cast<int>(rows.size())) sel = static_cast<int>(rows.size()) - 1;
+    int sel = selected_row(rows);
     if (sel < 0) sel = 0;
     const Row& r = rows[static_cast<size_t>(sel)];
 
@@ -513,8 +518,12 @@ void AdsbScreen::tick() {
     store_.sweep(config_.ttl_seconds);
     const auto rows = build_rows();
 
-    // Let the NavBar's "next" action clamp against the live row count.
-    vm_.set_visible_count(static_cast<int>(rows.size()));
+    // Report the current sorted aircraft order so prev/next move by identity and
+    // a vanished selection snaps to the nearest aircraft.
+    std::vector<std::string> order;
+    order.reserve(rows.size());
+    for (const auto& r : rows) order.push_back(r.hex);
+    vm_.set_visible_order(std::move(order));
 
     const int view_mode = vm_.view_mode();
     if (view_mode != last_view_) {

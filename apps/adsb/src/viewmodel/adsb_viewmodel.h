@@ -12,6 +12,9 @@
 
 #include "lvgl.h"
 
+#include <string>
+#include <vector>
+
 namespace adsb {
 
 // ADS-B app state. Derives from the toolkit shell (dark mode, quit, NavBar page)
@@ -29,26 +32,30 @@ public:
     int sort_mode() const;
     int range_nm() const;        // current outer ring in NM (from the ladder)
     int range_index() const;
-    int selected_index() const;
+
+    // Selection is tracked by the aircraft hex (stable identity), not the row
+    // index: the sorted list reshuffles every refresh as aircraft move, so an
+    // index would silently jump to a different aircraft.
+    const std::string& selected_hex() const;
+    void set_selected_hex(std::string hex);
 
     lv_subject_t* view_mode_subject();
     lv_subject_t* sort_mode_subject();
     lv_subject_t* range_index_subject();
-    lv_subject_t* selected_index_subject();
 
     // --- actions (wired to NavBar slots / keys) ---
     void cycle_view();
     void cycle_sort();
     void range_in();             // smaller outer ring
     void range_out();            // larger outer ring
-    void select_prev();
-    void select_next(int count); // clamp against the visible row count
-    void set_selected(int index);
+    void select_prev();          // previous aircraft in the current sorted order
+    void select_next();          // next aircraft in the current sorted order
     void open_detail();
 
-    // The screen reports the current visible row count each tick so the NavBar's
-    // "next" action can clamp without the viewmodel knowing about the table.
-    void set_visible_count(int count);
+    // The screen reports the current visible aircraft order (sorted hexes) each
+    // tick, so prev/next move by identity and a vanished selection snaps to the
+    // first row instead of pointing at a stale index.
+    void set_visible_order(std::vector<std::string> order);
 
     // --- NavProvider ---
     int nav_page_count() const override;
@@ -59,8 +66,8 @@ private:
     reactive::IntSubject view_mode_subject_{static_cast<int>(View::List)};
     reactive::IntSubject sort_mode_subject_{static_cast<int>(Sort::Range)};
     reactive::IntSubject range_index_subject_{1}; // index into the ring ladder
-    reactive::IntSubject selected_index_subject_{0};
-    int visible_count_{0}; // last row count reported by the screen (UI thread only)
+    std::string selected_hex_;                    // selected aircraft id (UI thread only)
+    std::vector<std::string> visible_order_;      // sorted hexes reported by the screen
 };
 
 } // namespace adsb

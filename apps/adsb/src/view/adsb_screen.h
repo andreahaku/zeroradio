@@ -63,6 +63,8 @@ private:
     };
 
     std::vector<Row> build_rows();   // snapshot + sort per the viewmodel
+    // Index in `rows` of the viewmodel's selected hex (0 if absent/empty).
+    int selected_row(const std::vector<Row>& rows) const;
     void update_header(int track_count);
     void update_list(const std::vector<Row>& rows);
     void update_ppi(const std::vector<Row>& rows);
