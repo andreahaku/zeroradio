@@ -102,6 +102,7 @@ void AdsbViewModel::cycle_sort() {
     const int s = ((sort_mode() % kSortCount) + kSortCount) % kSortCount;
     sort_mode_subject_.set((s + 1) % kSortCount);
     bump_nav_refresh(); // the sort label changes
+    save_settings();
 }
 
 void AdsbViewModel::select_prev() {
@@ -141,6 +142,7 @@ void AdsbViewModel::range_in() {
     if (idx > 0) {
         range_index_subject_.set(idx - 1);
         bump_nav_refresh();
+        save_settings();
     }
 }
 
@@ -149,17 +151,20 @@ void AdsbViewModel::range_out() {
     if (idx + 1 < kRangeStateCount) {
         range_index_subject_.set(idx + 1);
         bump_nav_refresh();
+        save_settings();
     }
 }
 
 void AdsbViewModel::toggle_trails() {
     show_trails_subject_.set(!show_trails());
+    save_settings();
 }
 
 bool AdsbViewModel::detail_show_others() const { return detail_show_others_; }
 
 void AdsbViewModel::toggle_detail_others() {
     detail_show_others_ = !detail_show_others_;
+    save_settings();
 }
 
 void AdsbViewModel::set_visible_order(std::vector<std::string> order) {
@@ -260,7 +265,7 @@ void AdsbViewModel::load_settings() {
     std::ifstream in(path);
     if (!in) return;
     int ver = 0;
-    if (!(in >> ver) || ver != 1) return;
+    if (!(in >> ver) || (ver != 1 && ver != 2)) return;
     int dark = 1, km = 0, ttl = 30, range = 5, trail = 60, ground = 1, emerg = 0;
     // Require the whole record: a truncated/corrupt file must not apply a
     // half-parsed mix of saved values and inline defaults.
@@ -275,6 +280,17 @@ void AdsbViewModel::load_settings() {
     if (trail == 0 || trail == 15 || trail == 30 || trail == 60) trail_len_ = trail;
     show_ground_ = (ground != 0);
     emergency_only_ = (emerg != 0);
+    // v2 adds the view toggles that aren't on the Settings screen: trails on/off,
+    // the List sort mode, and the Detail "show others" toggle. v1 files just keep
+    // their defaults for these.
+    if (ver >= 2) {
+        int trails_on = 1, sort = static_cast<int>(Sort::Distance), others = 1;
+        if (in >> trails_on >> sort >> others) {
+            show_trails_subject_.set(trails_on != 0);
+            if (sort >= 0 && sort < kSortCount) sort_mode_subject_.set(sort);
+            detail_show_others_ = (others != 0);
+        }
+    }
 }
 
 void AdsbViewModel::save_settings() const {
@@ -287,9 +303,11 @@ void AdsbViewModel::save_settings() const {
     {
         std::ofstream out(tmp, std::ios::trunc);
         if (!out) return;
-        out << 1 << ' ' << (is_dark_mode() ? 1 : 0) << ' ' << (units_km_ ? 1 : 0) << ' '
+        out << 2 << ' ' << (is_dark_mode() ? 1 : 0) << ' ' << (units_km_ ? 1 : 0) << ' '
             << static_cast<int>(ttl_seconds_) << ' ' << range_index() << ' ' << trail_len_
-            << ' ' << (show_ground_ ? 1 : 0) << ' ' << (emergency_only_ ? 1 : 0) << '\n';
+            << ' ' << (show_ground_ ? 1 : 0) << ' ' << (emergency_only_ ? 1 : 0) << ' '
+            << (show_trails() ? 1 : 0) << ' ' << sort_mode() << ' '
+            << (detail_show_others_ ? 1 : 0) << '\n';
         if (!out) return; // don't rename a bad write over the good file
     }
     std::error_code ec;
