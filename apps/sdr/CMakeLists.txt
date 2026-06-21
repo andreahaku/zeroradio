@@ -31,3 +31,17 @@ target_link_libraries(sdr_app
         radio_toolkit
         lvgl
 )
+
+# ----------------------------------------------------------------------
+# RTL-SDR backend (live receiver): the rtl_tcp source needs fftw3f for the
+# FFT and SDL2 audio for the demodulator. Enabled only when both are present
+# (desktop). Without it, sdr_app still builds and runs on the mock source.
+# ----------------------------------------------------------------------
+find_library(FFTW3F_LIBRARY fftw3f)
+if(USE_DESKTOP AND FFTW3F_LIBRARY AND TARGET SDL2::SDL2)
+    target_compile_definitions(sdr_app PRIVATE SDR_HAVE_RTLTCP)
+    target_link_libraries(sdr_app PRIVATE ${FFTW3F_LIBRARY} SDL2::SDL2 Threads::Threads)
+    message(STATUS "sdr_app: RTL-SDR backend ENABLED (fftw3f + SDL2)")
+else()
+    message(STATUS "sdr_app: RTL-SDR backend disabled (mock source only)")
+endif()
