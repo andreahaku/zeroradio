@@ -61,6 +61,10 @@ public:
     void range_in();             // zoom in  (smaller outer ring)
     void range_out();            // zoom out (larger outer ring, up to AUTO)
     void toggle_trails();
+    // Detail mini-radar: show every aircraft (like the Radar screen) or only the
+    // selected one. Toggled from the Detail page; default on.
+    bool detail_show_others() const;
+    void toggle_detail_others();
 
     // The screen reports the current sorted aircraft order (hexes) each tick.
     void set_visible_order(std::vector<std::string> order);
@@ -107,6 +111,7 @@ private:
     int    trail_len_{60}; // points (~seconds); 0 = All (unlimited)
     bool   show_ground_{true};
     bool   emergency_only_{false};
+    bool   detail_show_others_{true}; // Detail radar: show all traffic vs selected only
     void load_settings();
     void save_settings() const;
 

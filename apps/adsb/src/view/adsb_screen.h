@@ -83,7 +83,7 @@ private:
     // Used by both the PPI (Radar) and the Detail mini-radar so they look alike.
     void render_scope(uint16_t* buf, int size, lv_obj_t* canvas,
                       std::vector<lv_obj_t*>& ring_labels,
-                      const std::vector<Row>& rows, int sel);
+                      const std::vector<Row>& rows, int sel, bool show_others);
     void update_ppi(const std::vector<Row>& rows);
     void update_detail(const std::vector<Row>& rows);
     void update_settings();

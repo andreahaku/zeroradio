@@ -685,7 +685,7 @@ void AdsbScreen::record_trails(const std::vector<Row>& rows) {
 
 void AdsbScreen::render_scope(uint16_t* buf, int size, lv_obj_t* canvas,
                              std::vector<lv_obj_t*>& ring_labels,
-                             const std::vector<Row>& rows, int sel) {
+                             const std::vector<Row>& rows, int sel, bool show_others) {
     if (!canvas) return;
     const int w = size, h = size;
     std::fill(buf, buf + static_cast<size_t>(w) * h, lv_color_to_u16(lv_color_black()));
@@ -732,6 +732,8 @@ void AdsbScreen::render_scope(uint16_t* buf, int size, lv_obj_t* canvas,
     if (trails_on) {
         for (const auto& r : rows) {
             if (!r.has_pos) continue;
+            // When "show others" is off, draw only the selected aircraft's trail.
+            if (!show_others && (sel_hex.empty() || r.hex != sel_hex)) continue;
             auto it = trails_.find(r.hex);
             if (it == trails_.end() || it->second.size() < 2) continue;
             const uint16_t tc = (!sel_hex.empty() && r.hex == sel_hex) ? trail_sel_col : trail_col;
@@ -754,6 +756,8 @@ void AdsbScreen::render_scope(uint16_t* buf, int size, lv_obj_t* canvas,
     for (size_t i = 0; i < rows.size(); ++i) {
         const Row& r = rows[i];
         if (!r.has_pos) continue;
+        // When "show others" is off, draw only the selected aircraft.
+        if (!show_others && static_cast<int>(i) != sel) continue;
         int dx = 0, dy = 0;
         if (!toolkit::geo::project(config_.home, r.pos, max_nm, radius_px, dx, dy)) continue;
         const bool is_sel = (static_cast<int>(i) == sel);
@@ -771,7 +775,8 @@ void AdsbScreen::render_scope(uint16_t* buf, int size, lv_obj_t* canvas,
 
 void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     const int sel = row_of(rows, vm_.selected_hex());
-    render_scope(ppi_buf_.data(), kPpiSize, ppi_canvas_, ppi_ring_labels_, rows, sel);
+    render_scope(ppi_buf_.data(), kPpiSize, ppi_canvas_, ppi_ring_labels_, rows, sel,
+                 /*show_others=*/true);
 
     // Side callsign lists (all aircraft), colour-coded, with the selection (●) and
     // cursor (›) marked. First half on the left column, the rest on the right.
@@ -815,7 +820,7 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
         if (detail_values_b_) lv_label_set_text(detail_values_b_, "-\n-\n-\n-\n-");
         if (detail_msg_)      lv_label_set_text(detail_msg_, "(no aircraft selected)");
         render_scope(detail_buf_.data(), kDetailRadarSize, detail_canvas_,
-                     detail_ring_labels_, rows, sel);
+                     detail_ring_labels_, rows, sel, vm_.detail_show_others());
         return;
     }
     const Row& r = rows[static_cast<size_t>(sel)];
@@ -860,10 +865,10 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
     if (detail_values_b_) lv_label_set_text(detail_values_b_, vb);
     if (detail_msg_)      lv_label_set_text(detail_msg_, msg.c_str());
 
-    // ----- Right column: the full radar scope, identical look/info to the Radar
-    // screen (rings + NM labels + every aircraft, the selected one highlighted).
+    // ----- Right column: the radar scope. Same look as the Radar screen; the
+    // Detail page's "show others" toggle picks all traffic vs the selected only.
     render_scope(detail_buf_.data(), kDetailRadarSize, detail_canvas_,
-                 detail_ring_labels_, rows, sel);
+                 detail_ring_labels_, rows, sel, vm_.detail_show_others());
 }
 
 void AdsbScreen::settings_draw_event_cb(lv_event_t* event) {

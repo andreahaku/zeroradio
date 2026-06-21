@@ -156,6 +156,12 @@ void AdsbViewModel::toggle_trails() {
     show_trails_subject_.set(!show_trails());
 }
 
+bool AdsbViewModel::detail_show_others() const { return detail_show_others_; }
+
+void AdsbViewModel::toggle_detail_others() {
+    detail_show_others_ = !detail_show_others_;
+}
+
 void AdsbViewModel::set_visible_order(std::vector<std::string> order) {
     visible_order_ = std::move(order);
     const auto present = [&](const std::string& h) {
@@ -317,7 +323,7 @@ void AdsbViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
             out[1] = {view::ICON_PLUS, false, true};         // zoom in
             out[2] = {view::ICON_MINUS, false, true};        // zoom out
             out[3] = {view::ICON_CHART_LINE, false, true};   // trails on/off
-            out[4] = {"", false, false};                     // reserved
+            out[4] = {view::ICON_BROADCAST, false, true};    // show other traffic on/off
             break;
         case Screen::Settings:
             out[1] = {view::ICON_CARET_UP, false, true};     // previous setting
@@ -345,6 +351,7 @@ void AdsbViewModel::nav_activate(int page, int slot) {
             if (slot == 1) range_in();
             else if (slot == 2) range_out();
             else if (slot == 3) toggle_trails();
+            else if (slot == 4) toggle_detail_others();
             break;
         case Screen::Settings:
             if (slot == 1) settings_up();
