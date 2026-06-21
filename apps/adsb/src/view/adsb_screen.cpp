@@ -418,19 +418,34 @@ void AdsbScreen::update_header(int track_count, int signal_quality) {
 void AdsbScreen::list_draw_event_cb(lv_event_t* event) {
     auto* self = static_cast<AdsbScreen*>(lv_event_get_user_data(event));
     auto* task = lv_event_get_draw_task(event);
-    if (!self || !task || lv_draw_task_get_type(task) != LV_DRAW_TASK_TYPE_LABEL) {
+    if (!self || !task) {
         return;
     }
-    auto* ldsc = lv_draw_task_get_label_dsc(task);
-    if (!ldsc) {
+    auto* base = static_cast<lv_draw_dsc_base_t*>(lv_draw_task_get_draw_dsc(task));
+    if (!base) {
         return;
     }
-    const uint32_t row = ldsc->base.id1; // table row index
-    if (row == 0) {
-        return; // header row: keep the theme colour
+    const uint32_t row = base->id1;          // table row index
+    const bool is_sel = (static_cast<int>(row) == self->list_sel_row_);
+    const lv_draw_task_type_t type = lv_draw_task_get_type(task);
+
+    if (type == LV_DRAW_TASK_TYPE_FILL && is_sel) {
+        // Strong highlight: fill the selected row with the accent colour.
+        auto* fd = static_cast<lv_draw_fill_dsc_t*>(lv_draw_task_get_draw_dsc(task));
+        fd->color = view::palette(false).primary;
+        fd->opa = LV_OPA_COVER;
+        return;
     }
-    if (row < self->list_row_colors_.size()) {
-        ldsc->color = self->list_row_colors_[row];
+    if (type == LV_DRAW_TASK_TYPE_LABEL) {
+        auto* ld = static_cast<lv_draw_label_dsc_t*>(lv_draw_task_get_draw_dsc(task));
+        if (row == 0) {
+            return; // header row keeps the theme colour
+        }
+        if (is_sel) {
+            ld->color = lv_color_black();    // contrast against the accent fill
+        } else if (row < self->list_row_colors_.size()) {
+            ld->color = self->list_row_colors_[row];
+        }
     }
 }
 
@@ -476,10 +491,9 @@ void AdsbScreen::update_list(const std::vector<Row>& rows) {
     // Highlight the selected row (by hex). With nothing selected, park the
     // highlight on the header row (row 0) so no aircraft looks selected.
     const int sel = selected_row(rows);
-    const uint16_t hl = (sel >= 0 && !vm_.selected_hex().empty())
-                            ? static_cast<uint16_t>(sel + 1)
-                            : 0;
-    lv_table_set_selected_cell(list_table_, hl, 0);
+    const bool has_sel = (sel >= 0 && !vm_.selected_hex().empty());
+    list_sel_row_ = has_sel ? sel + 1 : -1; // drives the strong row highlight
+    lv_table_set_selected_cell(list_table_, has_sel ? static_cast<uint16_t>(sel + 1) : 0, 0);
 }
 
 void AdsbScreen::update_ppi(const std::vector<Row>& rows) {

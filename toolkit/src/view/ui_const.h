@@ -26,8 +26,13 @@ constexpr const char* ICON_INFO               = "\uE2CE";
 // (the bundled font's mapping doesn't match every Phosphor release).
 constexpr const char* ICON_TUNE_DOWN          = ICON_MINUS;
 constexpr const char* ICON_TUNE_UP            = ICON_PLUS;
-constexpr const char* ICON_CARET_LEFT         = "\uE138"; // tune down "<"
-constexpr const char* ICON_CARET_RIGHT        = "\uE13A"; // tune up ">"
+constexpr const char* ICON_CARET_LEFT         = "\uE138"; // "<"
+constexpr const char* ICON_CARET_RIGHT        = "\uE13A"; // ">"
+constexpr const char* ICON_CARET_UP           = "\uE13C"; // "^" (list up)
+constexpr const char* ICON_CARET_DOWN         = "\uE136"; // "v" (list down)
+constexpr const char* ICON_CHECK              = "\uE184"; // check-circle (select)
+constexpr const char* ICON_CHART_LINE         = "\uE154"; // line trace (trails)
+constexpr const char* ICON_BROADCAST          = "\uE0F2"; // concentric signal
 constexpr const char* ICON_MODE               = "\uEA9A"; // wave-sine, demod mode
 constexpr const char* ICON_BAND               = "\uE77E"; // radio, band switch
 constexpr const char* ICON_KEYBOARD           = "\uE2D8"; // frequency entry

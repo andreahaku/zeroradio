@@ -174,9 +174,9 @@ void AdsbViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
             const int s = sort_mode();
             sort_label_ = kSortLabels[s >= 0 && s < kSortCount ? s : 0];
             out[1] = {sort_label_.c_str(), true, true};      // cycle sort (shows mode)
-            out[2] = {view::ICON_CARET_LEFT, false, true};   // up (previous)
-            out[3] = {view::ICON_CARET_RIGHT, false, true};  // down (next)
-            out[4] = {view::ICON_INFO, false, true};         // select / deselect
+            out[2] = {view::ICON_CARET_UP, false, true};     // up (previous)
+            out[3] = {view::ICON_CARET_DOWN, false, true};   // down (next)
+            out[4] = {view::ICON_CHECK, false, true};        // select / deselect
             break;
         }
         case Screen::Radar:

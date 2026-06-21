@@ -104,6 +104,7 @@ private:
     std::vector<lv_obj_t*> ppi_ring_labels_;
     // Per-row text colours for the list table (index 0 = header row).
     std::vector<lv_color_t> list_row_colors_;
+    int list_sel_row_ = -1; // highlighted data row (1-based), -1 when nothing selected
 
     // PPI canvas backing store (RGB565).
     std::vector<uint16_t> ppi_buf_;
