@@ -390,6 +390,10 @@ file(GLOB_RECURSE TOOLKIT_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/toolkit/src/net/*.cpp"
 )
 
+# radio_toolkit uses std::thread (file_json_source, future net sources), so it
+# needs the platform threading library on every target (not just desktop).
+find_package(Threads REQUIRED)
+
 add_library(radio_toolkit STATIC ${TOOLKIT_SOURCES})
 
 target_include_directories(radio_toolkit
@@ -426,6 +430,7 @@ target_link_libraries(radio_toolkit
     PUBLIC
         lvgl
         logger
+        Threads::Threads
 )
 
 # ====================================================
