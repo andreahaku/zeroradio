@@ -1,5 +1,15 @@
 # Porting plan — SDRTerminal → cardputer-radio monorepo
 
+> **STATUS: COMPLETE (2026-06-21).** SDRTerminal is fully ported to `apps/sdr` at feature parity, building
+> green on the desktop sim (mock source always; live RTL-SDR via rtl_tcp when fftw3f + SDL2 are present).
+> Ported: SdrModel (radio state + persistence), SdrViewModel (5-page NavBar via NavProvider), SpectrumScreen
+> (chart/waterfall/S-meter/grids/passband/freq-dialog), spectrum_source (+mock), rtl_tcp_source, audio_demod.
+> Reused from the toolkit: shell/run_app, NavBar/widgets, BaseScreen, reactive, logger, platform, theme,
+> asset_manager + new config-path helpers. `app.cpp`/`screen_manager` were intentionally dropped (single
+> screen → `run_app` + `build_root`); `screen_manager` will be generalized into the toolkit when a genuinely
+> multi-screen app needs it (no consumer today).
+
+
 > Date: 2026-06-21. Goal: bring the existing **SDRTerminal** (LVGL SDR receiver) into this monorepo as
 > `apps/sdr/`, reusing the shared `radio_toolkit` library. Based on a full read-only map of
 > `../SDRTerminal` (24 files, ~6.3k LOC). Source repo stays untouched; we copy + adapt into `apps/sdr/`.
