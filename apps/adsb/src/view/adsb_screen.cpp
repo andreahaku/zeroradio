@@ -102,6 +102,57 @@ void plot_ring(uint16_t* buf, int w, int h, int cx, int cy, int r, uint16_t colo
     }
 }
 
+// Fill a triangle (small markers) by bounding-box + half-plane test.
+void plot_triangle(uint16_t* buf, int w, int h, int x0, int y0, int x1, int y1,
+                   int x2, int y2, uint16_t color) {
+    const int minx = std::max(0, std::min({x0, x1, x2}));
+    const int maxx = std::min(w - 1, std::max({x0, x1, x2}));
+    const int miny = std::max(0, std::min({y0, y1, y2}));
+    const int maxy = std::min(h - 1, std::max({y0, y1, y2}));
+    const auto edge = [](int ax, int ay, int bx, int by, int px, int py) {
+        return (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+    };
+    for (int y = miny; y <= maxy; ++y) {
+        for (int x = minx; x <= maxx; ++x) {
+            const int w0 = edge(x1, y1, x2, y2, x, y);
+            const int w1 = edge(x2, y2, x0, y0, x, y);
+            const int w2 = edge(x0, y0, x1, y1, x, y);
+            if ((w0 >= 0 && w1 >= 0 && w2 >= 0) || (w0 <= 0 && w1 <= 0 && w2 <= 0)) {
+                buf[y * w + x] = color;
+            }
+        }
+    }
+}
+
+// Draw an aircraft marker at (px,py): an arrowhead pointing along `track_deg`
+// (north-up), or a small diamond when the track is unknown. `scale` enlarges the
+// selected aircraft.
+void plot_aircraft(uint16_t* buf, int w, int h, int px, int py, bool has_track,
+                   long track_deg, uint16_t color, float scale) {
+    if (!has_track) {
+        const int r = static_cast<int>(2 * scale + 0.5f);
+        for (int dy = -r; dy <= r; ++dy)
+            for (int dx = -r; dx <= r; ++dx)
+                if (std::abs(dx) + std::abs(dy) <= r) {
+                    const int x = px + dx, y = py + dy;
+                    if (x >= 0 && x < w && y >= 0 && y < h) buf[y * w + x] = color;
+                }
+        return;
+    }
+    const double t = static_cast<double>(track_deg) * 3.14159265358979323846 / 180.0;
+    const double ux = std::sin(t), uy = -std::cos(t);   // forward (north-up)
+    const double vx = -uy, vy = ux;                      // perpendicular
+    const double tip = 6.0 * scale, back = 3.0 * scale, half = 3.5 * scale;
+    const int tx = px + static_cast<int>(std::lround(ux * tip));
+    const int ty = py + static_cast<int>(std::lround(uy * tip));
+    const double bx = px - ux * back, by = py - uy * back;
+    const int lx = static_cast<int>(std::lround(bx + vx * half));
+    const int ly = static_cast<int>(std::lround(by + vy * half));
+    const int rx = static_cast<int>(std::lround(bx - vx * half));
+    const int ry = static_cast<int>(std::lround(by - vy * half));
+    plot_triangle(buf, w, h, tx, ty, lx, ly, rx, ry, color);
+}
+
 // Plot a straight line (Bresenham) from (x0,y0) to (x1,y1).
 void plot_line(uint16_t* buf, int w, int h, int x0, int y0, int x1, int y1, uint16_t color) {
     const int dx = std::abs(x1 - x0);
@@ -120,9 +171,6 @@ void plot_line(uint16_t* buf, int w, int h, int x0, int y0, int x1, int y1, uint
 
 // Max callsign labels overlaid on the PPI (one per visible aircraft, pooled).
 constexpr size_t kMaxPpiLabels = 16;
-
-// Length of the heading vector drawn from each aircraft dot, in pixels.
-constexpr int kHeadingVectorPx = 10;
 
 // Max retained trail points per aircraft (position history for the radar trails).
 constexpr size_t kMaxTrail = 12;
@@ -623,7 +671,6 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     const bool labels_on = vm_.show_labels();
     const bool trails_on = vm_.show_trails();
 
-    const uint16_t vec_col = lv_color_to_u16(lv_color_hex(0x88cc88));
     const uint16_t sel_col = lv_color_to_u16(lv_color_white());
     const uint16_t trail_col = lv_color_to_u16(lv_color_hex(0x55aa55));      // visible trail
     const uint16_t trail_sel_col = lv_color_to_u16(lv_color_hex(0xffffff));  // selected trail
@@ -678,22 +725,11 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
         const bool is_sel = (static_cast<int>(i) == sel);
         const uint16_t col = r.emergency ? emg_col : ac_col;
 
-        // Heading vector: a short line from the dot along the reported track
-        // (north-up: 0 deg points up, 90 deg points right).
-        if (r.has_track) {
-            const double trk = static_cast<double>(r.track) * 3.14159265358979323846 / 180.0;
-            const int ex = px + static_cast<int>(std::lround(kHeadingVectorPx * std::sin(trk)));
-            const int ey = py - static_cast<int>(std::lround(kHeadingVectorPx * std::cos(trk)));
-            plot_line(buf, w, h, px, py, ex, ey, r.emergency ? emg_col : vec_col);
-        }
-
-        if (is_sel) {
-            // Selected contact: brighter, larger, ringed so it stands out.
-            plot_disc(buf, w, h, px, py, 3, col);
-            plot_ring(buf, w, h, px, py, 5, sel_col);
-        } else {
-            plot_disc(buf, w, h, px, py, 2, col);
-        }
+        // The aircraft is an arrowhead pointing along its track (lines are now
+        // reserved for trails, so heading and trail no longer look alike). The
+        // selected contact is enlarged and ringed.
+        plot_aircraft(buf, w, h, px, py, r.has_track, r.track, col, is_sel ? 1.5f : 1.0f);
+        if (is_sel) plot_ring(buf, w, h, px, py, 8, sel_col);
 
         // Label the selected contact and any emergency (when labels are on), with
         // the callsign and (for the selection) its altitude on a second line.
@@ -845,13 +881,7 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
                 }
             }
         }
-        if (r.has_track) {
-            const double t = static_cast<double>(r.track) * 3.14159265358979323846 / 180.0;
-            const int ex = px + static_cast<int>(std::lround(kHeadingVectorPx * std::sin(t)));
-            const int ey = py - static_cast<int>(std::lround(kHeadingVectorPx * std::cos(t)));
-            plot_line(b, w, h, px, py, ex, ey, ac);
-        }
-        plot_disc(b, w, h, px, py, 3, ac);
+        plot_aircraft(b, w, h, px, py, r.has_track, r.track, ac, 1.5f);
         on_scope = true;
 
         if (vm_.show_labels() && detail_radar_label_) {
