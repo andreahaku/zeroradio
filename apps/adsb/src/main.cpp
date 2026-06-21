@@ -31,15 +31,26 @@ int main() {
 
     // Home position / TTL overrides so the radar centres on the user's location
     // without a rebuild: ADSB_HOME_LAT, ADSB_HOME_LON, ADSB_TTL.
+    // strtod (not atof) so a typo like "abc" is rejected instead of silently
+    // moving home to lat/lon 0 (the equator); also range-check the value.
     if (const char* lat = std::getenv("ADSB_HOME_LAT"); lat && lat[0] != '\0') {
-        config.home.lat = std::atof(lat);
+        char* end = nullptr;
+        const double v = std::strtod(lat, &end);
+        if (end != lat && *end == '\0' && v >= -90.0 && v <= 90.0) config.home.lat = v;
     }
     if (const char* lon = std::getenv("ADSB_HOME_LON"); lon && lon[0] != '\0') {
-        config.home.lon = std::atof(lon);
+        char* end = nullptr;
+        const double v = std::strtod(lon, &end);
+        if (end != lon && *end == '\0' && v >= -180.0 && v <= 180.0) config.home.lon = v;
     }
     if (const char* ttl = std::getenv("ADSB_TTL"); ttl && ttl[0] != '\0') {
         const double v = std::atof(ttl);
-        if (v > 0.0) config.ttl_seconds = v;
+        if (v > 0.0) {
+            config.ttl_seconds = v;
+            // The sweep reads the viewmodel's TTL, not config; apply the env
+            // override there too (it wins over the persisted setting for this run).
+            view_model.set_ttl_seconds(v);
+        }
     }
 
     // Resolve the JSON source: ADSB_JSON env overrides the bundled mock file.

@@ -31,7 +31,9 @@ public:
     void start();
     void stop();
 
-    // True once at least one read has succeeded (the file exists and is readable).
+    // True while the most recent poll read the file successfully (it exists, is
+    // readable, within the size cap, and the callback didn't throw). Clears if a
+    // later poll fails, so the UI's connection indicator tracks live health.
     bool ok() const;
 
 private:

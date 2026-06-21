@@ -78,6 +78,9 @@ public:
     // Applied settings, read by the screen.
     bool   units_km() const;
     double ttl_seconds() const;
+    // Override the TTL at runtime (e.g. the ADSB_TTL env var), bypassing the
+    // persisted value without rewriting the settings file. No-op if s <= 0.
+    void   set_ttl_seconds(double s);
     int    trail_len() const;      // 0 = trails off
     bool   show_ground() const;
     bool   emergency_only() const;

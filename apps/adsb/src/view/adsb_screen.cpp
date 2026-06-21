@@ -14,7 +14,10 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
+#include <iterator>
 #include <string>
+#include <unordered_set>
 
 namespace adsb {
 namespace {
@@ -432,7 +435,7 @@ void AdsbScreen::show_view(int screen) {
     }
 }
 
-std::vector<AdsbScreen::Row> AdsbScreen::build_rows() {
+std::vector<AdsbScreen::Row> AdsbScreen::build_all_rows() {
     auto snapshot = store_.snapshot();
     std::vector<Row> rows;
     rows.reserve(snapshot.size());
@@ -443,6 +446,16 @@ std::vector<AdsbScreen::Row> AdsbScreen::build_rows() {
         r.flight = field_str(e, "flight");
         r.has_pos = e.has_pos;
         r.pos = e.pos;
+        // Drop a position that dump1090 reports as older than the TTL, so we stop
+        // plotting an aircraft at a stale spot while it's still being heard. If
+        // seen_pos is absent we keep the last-known position (prior behaviour).
+        {
+            bool has_seen_pos = false;
+            const long seen_pos = field_long(e, "seen_pos", has_seen_pos);
+            if (r.has_pos && has_seen_pos && static_cast<double>(seen_pos) > vm_.ttl_seconds()) {
+                r.has_pos = false;
+            }
+        }
         r.alt = field_long(e, "alt", r.has_alt);
         r.on_ground = !field_str(e, "on_ground").empty();
         r.gs = field_long(e, "gs", r.has_gs);
@@ -450,8 +463,7 @@ std::vector<AdsbScreen::Row> AdsbScreen::build_rows() {
         r.squawk = field_str(e, "squawk");
         r.category = field_str(e, "category");
         r.emergency = field_str(e, "emergency") == "1";
-        bool has_seen = false;
-        r.seen = field_long(e, "seen", has_seen);
+        r.seen = field_long(e, "seen", r.has_seen);
         {
             const std::string rssi_s = field_str(e, "rssi");
             if (!rssi_s.empty()) {
@@ -465,6 +477,10 @@ std::vector<AdsbScreen::Row> AdsbScreen::build_rows() {
         rows.push_back(std::move(r));
     }
 
+    return rows;
+}
+
+void AdsbScreen::apply_filters_and_sort(std::vector<Row>& rows) {
     // Settings filters: hide on-ground traffic and/or show only emergencies.
     const bool hide_ground = !vm_.show_ground();
     const bool emerg_only = vm_.emergency_only();
@@ -514,8 +530,6 @@ std::vector<AdsbScreen::Row> AdsbScreen::build_rows() {
             });
             break;
     }
-
-    return rows;
 }
 
 int AdsbScreen::row_of(const std::vector<Row>& rows, const std::string& hex) const {
@@ -529,15 +543,15 @@ int AdsbScreen::row_of(const std::vector<Row>& rows, const std::string& hex) con
 void AdsbScreen::update_header(int signal_quality) {
     // The left info label and centre title are set in tick() (screen-dependent);
     // here we only drive the signal bar and the connection dot.
+    const auto& pal = view::palette(vm_.is_dark_mode());
     if (sig_bar_) {
         lv_bar_set_value(sig_bar_, signal_quality, LV_ANIM_OFF);
+        lv_obj_set_style_bg_color(sig_bar_, pal.primary, LV_PART_INDICATOR);
     }
     if (conn_dot_) {
         const bool ok = conn_state_ ? conn_state_() : false;
         lv_obj_set_style_bg_color(conn_dot_,
-                                  ok ? view::palette(false).primary
-                                     : lv_color_hex(0x888888),
-                                  0);
+                                  ok ? pal.primary : lv_color_hex(0x888888), 0);
     }
 }
 
@@ -584,14 +598,25 @@ void AdsbScreen::update_list(const std::vector<Row>& rows) {
 
     const std::string& sel_hex = vm_.selected_hex();
     const bool km = vm_.units_km();
+    // Only write a cell when its text actually changed: lv_table_set_cell_value
+    // frees+reallocs the cell string and dirties layout on every call, so an
+    // unconditional rewrite each tick is a needless redraw cost on embedded.
+    const auto set_cell = [&](uint32_t rr, uint16_t cc, const char* val) {
+        const char* cur = lv_table_get_cell_value(list_table_, rr, cc);
+        if (!cur || std::strcmp(cur, val) != 0) {
+            lv_table_set_cell_value(list_table_, rr, cc, val);
+        }
+    };
     for (size_t i = 0; i < rows.size(); ++i) {
         const Row& r = rows[i];
         const uint32_t row = static_cast<uint32_t>(i);
         list_row_colors_[row] = category_color(r.category, r.emergency);
-        char alt_buf[12];
-        char gs_buf[12];
-        char trk_buf[8];
-        char rng_buf[12];
+        // Sized for any 64-bit value: a bogus/huge field must not truncate to a
+        // misleading number (snprintf is bounded either way).
+        char alt_buf[24];
+        char gs_buf[24];
+        char trk_buf[16];
+        char rng_buf[24];
         if (r.has_alt)        std::snprintf(alt_buf, sizeof(alt_buf), "%ld", r.alt);
         else if (r.on_ground) std::snprintf(alt_buf, sizeof(alt_buf), "grnd");
         else                  std::snprintf(alt_buf, sizeof(alt_buf), "-");
@@ -606,11 +631,11 @@ void AdsbScreen::update_list(const std::vector<Row>& rows) {
         const char* mark = (r.hex == sel_hex && !sel_hex.empty()) ? "\xE2\x97\x8f" // ●
                            : (r.emergency ? "!" : "");
         const std::string call = std::string(mark) + (r.flight.empty() ? r.hex : r.flight);
-        lv_table_set_cell_value(list_table_, row, 0, call.c_str());
-        lv_table_set_cell_value(list_table_, row, 1, alt_buf);
-        lv_table_set_cell_value(list_table_, row, 2, gs_buf);
-        lv_table_set_cell_value(list_table_, row, 3, trk_buf);
-        lv_table_set_cell_value(list_table_, row, 4, rng_buf);
+        set_cell(row, 0, call.c_str());
+        set_cell(row, 1, alt_buf);
+        set_cell(row, 2, gs_buf);
+        set_cell(row, 3, trk_buf);
+        set_cell(row, 4, rng_buf);
     }
 
     // The cursor row gets the strong highlight (accent fill + black text).
@@ -627,17 +652,22 @@ void AdsbScreen::record_trails(const std::vector<Row>& rows) {
     // current on both the radar and the Detail mini-radar.
     // trail_len 0 = "All" (don't expire); keep a safety cap so memory is bounded.
     const size_t cap = vm_.trail_len() > 0 ? static_cast<size_t>(vm_.trail_len()) : 600;
-    std::map<std::string, std::deque<toolkit::geo::LatLon>> kept;
+    std::unordered_set<std::string> live;
+    live.reserve(rows.size());
     for (const auto& r : rows) {
         if (!r.has_pos) continue;
+        live.insert(r.hex);
         auto& hist = trails_[r.hex];
         if (hist.empty() || hist.back().lat != r.pos.lat || hist.back().lon != r.pos.lon) {
             hist.push_back(r.pos);
         }
         while (hist.size() > cap) hist.pop_front();
-        kept[r.hex] = std::move(hist);
     }
-    trails_.swap(kept);
+    // Prune vanished aircraft in place rather than rebuilding the whole map each
+    // tick (avoids per-tick node/string allocation churn on the embedded heap).
+    for (auto it = trails_.begin(); it != trails_.end();) {
+        it = (live.count(it->first) == 0) ? trails_.erase(it) : std::next(it);
+    }
 }
 
 void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
@@ -756,7 +786,10 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
             const char* mk = (!selh.empty() && r.hex == selh) ? "\xE2\x97\x8f"  // ●
                              : (!cur.empty() && r.hex == cur) ? "\xE2\x80\xBA" // ›
                                                               : " ";
-            char line[56];
+            // Wide enough that a long flight string can't truncate away the
+            // closing "#" — a dropped recolor terminator would bleed the colour
+            // into the rest of the label.
+            char line[128];
             std::snprintf(line, sizeof(line), "#%06X %s%s#\n",
                           category_rgb(r.category, r.emergency), mk, call.c_str());
             std::string& col = (i < left_n) ? left : right;
@@ -817,11 +850,12 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
                                   ? (std::to_string(static_cast<long>(r.rssi)) + " dBFS")
                                   : std::string("-");
 
+    const std::string seen_s = r.has_seen ? (std::to_string(r.seen) + "s") : std::string("-");
     // Column A values (HEX/FLT/ALT/GS/TRK/SEEN), column B (SQK/CAT/RNG/BRG/SIG).
     char va[160];
-    std::snprintf(va, sizeof(va), "%s\n%s\n%s\n%s\n%s\n%lds",
+    std::snprintf(va, sizeof(va), "%s\n%s\n%s\n%s\n%s\n%s",
                   r.hex.c_str(), r.flight.empty() ? "-" : r.flight.c_str(),
-                  alt_s.c_str(), gs_s.c_str(), trk_s.c_str(), r.seen);
+                  alt_s.c_str(), gs_s.c_str(), trk_s.c_str(), seen_s.c_str());
     char vb[160];
     std::snprintf(vb, sizeof(vb), "%s\n%s\n%s\n%s\n%s",
                   r.squawk.empty() ? "-" : r.squawk.c_str(),
@@ -916,10 +950,13 @@ void AdsbScreen::tick_cb(lv_timer_t* timer) {
 }
 
 void AdsbScreen::tick() {
-    // Drop stale entries (TTL from settings), then snapshot + sort.
+    // Drop stale entries (TTL from settings), then snapshot.
     store_.sweep(vm_.ttl_seconds());
-    const auto rows = build_rows();
-    record_trails(rows); // every tick, regardless of the visible screen
+    auto rows = build_all_rows();
+    // Record trails from the *unfiltered* rows (every tick, regardless of the
+    // visible screen) so toggling a filter doesn't wipe hidden aircraft history.
+    record_trails(rows);
+    apply_filters_and_sort(rows);
 
     // Report the current sorted aircraft order so prev/next move by identity and
     // a vanished selection snaps to the nearest aircraft.

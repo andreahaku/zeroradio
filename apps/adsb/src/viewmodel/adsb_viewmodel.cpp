@@ -11,8 +11,10 @@
 
 #include <algorithm>
 #include <array>
+#include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <system_error>
 
 namespace adsb {
 namespace {
@@ -59,11 +61,11 @@ int AdsbViewModel::range_index() const {
 }
 
 int AdsbViewModel::range_nm() const {
-    const int idx = range_index();
+    const int idx = std::clamp(range_index(), 0, kRangeStateCount - 1);
     if (idx >= kManualCount) {
         return nice_range(observed_max_nm_); // AUTO: fit the traffic
     }
-    return kRingLadder[static_cast<size_t>(idx < 0 ? 0 : idx)];
+    return kRingLadder[static_cast<size_t>(idx)];
 }
 
 bool AdsbViewModel::auto_range() const {
@@ -95,7 +97,10 @@ lv_subject_t* AdsbViewModel::range_index_subject() { return range_index_subject_
 lv_subject_t* AdsbViewModel::show_trails_subject() { return show_trails_subject_.native(); }
 
 void AdsbViewModel::cycle_sort() {
-    sort_mode_subject_.set((sort_mode() + 1) % kSortCount);
+    // Normalize first: C++ `%` keeps the sign, so a stray negative subject value
+    // would otherwise yield a negative sort mode.
+    const int s = ((sort_mode() % kSortCount) + kSortCount) % kSortCount;
+    sort_mode_subject_.set((s + 1) % kSortCount);
     bump_nav_refresh(); // the sort label changes
 }
 
@@ -177,6 +182,7 @@ void AdsbViewModel::set_visible_order(std::vector<std::string> order) {
 
 bool   AdsbViewModel::units_km() const       { return units_km_; }
 double AdsbViewModel::ttl_seconds() const     { return ttl_seconds_; }
+void   AdsbViewModel::set_ttl_seconds(double s) { if (s > 0.0) ttl_seconds_ = s; }
 int    AdsbViewModel::trail_len() const       { return trail_len_; }
 bool   AdsbViewModel::show_ground() const     { return show_ground_; }
 bool   AdsbViewModel::emergency_only() const  { return emergency_only_; }
@@ -250,12 +256,17 @@ void AdsbViewModel::load_settings() {
     int ver = 0;
     if (!(in >> ver) || ver != 1) return;
     int dark = 1, km = 0, ttl = 30, range = 5, trail = 60, ground = 1, emerg = 0;
-    in >> dark >> km >> ttl >> range >> trail >> ground >> emerg;
+    // Require the whole record: a truncated/corrupt file must not apply a
+    // half-parsed mix of saved values and inline defaults.
+    if (!(in >> dark >> km >> ttl >> range >> trail >> ground >> emerg)) return;
     set_dark_mode(dark != 0);
     units_km_ = (km != 0);
-    if (ttl > 0) ttl_seconds_ = ttl;
+    // Validate against the same allowlists the Settings screen cycles through;
+    // out-of-range values are ignored so a corrupt file can't disable expiry
+    // (huge TTL) or bypass the trail cap (huge trail length).
+    if (ttl == 15 || ttl == 30 || ttl == 60 || ttl == 120) ttl_seconds_ = ttl;
     if (range >= 0 && range <= 5) range_index_subject_.set(range);
-    if (trail >= 0) trail_len_ = trail;
+    if (trail == 0 || trail == 15 || trail == 30 || trail == 60) trail_len_ = trail;
     show_ground_ = (ground != 0);
     emergency_only_ = (emerg != 0);
 }
@@ -263,11 +274,21 @@ void AdsbViewModel::load_settings() {
 void AdsbViewModel::save_settings() const {
     const auto path = toolkit::config_file("cardputer_radio/adsb", "settings");
     if (!toolkit::ensure_parent_dir(path)) return;
-    std::ofstream out(path, std::ios::trunc);
-    if (!out) return;
-    out << 1 << ' ' << (is_dark_mode() ? 1 : 0) << ' ' << (units_km_ ? 1 : 0) << ' '
-        << static_cast<int>(ttl_seconds_) << ' ' << range_index() << ' ' << trail_len_
-        << ' ' << (show_ground_ ? 1 : 0) << ' ' << (emergency_only_ ? 1 : 0) << '\n';
+    // Write to a sibling temp file and rename into place so a crash mid-write
+    // can't leave a truncated settings file (which load_settings would reject).
+    std::filesystem::path tmp = path;
+    tmp += ".tmp";
+    {
+        std::ofstream out(tmp, std::ios::trunc);
+        if (!out) return;
+        out << 1 << ' ' << (is_dark_mode() ? 1 : 0) << ' ' << (units_km_ ? 1 : 0) << ' '
+            << static_cast<int>(ttl_seconds_) << ' ' << range_index() << ' ' << trail_len_
+            << ' ' << (show_ground_ ? 1 : 0) << ' ' << (emergency_only_ ? 1 : 0) << '\n';
+        if (!out) return; // don't rename a bad write over the good file
+    }
+    std::error_code ec;
+    std::filesystem::rename(tmp, path, ec);
+    if (ec) std::filesystem::remove(tmp, ec);
 }
 
 int AdsbViewModel::nav_page_count() const {

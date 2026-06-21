@@ -63,6 +63,7 @@ private:
         std::string squawk;
         std::string category;
         bool emergency{false};
+        bool has_seen{false};
         long seen{0};
         bool has_rssi{false};
         double rssi{0.0};       // dBFS signal level (from dump1090)
@@ -70,7 +71,8 @@ private:
         double bearing_deg{0.0};
     };
 
-    std::vector<Row> build_rows();   // snapshot + sort per the viewmodel
+    std::vector<Row> build_all_rows();   // snapshot -> rows (no filter/sort)
+    void apply_filters_and_sort(std::vector<Row>& rows); // settings filters + sort
     void record_trails(const std::vector<Row>& rows); // append history each tick
     // Index in `rows` of the given hex, or -1 if absent/empty.
     int row_of(const std::vector<Row>& rows, const std::string& hex) const;

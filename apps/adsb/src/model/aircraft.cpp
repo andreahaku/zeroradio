@@ -31,8 +31,12 @@ std::string trim(const std::string& s) {
     return std::string(begin, end);
 }
 
-// Map the ADS-B emitter category code (e.g. "A3") to a coarse class.
-std::string category_from_emitter(const std::string& code) {
+// Map the ADS-B emitter category code (e.g. "A3") to a coarse class. dump1090
+// emits uppercase, but normalize so a lowercase feed doesn't fall through to
+// "other".
+std::string category_from_emitter(std::string code) {
+    std::transform(code.begin(), code.end(), code.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
     if (code == "A1") return "light";
     if (code == "A2") return "small";
     if (code == "A3" || code == "A4") return "large";
@@ -84,9 +88,13 @@ bool read_number(const json& node, const char* key, double& out) {
 // Safe double -> long long: guards the cast against non-finite / out-of-range
 // values (which would be undefined behaviour).
 bool to_ll(double v, long long& out) {
+    // LLONG_MAX as a double rounds *up* to 2^63, so `v > (double)LLONG_MAX`
+    // would let exactly 2^63 through and then cast it out of range (UB). Test the
+    // half-open range [-2^63, 2^63): LLONG_MIN is an exact power of two as a
+    // double, so -(double)LLONG_MIN == 2^63 with no rounding.
     if (!std::isfinite(v) ||
         v < static_cast<double>(std::numeric_limits<long long>::min()) ||
-        v > static_cast<double>(std::numeric_limits<long long>::max())) {
+        v >= -static_cast<double>(std::numeric_limits<long long>::min())) {
         return false;
     }
     out = static_cast<long long>(v);
@@ -144,6 +152,14 @@ std::vector<Aircraft> parse_aircraft_json(const std::string& json_text) {
             ac.has_pos = true;
             ac.lat = lat;
             ac.lon = lon;
+        }
+
+        // Position age (dump1090's `seen_pos`): lets the viewer drop a stale
+        // position even while the aircraft itself is still being heard.
+        double seen_pos = 0.0;
+        if (read_number(node, "seen_pos", seen_pos)) {
+            ac.has_seen_pos = true;
+            ac.seen_pos = seen_pos;
         }
 
         double track = 0.0;
@@ -256,6 +272,9 @@ void apply_to_store(toolkit::EntityStore& store, const std::vector<Aircraft>& ai
             if (ac.has_seen && to_ll(ac.seen, ll)) {
                 e.seen = ac.seen;
                 e.fields["seen"] = std::to_string(ll);
+            }
+            if (ac.has_seen_pos && to_ll(ac.seen_pos, ll)) {
+                e.fields["seen_pos"] = std::to_string(ll);
             }
         });
     }

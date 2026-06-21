@@ -21,6 +21,8 @@ struct Aircraft {
     bool has_pos{false};
     double lat{0.0};
     double lon{0.0};
+    bool has_seen_pos{false}; // dump1090 reported an age for the position
+    double seen_pos{0.0};     // seconds since the position was last updated
     bool has_track{false};
     double track{0.0};        // degrees, for icon/heading
     bool has_alt{false};      // a numeric barometric altitude was reported
