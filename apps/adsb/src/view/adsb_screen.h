@@ -14,7 +14,10 @@
 #include "lvgl.h"
 
 #include <cstdint>
+#include <deque>
 #include <functional>
+#include <map>
+#include <string>
 #include <vector>
 
 namespace adsb {
@@ -93,6 +96,8 @@ private:
     lv_obj_t* list_view_      = nullptr; // List container: fixed header + table
     lv_obj_t* list_table_     = nullptr;
     lv_obj_t* ppi_canvas_     = nullptr;
+    lv_obj_t* radar_left_     = nullptr; // left side callsign list (Radar view)
+    lv_obj_t* radar_right_    = nullptr; // right side callsign list (Radar view)
     lv_obj_t* detail_box_     = nullptr;
     lv_obj_t* detail_label_   = nullptr;
     lv_obj_t* settings_box_   = nullptr;
@@ -105,7 +110,11 @@ private:
     std::vector<lv_obj_t*> ppi_ring_labels_;
     // Per-row text colours for the list table (index 0 = header row).
     std::vector<lv_color_t> list_row_colors_;
-    int list_sel_row_ = -1; // highlighted data row (1-based), -1 when nothing selected
+    int list_sel_row_ = -1; // highlighted data row, -1 when nothing selected
+
+    // Position history per aircraft (hex -> recent projected-able LatLon points),
+    // for the radar trails. Capped per aircraft; pruned when an aircraft is gone.
+    std::map<std::string, std::deque<toolkit::geo::LatLon>> trails_;
 
     // PPI canvas backing store (RGB565).
     std::vector<uint16_t> ppi_buf_;

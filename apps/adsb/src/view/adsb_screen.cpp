@@ -48,15 +48,19 @@ std::string field_str(const toolkit::Entity& e, const char* key) {
     return it != e.fields.end() ? it->second : std::string{};
 }
 
-// Text colour encoding the aircraft category (emergency overrides to red).
+// RGB encoding the aircraft category (emergency overrides to red).
+uint32_t category_rgb(const std::string& category, bool emergency) {
+    if (emergency) return 0xff5050;
+    if (category == "light")      return 0x6fd66f; // green
+    if (category == "small")      return 0x66ccff; // cyan
+    if (category == "large")      return 0x4d9fff; // blue
+    if (category == "heavy")      return 0xffb347; // orange
+    if (category == "rotorcraft") return 0xc792ea; // purple
+    return 0xc8c8c8;                               // other/unknown: grey
+}
+
 lv_color_t category_color(const std::string& category, bool emergency) {
-    if (emergency) return lv_color_hex(0xff5050);
-    if (category == "light")      return lv_color_hex(0x6fd66f); // green
-    if (category == "small")      return lv_color_hex(0x66ccff); // cyan
-    if (category == "large")      return lv_color_hex(0x4d9fff); // blue
-    if (category == "heavy")      return lv_color_hex(0xffb347); // orange
-    if (category == "rotorcraft") return lv_color_hex(0xc792ea); // purple
-    return lv_color_hex(0xc8c8c8);                               // other/unknown: grey
+    return lv_color_hex(category_rgb(category, emergency));
 }
 
 // Plot a filled disc of `r` px around (cx, cy) in the RGB565 buffer.
@@ -116,6 +120,9 @@ constexpr size_t kMaxPpiLabels = 16;
 
 // Length of the heading vector drawn from each aircraft dot, in pixels.
 constexpr int kHeadingVectorPx = 10;
+
+// Max retained trail points per aircraft (position history for the radar trails).
+constexpr size_t kMaxTrail = 12;
 
 } // namespace
 
@@ -277,6 +284,23 @@ void AdsbScreen::build_content(lv_obj_t* content) {
         ppi_ring_labels_.push_back(lbl);
     }
 
+    // Radar side lists: all aircraft callsigns flanking the scope (left/right),
+    // colour-coded by category, with the cursor/selection marked. Recolour labels
+    // so each line can take its own colour. Display-only here (navigate on List).
+    const auto make_side = [&](lv_align_t align, int32_t xoff) {
+        lv_obj_t* l = lv_label_create(body_);
+        lv_label_set_recolor(l, true);
+        lv_label_set_text(l, "");
+        lv_obj_set_width(l, 98);
+        lv_obj_set_style_text_font(l, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
+        lv_obj_remove_flag(l, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_remove_flag(l, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_align(l, align, xoff, 0);
+        return l;
+    };
+    radar_left_  = make_side(LV_ALIGN_TOP_LEFT, 1);
+    radar_right_ = make_side(LV_ALIGN_TOP_RIGHT, -1);
+
     // Detail view (all fields of the selected aircraft as label rows).
     detail_box_ = lv_obj_create(body_);
     lv_obj_remove_style_all(detail_box_);
@@ -319,6 +343,8 @@ void AdsbScreen::show_view(int screen) {
 
     if (list_view_)     lv_obj_set_flag(list_view_,     LV_OBJ_FLAG_HIDDEN, !list);
     if (ppi_canvas_)    lv_obj_set_flag(ppi_canvas_,    LV_OBJ_FLAG_HIDDEN, !ppi);
+    if (radar_left_)    lv_obj_set_flag(radar_left_,    LV_OBJ_FLAG_HIDDEN, !ppi);
+    if (radar_right_)   lv_obj_set_flag(radar_right_,   LV_OBJ_FLAG_HIDDEN, !ppi);
     if (detail_box_)    lv_obj_set_flag(detail_box_,    LV_OBJ_FLAG_HIDDEN, !detail);
     if (settings_box_)  lv_obj_set_flag(settings_box_,  LV_OBJ_FLAG_HIDDEN, !settings);
 
@@ -564,10 +590,46 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     // it with the list keys to read each callsign in turn.
     const int sel = row_of(rows, vm_.selected_hex());
     const bool labels_on = vm_.show_labels();
+    const bool trails_on = vm_.show_trails();
 
     const uint16_t vec_col = lv_color_to_u16(lv_color_hex(0x88cc88));
     const uint16_t sel_col = lv_color_to_u16(lv_color_white());
+    const uint16_t trail_col = lv_color_to_u16(lv_color_hex(0x335533));
     const double max_nm = static_cast<double>(vm_.range_nm());
+
+    // --- Trails: append the current position to each aircraft's history, prune
+    // vanished aircraft, then (when enabled) draw the recent track of each. ---
+    {
+        std::map<std::string, std::deque<toolkit::geo::LatLon>> kept;
+        for (const auto& r : rows) {
+            if (!r.has_pos) continue;
+            auto& hist = trails_[r.hex];
+            if (hist.empty() || hist.back().lat != r.pos.lat || hist.back().lon != r.pos.lon) {
+                hist.push_back(r.pos);
+                if (hist.size() > kMaxTrail) hist.pop_front();
+            }
+            kept[r.hex] = std::move(hist);
+        }
+        trails_.swap(kept); // drop aircraft no longer present
+    }
+    if (trails_on) {
+        for (const auto& r : rows) {
+            if (!r.has_pos) continue;
+            auto it = trails_.find(r.hex);
+            if (it == trails_.end() || it->second.size() < 2) continue;
+            int pdx = 0, pdy = 0;
+            bool have_prev = false;
+            for (const auto& p : it->second) {
+                int tx = 0, ty = 0;
+                if (!toolkit::geo::project(config_.home, p, max_nm, radius_px, tx, ty)) {
+                    have_prev = false;
+                    continue;
+                }
+                if (have_prev) plot_line(buf, w, h, cx + pdx, cy + pdy, cx + tx, cy + ty, trail_col);
+                pdx = tx; pdy = ty; have_prev = true;
+            }
+        }
+    }
     size_t label_i = 0;
     for (size_t i = 0; i < rows.size(); ++i) {
         const Row& r = rows[i];
@@ -629,6 +691,32 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     // Hide any pool labels left unused this tick.
     for (size_t i = label_i; i < ppi_labels_.size(); ++i) {
         if (ppi_labels_[i]) lv_obj_add_flag(ppi_labels_[i], LV_OBJ_FLAG_HIDDEN);
+    }
+
+    // Side callsign lists (all aircraft), colour-coded, with the selection (●) and
+    // cursor (›) marked. First half on the left column, the rest on the right.
+    if (radar_left_ && radar_right_) {
+        const std::string& cur = vm_.cursor_hex();
+        const std::string& selh = vm_.selected_hex();
+        constexpr size_t kPerSide = 11;
+        const size_t left_n = (rows.size() + 1) / 2;
+        std::string left, right;
+        for (size_t i = 0; i < rows.size(); ++i) {
+            const Row& r = rows[i];
+            const std::string call = r.flight.empty() ? r.hex : r.flight;
+            const char* mk = (!selh.empty() && r.hex == selh) ? "\xE2\x97\x8f"  // ●
+                             : (!cur.empty() && r.hex == cur) ? "\xE2\x80\xBA" // ›
+                                                              : " ";
+            char line[56];
+            std::snprintf(line, sizeof(line), "#%06X %s%s#\n",
+                          category_rgb(r.category, r.emergency), mk, call.c_str());
+            std::string& col = (i < left_n) ? left : right;
+            // Cap each column so it fits the scope height.
+            const size_t shown = (i < left_n) ? i : (i - left_n);
+            if (shown < kPerSide) col += line;
+        }
+        lv_label_set_text(radar_left_, left.c_str());
+        lv_label_set_text(radar_right_, right.c_str());
     }
 
     lv_obj_invalidate(ppi_canvas_);

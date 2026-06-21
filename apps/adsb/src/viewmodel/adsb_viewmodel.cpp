@@ -192,12 +192,12 @@ void AdsbViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
         case Screen::Radar:
             out[1] = {view::ICON_PLUS, false, true};         // zoom in
             out[2] = {view::ICON_MINUS, false, true};        // zoom out
-            out[3] = {view::ICON_GRID_TIME, false, true};    // trails on/off
-            out[4] = {view::ICON_GRID_FREQ, false, true};    // labels on/off
+            out[3] = {view::ICON_CHART_LINE, false, true};   // trails on/off
+            out[4] = {view::ICON_TEXT_BOLD, false, true};    // labels on/off
             break;
         case Screen::Detail:
-            out[1] = {view::ICON_GRID_TIME, false, true};    // trails on/off
-            out[2] = {view::ICON_GRID_FREQ, false, true};    // labels on/off
+            out[1] = {view::ICON_CHART_LINE, false, true};   // trails on/off
+            out[2] = {view::ICON_TEXT_BOLD, false, true};    // labels on/off
             out[3] = {"", false, false};                     // reserved
             out[4] = {"", false, false};                     // reserved
             break;
