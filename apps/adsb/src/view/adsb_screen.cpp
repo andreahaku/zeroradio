@@ -31,6 +31,9 @@ constexpr int32_t kHeaderHeight = 18;
 // square would be clipped vertically by the body.
 constexpr int32_t kPpiSize = 120;
 
+// Detail mini-radar: a smaller square on the right of the split Detail view.
+constexpr int32_t kDetailRadarSize = 118; // 118*2 = 236 bytes (4-byte aligned)
+
 long field_long(const toolkit::Entity& e, const char* key, bool& has) {
     auto it = e.fields.find(key);
     has = (it != e.fields.end() && !it->second.empty());
@@ -136,7 +139,8 @@ AdsbScreen::AdsbScreen(AdsbViewModel& vm,
       store_(store),
       config_(config),
       conn_state_(std::move(conn_state)),
-      ppi_buf_(static_cast<size_t>(kPpiSize) * kPpiSize, 0u) {
+      ppi_buf_(static_cast<size_t>(kPpiSize) * kPpiSize, 0u),
+      detail_buf_(static_cast<size_t>(kDetailRadarSize) * kDetailRadarSize, 0u) {
     init();
 }
 
@@ -311,9 +315,27 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     lv_obj_set_style_pad_all(detail_box_, 4, 0);
     detail_label_ = lv_label_create(detail_box_);
     lv_label_set_text(detail_label_, "");
+    lv_obj_set_width(detail_label_, 150); // left column; the mini-radar is on the right
     lv_obj_set_style_text_font(detail_label_, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
     reactive::bind_theme(detail_label_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
     lv_obj_align(detail_label_, LV_ALIGN_TOP_LEFT, 0, 0);
+
+    // Right: mini-radar showing only the selected aircraft + its trail.
+    detail_canvas_ = lv_canvas_create(detail_box_);
+    lv_canvas_set_buffer(detail_canvas_, detail_buf_.data(), kDetailRadarSize, kDetailRadarSize,
+                         LV_COLOR_FORMAT_RGB565);
+    lv_canvas_fill_bg(detail_canvas_, lv_color_black(), LV_OPA_COVER);
+    lv_obj_set_size(detail_canvas_, kDetailRadarSize, kDetailRadarSize);
+    lv_obj_align(detail_canvas_, LV_ALIGN_RIGHT_MID, 0, 0);
+    lv_obj_remove_flag(detail_canvas_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(detail_canvas_, LV_OBJ_FLAG_CLICKABLE);
+    detail_radar_label_ = lv_label_create(detail_box_);
+    lv_label_set_text(detail_radar_label_, "");
+    lv_obj_set_style_text_font(detail_radar_label_, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(detail_radar_label_, lv_color_hex(0xffffff), 0);
+    lv_obj_add_flag(detail_radar_label_, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(detail_radar_label_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(detail_radar_label_, LV_OBJ_FLAG_CLICKABLE);
 
     // Settings view (static for now: a hint + the quit key).
     settings_box_ = lv_obj_create(body_);
@@ -596,7 +618,8 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
 
     const uint16_t vec_col = lv_color_to_u16(lv_color_hex(0x88cc88));
     const uint16_t sel_col = lv_color_to_u16(lv_color_white());
-    const uint16_t trail_col = lv_color_to_u16(lv_color_hex(0x335533));
+    const uint16_t trail_col = lv_color_to_u16(lv_color_hex(0x55aa55));      // visible trail
+    const uint16_t trail_sel_col = lv_color_to_u16(lv_color_hex(0xffffff));  // selected trail
     const double max_nm = static_cast<double>(vm_.range_nm());
 
     // --- Trails: append the current position to each aircraft's history, prune
@@ -615,10 +638,12 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
         trails_.swap(kept); // drop aircraft no longer present
     }
     if (trails_on) {
+        const std::string& sel_hex = vm_.selected_hex();
         for (const auto& r : rows) {
             if (!r.has_pos) continue;
             auto it = trails_.find(r.hex);
             if (it == trails_.end() || it->second.size() < 2) continue;
+            const uint16_t tc = (!sel_hex.empty() && r.hex == sel_hex) ? trail_sel_col : trail_col;
             int pdx = 0, pdy = 0;
             bool have_prev = false;
             for (const auto& p : it->second) {
@@ -627,7 +652,7 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
                     have_prev = false;
                     continue;
                 }
-                if (have_prev) plot_line(buf, w, h, cx + pdx, cy + pdy, cx + tx, cy + ty, trail_col);
+                if (have_prev) plot_line(buf, w, h, cx + pdx, cy + pdy, cx + tx, cy + ty, tc);
                 pdx = tx; pdy = ty; have_prev = true;
             }
         }
@@ -731,47 +756,116 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
     const int sel = row_of(rows, vm_.selected_hex());
     if (rows.empty() || sel < 0) {
         lv_label_set_text(detail_label_, "(no aircraft selected)\n\nList: select an aircraft");
+        if (detail_canvas_) {
+            std::fill(detail_buf_.begin(), detail_buf_.end(), lv_color_to_u16(lv_color_black()));
+            lv_obj_invalidate(detail_canvas_);
+        }
+        if (detail_radar_label_) lv_obj_add_flag(detail_radar_label_, LV_OBJ_FLAG_HIDDEN);
         return;
     }
     const Row& r = rows[static_cast<size_t>(sel)];
 
-    // Build each value into a named string first to avoid dangling temporaries.
-    const std::string alt_s = r.has_alt ? (std::to_string(r.alt) + " ft")
+    // ----- Left column: fields + decoded ADS-B messages / status -----
+    const std::string alt_s = r.has_alt ? (std::to_string(r.alt) + "ft")
                               : r.on_ground ? std::string("ground")
                                             : std::string("-");
-    const std::string gs_s  = r.has_gs ? (std::to_string(r.gs) + " kt") : std::string("-");
-    const std::string trk_s = r.has_track ? (std::to_string(r.track) + " deg") : std::string("-");
+    const std::string gs_s  = r.has_gs ? (std::to_string(r.gs) + "kt") : std::string("-");
+    const std::string trk_s = r.has_track ? (std::to_string(r.track) + "\xC2\xB0") : std::string("-");
     const std::string rng_s = r.has_pos
-                                  ? (std::to_string(static_cast<long>(r.range_nm)) + " NM")
+                                  ? (std::to_string(static_cast<long>(r.range_nm)) + "NM")
                                   : std::string("-");
     const std::string brg_s = r.has_pos
-                                  ? (std::to_string(static_cast<long>(r.bearing_deg)) + " deg")
+                                  ? (std::to_string(static_cast<long>(r.bearing_deg)) + "\xC2\xB0")
+                                  : std::string("-");
+    // Decoded status messages from the squawk / flags.
+    std::string msg;
+    if (r.squawk == "7500")      msg = "HIJACK 7500";
+    else if (r.squawk == "7600") msg = "RADIO FAIL 7600";
+    else if (r.squawk == "7700") msg = "EMERGENCY 7700";
+    else if (r.emergency)        msg = "EMERGENCY";
+    if (r.on_ground) msg = msg.empty() ? "ON GROUND" : (msg + " / ON GROUND");
+    if (msg.empty()) msg = "nominal";
+    const std::string sig_s = r.has_rssi
+                                  ? (std::to_string(static_cast<long>(r.rssi)) + " dBFS")
                                   : std::string("-");
 
-    char buf[320];
+    char buf[360];
     std::snprintf(buf, sizeof(buf),
-                  "HEX  %s\n"
-                  "FLT  %s\n"
-                  "ALT  %s\n"
-                  "GS   %s\n"
-                  "TRK  %s\n"
-                  "SQK  %s%s\n"
-                  "CAT  %s\n"
-                  "RNG  %s\n"
-                  "BRG  %s\n"
-                  "SEEN %lds",
+                  "HEX %s\n"
+                  "FLT %s\n"
+                  "ALT %s\n"
+                  "GS  %s\n"
+                  "TRK %s\n"
+                  "SQK %s\n"
+                  "CAT %s\n"
+                  "RNG %s\n"
+                  "BRG %s\n"
+                  "SIG %s\n"
+                  "SEEN %lds\n"
+                  "MSG %s",
                   r.hex.c_str(),
                   r.flight.empty() ? "-" : r.flight.c_str(),
-                  alt_s.c_str(),
-                  gs_s.c_str(),
-                  trk_s.c_str(),
+                  alt_s.c_str(), gs_s.c_str(), trk_s.c_str(),
                   r.squawk.empty() ? "-" : r.squawk.c_str(),
-                  r.emergency ? "  !EMERGENCY" : "",
                   r.category.empty() ? "-" : r.category.c_str(),
-                  rng_s.c_str(),
-                  brg_s.c_str(),
-                  r.seen);
+                  rng_s.c_str(), brg_s.c_str(), sig_s.c_str(), r.seen, msg.c_str());
     lv_label_set_text(detail_label_, buf);
+
+    // ----- Right column: mini-radar of just the selected aircraft + its trail -----
+    if (!detail_canvas_) return;
+    uint16_t* b = detail_buf_.data();
+    const int w = kDetailRadarSize, h = kDetailRadarSize;
+    std::fill(detail_buf_.begin(), detail_buf_.end(), lv_color_to_u16(lv_color_black()));
+    const int cx = w / 2, cy = h / 2, rad = (std::min(w, h) / 2) - 3;
+    const uint16_t ring = lv_color_to_u16(lv_color_hex(0x224422));
+    const uint16_t north = lv_color_to_u16(lv_color_hex(0x66aa66));
+    const uint16_t home = lv_color_to_u16(lv_color_white());
+    const uint16_t ac = lv_color_to_u16(r.emergency ? lv_color_hex(0xff4040)
+                                                    : view::palette(false).primary);
+    plot_ring(b, w, h, cx, cy, rad / 2, ring);
+    plot_ring(b, w, h, cx, cy, rad, ring);
+    for (int y = cy - rad; y < cy - rad + 6; ++y) if (y >= 0 && y < h) b[y * w + cx] = north;
+    plot_disc(b, w, h, cx, cy, 2, home);
+
+    bool on_scope = false;
+    int dx = 0, dy = 0;
+    const double mnm = static_cast<double>(vm_.range_nm());
+    if (r.has_pos && toolkit::geo::project(config_.home, r.pos, mnm, rad, dx, dy)) {
+        const int px = cx + dx, py = cy + dy;
+        if (vm_.show_trails()) {
+            auto it = trails_.find(r.hex);
+            if (it != trails_.end() && it->second.size() >= 2) {
+                int pdx = 0, pdy = 0; bool hp = false;
+                for (const auto& p : it->second) {
+                    int tx = 0, ty = 0;
+                    if (!toolkit::geo::project(config_.home, p, mnm, rad, tx, ty)) { hp = false; continue; }
+                    if (hp) plot_line(b, w, h, cx + pdx, cy + pdy, cx + tx, cy + ty,
+                                      lv_color_to_u16(lv_color_hex(0xffffff)));
+                    pdx = tx; pdy = ty; hp = true;
+                }
+            }
+        }
+        if (r.has_track) {
+            const double t = static_cast<double>(r.track) * 3.14159265358979323846 / 180.0;
+            const int ex = px + static_cast<int>(std::lround(kHeadingVectorPx * std::sin(t)));
+            const int ey = py - static_cast<int>(std::lround(kHeadingVectorPx * std::cos(t)));
+            plot_line(b, w, h, px, py, ex, ey, ac);
+        }
+        plot_disc(b, w, h, px, py, 3, ac);
+        on_scope = true;
+
+        if (vm_.show_labels() && detail_radar_label_) {
+            const std::string call = r.flight.empty() ? r.hex : r.flight;
+            lv_label_set_text(detail_radar_label_, call.c_str());
+            lv_obj_remove_flag(detail_radar_label_, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_align_to(detail_radar_label_, detail_canvas_, LV_ALIGN_TOP_LEFT,
+                            px + 5, py - 7);
+        }
+    }
+    if ((!on_scope || !vm_.show_labels()) && detail_radar_label_) {
+        lv_obj_add_flag(detail_radar_label_, LV_OBJ_FLAG_HIDDEN);
+    }
+    lv_obj_invalidate(detail_canvas_);
 }
 
 void AdsbScreen::tick_cb(lv_timer_t* timer) {

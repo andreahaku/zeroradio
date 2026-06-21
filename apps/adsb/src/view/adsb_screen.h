@@ -100,6 +100,8 @@ private:
     lv_obj_t* radar_right_    = nullptr; // right side callsign list (Radar view)
     lv_obj_t* detail_box_     = nullptr;
     lv_obj_t* detail_label_   = nullptr;
+    lv_obj_t* detail_canvas_  = nullptr; // mini-radar of the selected aircraft
+    lv_obj_t* detail_radar_label_ = nullptr; // callsign overlay on the mini-radar
     lv_obj_t* settings_box_   = nullptr;
     lv_obj_t* settings_label_ = nullptr;
 
@@ -118,6 +120,8 @@ private:
 
     // PPI canvas backing store (RGB565).
     std::vector<uint16_t> ppi_buf_;
+    // Detail mini-radar backing store (RGB565).
+    std::vector<uint16_t> detail_buf_;
 
     const lv_font_t* font_small_ = nullptr;
     const lv_font_t* font_mono_  = nullptr;
