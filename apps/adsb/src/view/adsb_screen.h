@@ -99,8 +99,11 @@ private:
     lv_obj_t* radar_left_     = nullptr; // left side callsign list (Radar view)
     lv_obj_t* radar_right_    = nullptr; // right side callsign list (Radar view)
     lv_obj_t* detail_box_     = nullptr;
-    lv_obj_t* detail_label_   = nullptr; // field-name column
-    lv_obj_t* detail_values_  = nullptr; // value column (aligned)
+    lv_obj_t* detail_label_   = nullptr; // column A field names (bold)
+    lv_obj_t* detail_values_  = nullptr; // column A values
+    lv_obj_t* detail_names_b_ = nullptr; // column B field names (bold)
+    lv_obj_t* detail_values_b_ = nullptr; // column B values
+    lv_obj_t* detail_msg_     = nullptr; // decoded message line (full width, bottom)
     lv_obj_t* detail_canvas_  = nullptr; // mini-radar of the selected aircraft
     lv_obj_t* settings_box_   = nullptr;
     lv_obj_t* settings_label_ = nullptr;
@@ -122,6 +125,7 @@ private:
 
     const lv_font_t* font_small_ = nullptr;
     const lv_font_t* font_mono_  = nullptr;
+    const lv_font_t* font_bold_  = nullptr; // field-name labels (Detail)
 
     int last_view_ = -1;
     lv_timer_t* timer_ = nullptr;
