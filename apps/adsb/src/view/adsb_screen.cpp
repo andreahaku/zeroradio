@@ -625,7 +625,8 @@ void AdsbScreen::record_trails(const std::vector<Row>& rows) {
     // Append each aircraft's current position to its history and drop vanished
     // ones. Runs every tick (independent of the visible screen) so trails stay
     // current on both the radar and the Detail mini-radar.
-    const size_t cap = vm_.trail_len() > 0 ? static_cast<size_t>(vm_.trail_len()) : 1;
+    // trail_len 0 = "All" (don't expire); keep a safety cap so memory is bounded.
+    const size_t cap = vm_.trail_len() > 0 ? static_cast<size_t>(vm_.trail_len()) : 600;
     std::map<std::string, std::deque<toolkit::geo::LatLon>> kept;
     for (const auto& r : rows) {
         if (!r.has_pos) continue;
@@ -692,8 +693,7 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     // sorted order as the list) is shown with a larger dot ringed in white; scroll
     // it with the list keys to read each callsign in turn.
     const int sel = row_of(rows, vm_.selected_hex());
-    const size_t trail_cap = static_cast<size_t>(vm_.trail_len());
-    const bool trails_on = vm_.show_trails() && trail_cap > 0;
+    const bool trails_on = vm_.show_trails(); // length is the Trails setting; on/off is the key
 
     const uint16_t sel_ac_col = lv_color_to_u16(lv_color_hex(0xff9933));     // selected: orange
     const uint16_t trail_col = lv_color_to_u16(lv_color_hex(0x55aa55));      // others' trail: green
@@ -868,8 +868,7 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
     }
     // Compact trails indicator dot (top-left corner).
     plot_disc(b, w, h, 6, 6, 3,
-              lv_color_to_u16((vm_.show_trails() && vm_.trail_len() > 0) ? lv_color_hex(0x66cc66)
-                                                                        : lv_color_hex(0x3a3a3a)));
+              lv_color_to_u16(vm_.show_trails() ? lv_color_hex(0x66cc66) : lv_color_hex(0x3a3a3a)));
     lv_obj_invalidate(detail_canvas_);
 }
 

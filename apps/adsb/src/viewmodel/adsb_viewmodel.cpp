@@ -235,7 +235,7 @@ std::string AdsbViewModel::setting_value(int i) const {
         case 2: return std::to_string(static_cast<int>(ttl_seconds_)) + "s";
         case 3: return auto_range() ? std::string("AUTO")
                                     : (std::to_string(range_nm()) + "NM");
-        case 4: return trail_len_ == 0 ? std::string("Off") : std::to_string(trail_len_);
+        case 4: return trail_len_ == 0 ? std::string("All") : std::to_string(trail_len_);
         case 5: return show_ground_ ? "Show" : "Hide";
         case 6: return emergency_only_ ? "On" : "Off";
         default: return "";
@@ -249,7 +249,7 @@ void AdsbViewModel::load_settings() {
     if (!in) return;
     int ver = 0;
     if (!(in >> ver) || ver != 1) return;
-    int dark = 1, km = 0, ttl = 30, range = 5, trail = 30, ground = 1, emerg = 0;
+    int dark = 1, km = 0, ttl = 30, range = 5, trail = 60, ground = 1, emerg = 0;
     in >> dark >> km >> ttl >> range >> trail >> ground >> emerg;
     set_dark_mode(dark != 0);
     units_km_ = (km != 0);
