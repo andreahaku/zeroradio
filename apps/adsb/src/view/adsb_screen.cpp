@@ -169,8 +169,9 @@ void plot_line(uint16_t* buf, int w, int h, int x0, int y0, int x1, int y1, uint
     }
 }
 
-// Max retained trail points per aircraft (position history for the radar trails).
-constexpr size_t kMaxTrail = 12;
+// Distance helpers for the units setting (NM default, km optional).
+inline double to_unit(double nm, bool km) { return km ? nm * 1.852 : nm; }
+inline const char* dist_unit(bool km) { return km ? "km" : "NM"; }
 
 } // namespace
 
@@ -360,10 +361,10 @@ void AdsbScreen::build_content(lv_obj_t* content) {
         return l;
     };
     detail_label_    = mk(0,   0, fb, 0);   // column A names (bold)
-    detail_values_   = mk(30,  0, fr, 58);  // column A values
-    detail_names_b_  = mk(94,  0, fb, 0);   // column B names (bold)
-    detail_values_b_ = mk(122, 0, fr, 62);  // column B values
-    detail_msg_      = mk(0,  84, fb, 188); // decoded message line (wraps)
+    detail_values_   = mk(40,  0, fr, 52);  // column A values (clear of "SEEN")
+    detail_names_b_  = mk(98,  0, fb, 0);   // column B names (bold)
+    detail_values_b_ = mk(130, 0, fr, 56);  // column B values
+    detail_msg_      = mk(0, 104, fb, 190); // decoded message line (wraps), clear of SEEN
     lv_label_set_long_mode(detail_msg_, LV_LABEL_LONG_WRAP);
     // Static field names.
     lv_label_set_text(detail_label_,   "HEX\nFLT\nALT\nGS\nTRK\nSEEN");
@@ -379,16 +380,16 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     lv_obj_remove_flag(detail_canvas_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(detail_canvas_, LV_OBJ_FLAG_CLICKABLE);
 
-    // Settings view (static for now: a hint + the quit key).
+    // Settings view: a navigable list (filled in update_settings each tick).
     settings_box_ = lv_obj_create(body_);
     lv_obj_remove_style_all(settings_box_);
     lv_obj_set_size(settings_box_, LV_PCT(100), LV_PCT(100));
     lv_obj_align(settings_box_, LV_ALIGN_TOP_LEFT, 0, 0);
     lv_obj_clear_flag(settings_box_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_pad_all(settings_box_, 6, 0);
+    lv_obj_set_style_pad_row(settings_box_, 0, 0);
     settings_label_ = lv_label_create(settings_box_);
-    lv_label_set_text(settings_label_,
-                      "SETTINGS\n\nHome  45.46, 9.19\nUnits  NM\nTTL    30 s\n\n8: quit");
+    lv_label_set_text(settings_label_, "");
     lv_obj_set_style_text_font(settings_label_, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
     reactive::bind_theme(settings_label_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
     lv_obj_align(settings_label_, LV_ALIGN_TOP_LEFT, 0, 0);
@@ -453,6 +454,19 @@ std::vector<AdsbScreen::Row> AdsbScreen::build_rows() {
             r.bearing_deg = toolkit::geo::bearing_deg(config_.home, r.pos);
         }
         rows.push_back(std::move(r));
+    }
+
+    // Settings filters: hide on-ground traffic and/or show only emergencies.
+    const bool hide_ground = !vm_.show_ground();
+    const bool emerg_only = vm_.emergency_only();
+    if (hide_ground || emerg_only) {
+        rows.erase(std::remove_if(rows.begin(), rows.end(),
+                                  [&](const Row& r) {
+                                      if (emerg_only && !r.emergency) return true;
+                                      if (hide_ground && r.on_ground) return true;
+                                      return false;
+                                  }),
+                   rows.end());
     }
 
     // Sort per the viewmodel. Aircraft missing the sort field go last.
@@ -560,6 +574,7 @@ void AdsbScreen::update_list(const std::vector<Row>& rows) {
     list_row_colors_.assign(rows.size(), lv_color_white());
 
     const std::string& sel_hex = vm_.selected_hex();
+    const bool km = vm_.units_km();
     for (size_t i = 0; i < rows.size(); ++i) {
         const Row& r = rows[i];
         const uint32_t row = static_cast<uint32_t>(i);
@@ -575,7 +590,7 @@ void AdsbScreen::update_list(const std::vector<Row>& rows) {
         else             std::snprintf(gs_buf, sizeof(gs_buf), "-");
         if (r.has_track) std::snprintf(trk_buf, sizeof(trk_buf), "%ld", r.track);
         else             std::snprintf(trk_buf, sizeof(trk_buf), "-");
-        if (r.has_pos)   std::snprintf(rng_buf, sizeof(rng_buf), "%.0f", r.range_nm);
+        if (r.has_pos)   std::snprintf(rng_buf, sizeof(rng_buf), "%.0f", to_unit(r.range_nm, km));
         else             std::snprintf(rng_buf, sizeof(rng_buf), "-");
 
         // Mark the locked selection with a leading dot, emergency with "!".
@@ -633,11 +648,13 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     // Range-ring scale labels (NM) along the north axis: one per ring so the
     // scale is readable (the rings sit at 1/3, 2/3, full of the current range).
     const int ring_nm = vm_.range_nm();
+    const bool ring_km = vm_.units_km();
     const int ring_px[3] = {radius_px / 3, (radius_px * 2) / 3, radius_px};
     for (size_t i = 0; i < ppi_ring_labels_.size(); ++i) {
         lv_obj_t* lbl = ppi_ring_labels_[i];
         if (!lbl) continue;
-        lv_label_set_text_fmt(lbl, "%d", ring_nm * (static_cast<int>(i) + 1) / 3);
+        lv_label_set_text_fmt(lbl, "%.0f",
+                              to_unit(ring_nm * (static_cast<double>(i) + 1) / 3.0, ring_km));
         lv_obj_remove_flag(lbl, LV_OBJ_FLAG_HIDDEN);
         lv_obj_align(lbl, LV_ALIGN_CENTER, 4, -ring_px[i] + 6);
     }
@@ -648,7 +665,8 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     // sorted order as the list) is shown with a larger dot ringed in white; scroll
     // it with the list keys to read each callsign in turn.
     const int sel = row_of(rows, vm_.selected_hex());
-    const bool trails_on = vm_.show_trails();
+    const size_t trail_cap = static_cast<size_t>(vm_.trail_len());
+    const bool trails_on = vm_.show_trails() && trail_cap > 0;
 
     const uint16_t sel_ac_col = lv_color_to_u16(lv_color_hex(0xff9933));     // selected: orange
     const uint16_t trail_col = lv_color_to_u16(lv_color_hex(0x55aa55));      // others' trail: green
@@ -659,13 +677,14 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     // vanished aircraft, then (when enabled) draw the recent track of each. ---
     {
         std::map<std::string, std::deque<toolkit::geo::LatLon>> kept;
+        const size_t cap = trail_cap > 0 ? trail_cap : 1;
         for (const auto& r : rows) {
             if (!r.has_pos) continue;
             auto& hist = trails_[r.hex];
             if (hist.empty() || hist.back().lat != r.pos.lat || hist.back().lon != r.pos.lon) {
                 hist.push_back(r.pos);
-                if (hist.size() > kMaxTrail) hist.pop_front();
             }
+            while (hist.size() > cap) hist.pop_front();
             kept[r.hex] = std::move(hist);
         }
         trails_.swap(kept); // drop aircraft no longer present
@@ -762,9 +781,10 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
                                             : std::string("-");
     const std::string gs_s  = r.has_gs ? (std::to_string(r.gs) + "kt") : std::string("-");
     const std::string trk_s = r.has_track ? (std::to_string(r.track) + "\xC2\xB0") : std::string("-");
-    const std::string rng_s = r.has_pos
-                                  ? (std::to_string(static_cast<long>(r.range_nm)) + "NM")
-                                  : std::string("-");
+    const bool km = vm_.units_km();
+    const std::string rng_s =
+        r.has_pos ? (std::to_string(static_cast<long>(to_unit(r.range_nm, km))) + dist_unit(km))
+                  : std::string("-");
     const std::string brg_s = r.has_pos
                                   ? (std::to_string(static_cast<long>(r.bearing_deg)) + "\xC2\xB0")
                                   : std::string("-");
@@ -832,6 +852,22 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
     lv_obj_invalidate(detail_canvas_);
 }
 
+void AdsbScreen::update_settings() {
+    if (!settings_label_) {
+        return;
+    }
+    std::string s;
+    const int cur = vm_.settings_cursor();
+    for (int i = 0; i < vm_.settings_count(); ++i) {
+        s += (i == cur) ? "\xE2\x80\xBA " : "  "; // › cursor
+        s += vm_.setting_name(i);
+        s += ":  ";
+        s += vm_.setting_value(i);
+        s += "\n";
+    }
+    lv_label_set_text(settings_label_, s.c_str());
+}
+
 void AdsbScreen::tick_cb(lv_timer_t* timer) {
     auto* self = static_cast<AdsbScreen*>(lv_timer_get_user_data(timer));
     if (self) {
@@ -840,8 +876,8 @@ void AdsbScreen::tick_cb(lv_timer_t* timer) {
 }
 
 void AdsbScreen::tick() {
-    // Drop stale entries, then snapshot + sort.
-    store_.sweep(config_.ttl_seconds);
+    // Drop stale entries (TTL from settings), then snapshot + sort.
+    store_.sweep(vm_.ttl_seconds());
     const auto rows = build_rows();
 
     // Report the current sorted aircraft order so prev/next move by identity and
@@ -872,6 +908,7 @@ void AdsbScreen::tick() {
     }
 
     const int sel_row = row_of(rows, vm_.selected_hex());
+    const bool km = vm_.units_km();
 
     // Centre title: selected callsign + the value of the active sort field.
     if (header_title_) {
@@ -881,7 +918,9 @@ void AdsbScreen::tick() {
             char sv[16] = "";
             switch (static_cast<AdsbViewModel::Sort>(vm_.sort_mode())) {
                 case AdsbViewModel::Sort::Distance:
-                    if (r.has_pos) std::snprintf(sv, sizeof(sv), " %.0fNM", r.range_nm);
+                    if (r.has_pos)
+                        std::snprintf(sv, sizeof(sv), " %.0f%s", to_unit(r.range_nm, km),
+                                      dist_unit(km));
                     break;
                 case AdsbViewModel::Sort::Speed:
                     if (r.has_gs) std::snprintf(sv, sizeof(sv), " %ldkt", r.gs);
@@ -910,13 +949,14 @@ void AdsbScreen::tick() {
         char info[32];
         switch (static_cast<AdsbViewModel::Screen>(vm_.screen())) {
             case AdsbViewModel::Screen::Radar:
-                std::snprintf(info, sizeof(info), "%s%dNM", vm_.auto_range() ? "auto " : "",
-                              vm_.range_nm());
+                std::snprintf(info, sizeof(info), "%s%.0f%s", vm_.auto_range() ? "auto " : "",
+                              to_unit(vm_.range_nm(), km), dist_unit(km));
                 break;
             case AdsbViewModel::Screen::Detail:
                 if (sel_row >= 0 && rows[static_cast<size_t>(sel_row)].has_pos)
-                    std::snprintf(info, sizeof(info), "%.0fNM",
-                                  rows[static_cast<size_t>(sel_row)].range_nm);
+                    std::snprintf(info, sizeof(info), "%.0f%s",
+                                  to_unit(rows[static_cast<size_t>(sel_row)].range_nm, km),
+                                  dist_unit(km));
                 else
                     std::snprintf(info, sizeof(info), "detail");
                 break;
@@ -937,7 +977,7 @@ void AdsbScreen::tick() {
         case AdsbViewModel::Screen::List:   update_list(rows); break;
         case AdsbViewModel::Screen::Radar:  update_ppi(rows); break;
         case AdsbViewModel::Screen::Detail: update_detail(rows); break;
-        case AdsbViewModel::Screen::Settings: break; // static
+        case AdsbViewModel::Screen::Settings: update_settings(); break;
     }
 }
 

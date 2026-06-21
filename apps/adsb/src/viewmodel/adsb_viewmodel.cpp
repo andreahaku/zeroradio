@@ -6,10 +6,12 @@
 
 #include "adsb_viewmodel.h"
 
+#include "persisted_state.h"
 #include "ui_const.h"
 
 #include <algorithm>
 #include <array>
+#include <fstream>
 #include <iterator>
 
 namespace adsb {
@@ -40,6 +42,7 @@ int nice_range(double nm) {
 AdsbViewModel::AdsbViewModel() {
     set_nav_provider(this);
     set_title("ADSB");
+    load_settings();
 }
 
 int AdsbViewModel::screen() const {
@@ -170,6 +173,103 @@ void AdsbViewModel::set_visible_order(std::vector<std::string> order) {
     }
 }
 
+// ---------------- Settings ----------------
+
+bool   AdsbViewModel::units_km() const       { return units_km_; }
+double AdsbViewModel::ttl_seconds() const     { return ttl_seconds_; }
+int    AdsbViewModel::trail_len() const       { return trail_len_; }
+bool   AdsbViewModel::show_ground() const     { return show_ground_; }
+bool   AdsbViewModel::emergency_only() const  { return emergency_only_; }
+
+int AdsbViewModel::settings_count() const { return 7; }
+int AdsbViewModel::settings_cursor() const { return settings_cursor_; }
+
+void AdsbViewModel::settings_up() {
+    if (settings_cursor_ > 0) --settings_cursor_;
+}
+void AdsbViewModel::settings_down() {
+    if (settings_cursor_ + 1 < settings_count()) ++settings_cursor_;
+}
+
+void AdsbViewModel::settings_activate() {
+    switch (settings_cursor_) {
+        case 0: set_dark_mode(!is_dark_mode()); break;            // Theme
+        case 1: units_km_ = !units_km_; break;                    // Units
+        case 2: {                                                 // TTL
+            static const double kTtl[] = {15, 30, 60, 120};
+            int i = 0;
+            for (int k = 0; k < 4; ++k) if (ttl_seconds_ == kTtl[k]) i = k;
+            ttl_seconds_ = kTtl[(i + 1) % 4];
+            break;
+        }
+        case 3: {                                                 // Range default
+            const int next = (range_index() + 1) % 6; // 0..4 ladder + AUTO(5)
+            range_index_subject_.set(next);
+            bump_nav_refresh();
+            break;
+        }
+        case 4: {                                                 // Trails
+            static const int kTr[] = {0, 6, 12, 24};
+            int i = 0;
+            for (int k = 0; k < 4; ++k) if (trail_len_ == kTr[k]) i = k;
+            trail_len_ = kTr[(i + 1) % 4];
+            break;
+        }
+        case 5: show_ground_ = !show_ground_; break;              // Ground
+        case 6: emergency_only_ = !emergency_only_; break;        // Emergency only
+        default: break;
+    }
+    save_settings();
+}
+
+std::string AdsbViewModel::setting_name(int i) const {
+    static const char* kNames[] = {"Theme", "Units", "TTL", "Range",
+                                   "Trails", "Ground", "Emerg only"};
+    return (i >= 0 && i < settings_count()) ? kNames[i] : "";
+}
+
+std::string AdsbViewModel::setting_value(int i) const {
+    switch (i) {
+        case 0: return is_dark_mode() ? "Dark" : "Light";
+        case 1: return units_km_ ? "km" : "NM";
+        case 2: return std::to_string(static_cast<int>(ttl_seconds_)) + "s";
+        case 3: return auto_range() ? std::string("AUTO")
+                                    : (std::to_string(range_nm()) + "NM");
+        case 4: return trail_len_ == 0 ? std::string("Off") : std::to_string(trail_len_);
+        case 5: return show_ground_ ? "Show" : "Hide";
+        case 6: return emergency_only_ ? "On" : "Off";
+        default: return "";
+    }
+}
+
+void AdsbViewModel::load_settings() {
+    const auto path = toolkit::config_file("cardputer_radio/adsb", "settings");
+    if (path.empty()) return;
+    std::ifstream in(path);
+    if (!in) return;
+    int ver = 0;
+    if (!(in >> ver) || ver != 1) return;
+    int dark = 1, km = 0, ttl = 30, range = 5, trail = 12, ground = 1, emerg = 0;
+    in >> dark >> km >> ttl >> range >> trail >> ground >> emerg;
+    set_dark_mode(dark != 0);
+    units_km_ = (km != 0);
+    if (ttl > 0) ttl_seconds_ = ttl;
+    if (range >= 0 && range <= 5) range_index_subject_.set(range);
+    if (trail >= 0) trail_len_ = trail;
+    show_ground_ = (ground != 0);
+    emergency_only_ = (emerg != 0);
+}
+
+void AdsbViewModel::save_settings() const {
+    const auto path = toolkit::config_file("cardputer_radio/adsb", "settings");
+    if (!toolkit::ensure_parent_dir(path)) return;
+    std::ofstream out(path, std::ios::trunc);
+    if (!out) return;
+    out << 1 << ' ' << (is_dark_mode() ? 1 : 0) << ' ' << (units_km_ ? 1 : 0) << ' '
+        << static_cast<int>(ttl_seconds_) << ' ' << range_index() << ' ' << trail_len_
+        << ' ' << (show_ground_ ? 1 : 0) << ' ' << (emergency_only_ ? 1 : 0) << '\n';
+}
+
 int AdsbViewModel::nav_page_count() const {
     return 4; // List / Radar / Detail / Settings
 }
@@ -193,15 +293,15 @@ void AdsbViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
             out[4] = {"", false, false};                     // reserved
             break;
         case Screen::Detail:
-            out[1] = {view::ICON_CHART_LINE, false, true};   // trails on/off
-            out[2] = {"", false, false};                     // reserved
-            out[3] = {"", false, false};                     // reserved
+            out[1] = {view::ICON_PLUS, false, true};         // zoom in
+            out[2] = {view::ICON_MINUS, false, true};        // zoom out
+            out[3] = {view::ICON_CHART_LINE, false, true};   // trails on/off
             out[4] = {"", false, false};                     // reserved
             break;
         case Screen::Settings:
-            out[1] = {"", false, false};
-            out[2] = {"", false, false};
-            out[3] = {"", false, false};
+            out[1] = {view::ICON_CARET_UP, false, true};     // previous setting
+            out[2] = {view::ICON_CARET_DOWN, false, true};   // next setting
+            out[3] = {view::ICON_CHECK, false, true};        // change value
             out[4] = {view::ICON_SIGN_OUT, false, true};     // quit
             break;
     }
@@ -221,10 +321,15 @@ void AdsbViewModel::nav_activate(int page, int slot) {
             else if (slot == 3) toggle_trails();
             break;
         case Screen::Detail:
-            if (slot == 1) toggle_trails();
+            if (slot == 1) range_in();
+            else if (slot == 2) range_out();
+            else if (slot == 3) toggle_trails();
             break;
         case Screen::Settings:
-            if (slot == 4) request_quit();
+            if (slot == 1) settings_up();
+            else if (slot == 2) settings_down();
+            else if (slot == 3) settings_activate();
+            else if (slot == 4) request_quit();
             break;
     }
 }

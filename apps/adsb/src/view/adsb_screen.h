@@ -77,6 +77,7 @@ private:
     void update_list(const std::vector<Row>& rows);
     void update_ppi(const std::vector<Row>& rows);
     void update_detail(const std::vector<Row>& rows);
+    void update_settings();
     void show_view(int screen);
 
     AdsbViewModel& vm_;

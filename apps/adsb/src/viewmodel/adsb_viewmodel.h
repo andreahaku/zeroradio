@@ -65,6 +65,23 @@ public:
     // The screen reports the current sorted aircraft order (hexes) each tick.
     void set_visible_order(std::vector<std::string> order);
 
+    // --- Settings screen (navigable list: up/down move the cursor, "enter"
+    // cycles the focused value). Persisted across runs. ---
+    int  settings_count() const;
+    int  settings_cursor() const;
+    void settings_up();
+    void settings_down();
+    void settings_activate();      // cycle the focused setting's value
+    std::string setting_name(int i) const;
+    std::string setting_value(int i) const;
+
+    // Applied settings, read by the screen.
+    bool   units_km() const;
+    double ttl_seconds() const;
+    int    trail_len() const;      // 0 = trails off
+    bool   show_ground() const;
+    bool   emergency_only() const;
+
     // --- NavProvider ---
     int nav_page_count() const override;
     void nav_fill(int page, NavProvider::NavSlot out[5]) const override;
@@ -79,6 +96,16 @@ private:
     std::string selected_hex_;                // locked selection ("" = none)
     bool selection_init_done_{false};         // default-select the first aircraft once
     std::vector<std::string> visible_order_;  // sorted hexes reported by the screen
+
+    // Settings (persisted).
+    int    settings_cursor_{0};
+    bool   units_km_{false};
+    double ttl_seconds_{30.0};
+    int    trail_len_{12};
+    bool   show_ground_{true};
+    bool   emergency_only_{false};
+    void load_settings();
+    void save_settings() const;
 
     // Scratch buffer for the dynamic sort-mode NavBar label (List page slot 1).
     mutable std::string sort_label_;
