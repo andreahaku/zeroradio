@@ -432,3 +432,4 @@ target_link_libraries(radio_toolkit
 # apps
 # ====================================================
 add_subdirectory(apps/adsb)
+add_subdirectory(apps/sdr)
