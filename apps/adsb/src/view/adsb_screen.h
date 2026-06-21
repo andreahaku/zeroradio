@@ -92,6 +92,8 @@ private:
     // Pooled callsign labels overlaid on the PPI (positioned per aircraft each
     // tick; unused ones are hidden). Children of body_, so they sit on the canvas.
     std::vector<lv_obj_t*> ppi_labels_;
+    // Range-ring scale labels (NM at each ring), one per concentric ring.
+    std::vector<lv_obj_t*> ppi_ring_labels_;
 
     // PPI canvas backing store (RGB565).
     std::vector<uint16_t> ppi_buf_;

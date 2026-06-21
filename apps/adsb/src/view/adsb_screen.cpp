@@ -210,6 +210,20 @@ void AdsbScreen::build_content(lv_obj_t* content) {
         ppi_labels_.push_back(lbl);
     }
 
+    // Range-ring scale labels: one tiny NM label per concentric ring, dim so it
+    // reads as chrome. Positioned along the north axis in update_ppi.
+    ppi_ring_labels_.reserve(3);
+    for (int i = 0; i < 3; ++i) {
+        lv_obj_t* lbl = lv_label_create(body_);
+        lv_label_set_text(lbl, "");
+        lv_obj_set_style_text_font(lbl, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
+        lv_obj_set_style_text_color(lbl, lv_color_hex(0x7aa07a), 0);
+        lv_obj_add_flag(lbl, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_remove_flag(lbl, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_remove_flag(lbl, LV_OBJ_FLAG_CLICKABLE);
+        ppi_ring_labels_.push_back(lbl);
+    }
+
     // Detail view (all fields of the selected aircraft as label rows).
     detail_box_ = lv_obj_create(body_);
     lv_obj_remove_style_all(detail_box_);
@@ -243,6 +257,9 @@ void AdsbScreen::show_view(int view_mode) {
     // (update_ppi re-shows the ones it uses on each PPI tick).
     if (!ppi) {
         for (lv_obj_t* lbl : ppi_labels_) {
+            if (lbl) lv_obj_add_flag(lbl, LV_OBJ_FLAG_HIDDEN);
+        }
+        for (lv_obj_t* lbl : ppi_ring_labels_) {
             if (lbl) lv_obj_add_flag(lbl, LV_OBJ_FLAG_HIDDEN);
         }
     }
@@ -394,6 +411,18 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     // Home dot at the centre.
     plot_disc(buf, w, h, cx, cy, 2, home_col);
 
+    // Range-ring scale labels (NM) along the north axis: one per ring so the
+    // scale is readable (the rings sit at 1/3, 2/3, full of the current range).
+    const int ring_nm = vm_.range_nm();
+    const int ring_px[3] = {radius_px / 3, (radius_px * 2) / 3, radius_px};
+    for (size_t i = 0; i < ppi_ring_labels_.size(); ++i) {
+        lv_obj_t* lbl = ppi_ring_labels_[i];
+        if (!lbl) continue;
+        lv_label_set_text_fmt(lbl, "%d", ring_nm * (static_cast<int>(i) + 1) / 3);
+        lv_obj_remove_flag(lbl, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_align(lbl, LV_ALIGN_CENTER, 4, -ring_px[i] + 6);
+    }
+
     // One dot per positioned aircraft within range, with a heading vector. Only
     // the *selected* contact (and any emergency) gets a callsign label — labelling
     // every aircraft overlaps illegibly when the sky is busy. The selection (same
@@ -435,17 +464,30 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
             plot_disc(buf, w, h, px, py, 2, col);
         }
 
-        // Label only the selected contact and any emergency.
+        // Label only the selected contact and any emergency, with the callsign
+        // and (for the selection) its altitude on a second line.
         if ((is_sel || r.emergency) && label_i < ppi_labels_.size()) {
             lv_obj_t* lbl = ppi_labels_[label_i++];
-            const std::string call = r.flight.empty() ? r.hex : r.flight;
-            lv_label_set_text(lbl, call.c_str());
+            std::string txt = r.flight.empty() ? r.hex : r.flight;
+            if (is_sel) {
+                if (r.has_alt) {
+                    char altbuf[16];
+                    std::snprintf(altbuf, sizeof(altbuf), "\n%ldft", r.alt);
+                    txt += altbuf;
+                } else if (r.on_ground) {
+                    txt += "\ngrnd";
+                }
+            }
+            lv_label_set_text(lbl, txt.c_str());
+            lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_LEFT, 0);
             lv_obj_set_style_text_color(lbl, r.emergency ? lv_color_hex(0xff6060)
                                                          : lv_color_hex(0xffffff), 0);
             lv_obj_remove_flag(lbl, LV_OBJ_FLAG_HIDDEN);
             // Labels are centred on body_, which shares the canvas centre, so the
-            // (dx,dy) projection offset maps straight onto the dot.
-            lv_obj_align(lbl, LV_ALIGN_CENTER, dx + 5, dy - 7);
+            // (dx,dy) projection offset maps straight onto the dot. Flip the label
+            // to the left of the dot in the right half so it stays over the scope.
+            const int32_t off_x = (dx > 0) ? (dx - 28) : (dx + 5);
+            lv_obj_align(lbl, LV_ALIGN_CENTER, off_x, dy - 7);
         }
     }
 
