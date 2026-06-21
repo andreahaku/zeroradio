@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <limits>
 
 namespace adsb {
 namespace {
@@ -43,30 +44,52 @@ bool is_emergency_squawk(const std::string& squawk) {
     return squawk == "7500" || squawk == "7600" || squawk == "7700";
 }
 
-// Read a numeric JSON value as double, tolerating numbers and numeric strings.
+// Read a numeric JSON value as a finite double, tolerating numbers and numeric
+// strings. Rejects null, partial parses ("123junk") and non-finite ("nan"/"inf").
 bool read_number(const json& node, const char* key, double& out) {
     auto it = node.find(key);
-    if (it == node.end()) {
+    if (it == node.end() || it->is_null()) {
         return false;
     }
+
+    double v = 0.0;
     if (it->is_number()) {
-        out = it->get<double>();
-        return true;
-    }
-    if (it->is_string()) {
-        const std::string s = it->get<std::string>();
+        v = it->get<double>();
+    } else if (it->is_string()) {
+        const std::string s = trim(it->get<std::string>());
+        if (s.empty()) {
+            return false;
+        }
         try {
             size_t consumed = 0;
-            const double v = std::stod(s, &consumed);
-            if (consumed > 0) {
-                out = v;
-                return true;
+            v = std::stod(s, &consumed);
+            if (consumed != s.size()) {
+                return false; // trailing junk after the number
             }
         } catch (...) {
             return false;
         }
+    } else {
+        return false;
     }
-    return false;
+
+    if (!std::isfinite(v)) {
+        return false;
+    }
+    out = v;
+    return true;
+}
+
+// Safe double -> long long: guards the cast against non-finite / out-of-range
+// values (which would be undefined behaviour).
+bool to_ll(double v, long long& out) {
+    if (!std::isfinite(v) ||
+        v < static_cast<double>(std::numeric_limits<long long>::min()) ||
+        v > static_cast<double>(std::numeric_limits<long long>::max())) {
+        return false;
+    }
+    out = static_cast<long long>(v);
+    return true;
 }
 
 std::string read_string(const json& node, const char* key) {
@@ -128,14 +151,24 @@ std::vector<Aircraft> parse_aircraft_json(const std::string& json_text) {
             ac.track = std::fmod(std::fmod(track, 360.0) + 360.0, 360.0);
         }
 
-        // alt_baro may be a number or the string "ground".
+        // alt_baro may be a number, the string "ground", or absent. "ground" and
+        // "absent" are distinct states: on_ground vs unknown.
         auto alt_it = node.find("alt_baro");
-        if (alt_it != node.end()) {
+        if (alt_it != node.end() && !alt_it->is_null()) {
             if (alt_it->is_number()) {
-                ac.has_alt = true;
-                ac.alt_baro = alt_it->get<double>();
+                const double a = alt_it->get<double>();
+                if (std::isfinite(a)) {
+                    ac.has_alt = true;
+                    ac.alt_baro = a;
+                }
+            } else if (alt_it->is_string()) {
+                std::string a = trim(alt_it->get<std::string>());
+                std::transform(a.begin(), a.end(), a.begin(),
+                               [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                if (a == "ground") {
+                    ac.on_ground = true;
+                }
             }
-            // "ground" (or any non-numeric) -> has_alt stays false.
         }
 
         double gs = 0.0;
@@ -149,10 +182,15 @@ std::vector<Aircraft> parse_aircraft_json(const std::string& json_text) {
 
         double seen = 0.0;
         if (read_number(node, "seen", seen)) {
+            ac.has_seen = true;
             ac.seen = seen;
         }
 
-        ac.category = category_from_emitter(trim(read_string(node, "category")));
+        const std::string emitter = trim(read_string(node, "category"));
+        if (!emitter.empty()) {
+            ac.has_category = true;
+            ac.category = category_from_emitter(emitter);
+        }
 
         result.push_back(std::move(ac));
     }
@@ -162,34 +200,51 @@ std::vector<Aircraft> parse_aircraft_json(const std::string& json_text) {
 
 void apply_to_store(toolkit::EntityStore& store, const std::vector<Aircraft>& aircraft) {
     for (const auto& ac : aircraft) {
+        // EntityStore runs this patch and snapshot() under one mutex, so these
+        // multi-field updates are observed atomically by the UI thread.
         store.upsert(ac.hex, [&ac](toolkit::Entity& e) {
             if (ac.has_pos) {
                 e.has_pos = true;
                 e.pos.lat = ac.lat;
                 e.pos.lon = ac.lon;
             }
-            e.seen = ac.seen;
 
-            // Merge string fields (only overwrite the ones we actually have, so
-            // sparse updates accumulate like real ADS-B message types do).
+            // Sparse merge: only overwrite fields this message actually carried,
+            // so updates accumulate across ADS-B message types. Absent fields keep
+            // their last-known value; vanished aircraft are dropped by the TTL
+            // sweep (we don't retire individual fields when the feed omits them).
             if (!ac.flight.empty()) {
                 e.fields["flight"] = ac.flight;
             }
-            if (ac.has_alt) {
-                e.fields["alt"] = std::to_string(static_cast<long long>(ac.alt_baro));
+
+            long long ll = 0;
+            // Altitude and ground are distinct states; writing one clears the other.
+            if (ac.has_alt && to_ll(ac.alt_baro, ll)) {
+                e.fields["alt"] = std::to_string(ll);
+                e.fields.erase("on_ground");
+            } else if (ac.on_ground) {
+                e.fields["on_ground"] = "1";
+                e.fields.erase("alt");
             }
-            if (ac.has_gs) {
-                e.fields["gs"] = std::to_string(static_cast<long long>(ac.gs));
+            if (ac.has_gs && to_ll(ac.gs, ll)) {
+                e.fields["gs"] = std::to_string(ll);
             }
-            if (ac.has_track) {
-                e.fields["track"] = std::to_string(static_cast<long long>(ac.track));
+            if (ac.has_track && to_ll(ac.track, ll)) {
+                e.fields["track"] = std::to_string(ll);
             }
+            // Squawk and the derived emergency flag travel together, so a return
+            // to a normal code clears a previous 7500/7600/7700 alert.
             if (!ac.squawk.empty()) {
                 e.fields["squawk"] = ac.squawk;
+                e.fields["emergency"] = ac.emergency ? "1" : "0";
             }
-            e.fields["category"] = ac.category;
-            e.fields["emergency"] = ac.emergency ? "1" : "0";
-            e.fields["seen"] = std::to_string(static_cast<long long>(ac.seen));
+            if (ac.has_category) {
+                e.fields["category"] = ac.category;
+            }
+            if (ac.has_seen && to_ll(ac.seen, ll)) {
+                e.seen = ac.seen;
+                e.fields["seen"] = std::to_string(ll);
+            }
         });
     }
 }

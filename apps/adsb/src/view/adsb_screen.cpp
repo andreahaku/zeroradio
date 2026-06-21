@@ -260,6 +260,7 @@ std::vector<AdsbScreen::Row> AdsbScreen::build_rows() {
         r.has_pos = e.has_pos;
         r.pos = e.pos;
         r.alt = field_long(e, "alt", r.has_alt);
+        r.on_ground = !field_str(e, "on_ground").empty();
         r.gs = field_long(e, "gs", r.has_gs);
         r.track = field_long(e, "track", r.has_track);
         r.squawk = field_str(e, "squawk");
@@ -326,8 +327,9 @@ void AdsbScreen::update_list(const std::vector<Row>& rows) {
         char alt_buf[12];
         char gs_buf[12];
         char rng_buf[12];
-        if (r.has_alt) std::snprintf(alt_buf, sizeof(alt_buf), "%ldft", r.alt);
-        else           std::snprintf(alt_buf, sizeof(alt_buf), "grnd");
+        if (r.has_alt)        std::snprintf(alt_buf, sizeof(alt_buf), "%ldft", r.alt);
+        else if (r.on_ground) std::snprintf(alt_buf, sizeof(alt_buf), "grnd");
+        else                  std::snprintf(alt_buf, sizeof(alt_buf), "-");
         if (r.has_gs)  std::snprintf(gs_buf, sizeof(gs_buf), "%ldkt", r.gs);
         else           std::snprintf(gs_buf, sizeof(gs_buf), "-");
         if (r.has_pos) std::snprintf(rng_buf, sizeof(rng_buf), "%.0fNM", r.range_nm);
@@ -445,7 +447,9 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
     const Row& r = rows[static_cast<size_t>(sel)];
 
     // Build each value into a named string first to avoid dangling temporaries.
-    const std::string alt_s = r.has_alt ? (std::to_string(r.alt) + " ft") : std::string("ground");
+    const std::string alt_s = r.has_alt ? (std::to_string(r.alt) + " ft")
+                              : r.on_ground ? std::string("ground")
+                                            : std::string("-");
     const std::string gs_s  = r.has_gs ? (std::to_string(r.gs) + " kt") : std::string("-");
     const std::string trk_s = r.has_track ? (std::to_string(r.track) + " deg") : std::string("-");
     const std::string rng_s = r.has_pos

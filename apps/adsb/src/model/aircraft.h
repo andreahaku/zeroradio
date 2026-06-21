@@ -23,14 +23,17 @@ struct Aircraft {
     double lon{0.0};
     bool has_track{false};
     double track{0.0};        // degrees, for icon/heading
-    bool has_alt{false};
-    double alt_baro{0.0};     // ft; "ground" -> has_alt = false
+    bool has_alt{false};      // a numeric barometric altitude was reported
+    double alt_baro{0.0};     // ft (valid only when has_alt)
+    bool on_ground{false};    // alt_baro reported the string "ground" (distinct from unknown)
     bool has_gs{false};
     double gs{0.0};           // kt
-    std::string squawk;
-    double seen{0.0};         // age in seconds
+    std::string squawk;       // empty -> not reported in this message
+    bool has_seen{false};
+    double seen{0.0};         // age in seconds (valid only when has_seen)
+    bool has_category{false}; // the emitter "category" field was present
     std::string category;     // light/small/large/heavy/rotorcraft/other
-    bool emergency{false};    // squawk in {7500, 7600, 7700}
+    bool emergency{false};    // squawk in {7500, 7600, 7700} (only meaningful with squawk)
 };
 
 // Parse a dump1090 `aircraft.json` document into Aircraft records. Tolerant of

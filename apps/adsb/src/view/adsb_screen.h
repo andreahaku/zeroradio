@@ -49,6 +49,7 @@ private:
         toolkit::geo::LatLon pos{};
         bool has_alt{false};
         long alt{0};
+        bool on_ground{false};
         bool has_gs{false};
         long gs{0};
         bool has_track{false};
