@@ -73,7 +73,7 @@ private:
     std::vector<Row> build_rows();   // snapshot + sort per the viewmodel
     // Index in `rows` of the given hex, or -1 if absent/empty.
     int row_of(const std::vector<Row>& rows, const std::string& hex) const;
-    void update_header(int track_count, int signal_quality);
+    void update_header(int signal_quality);
     void update_list(const std::vector<Row>& rows);
     void update_ppi(const std::vector<Row>& rows);
     void update_detail(const std::vector<Row>& rows);
@@ -102,13 +102,9 @@ private:
     lv_obj_t* detail_label_   = nullptr; // field-name column
     lv_obj_t* detail_values_  = nullptr; // value column (aligned)
     lv_obj_t* detail_canvas_  = nullptr; // mini-radar of the selected aircraft
-    lv_obj_t* detail_radar_label_ = nullptr; // callsign overlay on the mini-radar
     lv_obj_t* settings_box_   = nullptr;
     lv_obj_t* settings_label_ = nullptr;
 
-    // Pooled callsign labels overlaid on the PPI (positioned per aircraft each
-    // tick; unused ones are hidden). Children of body_, so they sit on the canvas.
-    std::vector<lv_obj_t*> ppi_labels_;
     // Range-ring scale labels (NM at each ring), one per concentric ring.
     std::vector<lv_obj_t*> ppi_ring_labels_;
     // Per-row text colours for the list table (index 0 = header row).

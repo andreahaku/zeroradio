@@ -169,9 +169,6 @@ void plot_line(uint16_t* buf, int w, int h, int x0, int y0, int x1, int y1, uint
     }
 }
 
-// Max callsign labels overlaid on the PPI (one per visible aircraft, pooled).
-constexpr size_t kMaxPpiLabels = 16;
-
 // Max retained trail points per aircraft (position history for the radar trails).
 constexpr size_t kMaxTrail = 12;
 
@@ -214,17 +211,19 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     lv_obj_set_size(header_, LV_PCT(100), kHeaderHeight);
     lv_obj_clear_flag(header_, LV_OBJ_FLAG_SCROLLABLE);
 
+    // Left: one screen-relevant info (count / range / …), set per screen in tick.
+    header_count_ = lv_label_create(header_);
+    lv_label_set_text(header_count_, "");
+    lv_obj_set_style_text_font(header_count_, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
+    reactive::bind_theme(header_count_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
+    lv_obj_align(header_count_, LV_ALIGN_LEFT_MID, 4, 0);
+
+    // Centre: the selected aircraft (callsign + active-sort value).
     header_title_ = lv_label_create(header_);
     lv_label_set_text(header_title_, "ADSB");
     lv_obj_set_style_text_font(header_title_, font_mono_ ? font_mono_ : &lv_font_montserrat_12, 0);
     reactive::bind_theme(header_title_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
-    lv_obj_align(header_title_, LV_ALIGN_LEFT_MID, 4, 0);
-
-    header_count_ = lv_label_create(header_);
-    lv_label_set_text(header_count_, "0 trk");
-    lv_obj_set_style_text_font(header_count_, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
-    reactive::bind_theme(header_count_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
-    lv_obj_align(header_count_, LV_ALIGN_CENTER, -8, 0);
+    lv_obj_align(header_title_, LV_ALIGN_CENTER, 0, 0);
 
     // Signal-quality bar (strongest aircraft RSSI), like the SDR S-meter.
     sig_bar_ = lv_bar_create(header_);
@@ -307,21 +306,6 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     lv_obj_remove_flag(ppi_canvas_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(ppi_canvas_, LV_OBJ_FLAG_CLICKABLE);
 
-    // Callsign label pool overlaid on the PPI. Children of body_, centred like the
-    // canvas, so a (dx,dy) offset from the centre lands on the matching dot. The
-    // PPI background is always black, so the labels use a fixed light colour.
-    ppi_labels_.reserve(kMaxPpiLabels);
-    for (size_t i = 0; i < kMaxPpiLabels; ++i) {
-        lv_obj_t* lbl = lv_label_create(body_);
-        lv_label_set_text(lbl, "");
-        lv_obj_set_style_text_font(lbl, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
-        lv_obj_set_style_text_color(lbl, lv_color_hex(0xc8d6c8), 0);
-        lv_obj_add_flag(lbl, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_remove_flag(lbl, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_remove_flag(lbl, LV_OBJ_FLAG_CLICKABLE);
-        ppi_labels_.push_back(lbl);
-    }
-
     // Range-ring scale labels: one tiny NM label per concentric ring, dim so it
     // reads as chrome. Positioned along the north axis in update_ppi.
     ppi_ring_labels_.reserve(3);
@@ -384,13 +368,6 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     lv_obj_align(detail_canvas_, LV_ALIGN_RIGHT_MID, 0, 0);
     lv_obj_remove_flag(detail_canvas_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(detail_canvas_, LV_OBJ_FLAG_CLICKABLE);
-    detail_radar_label_ = lv_label_create(detail_box_);
-    lv_label_set_text(detail_radar_label_, "");
-    lv_obj_set_style_text_font(detail_radar_label_, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
-    lv_obj_set_style_text_color(detail_radar_label_, lv_color_hex(0xffffff), 0);
-    lv_obj_add_flag(detail_radar_label_, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_remove_flag(detail_radar_label_, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(detail_radar_label_, LV_OBJ_FLAG_CLICKABLE);
 
     // Settings view (static for now: a hint + the quit key).
     settings_box_ = lv_obj_create(body_);
@@ -429,9 +406,6 @@ void AdsbScreen::show_view(int screen) {
     // The PPI callsign labels only belong to the Radar view; hide them otherwise
     // (update_ppi re-shows the ones it uses on each Radar tick).
     if (!ppi) {
-        for (lv_obj_t* lbl : ppi_labels_) {
-            if (lbl) lv_obj_add_flag(lbl, LV_OBJ_FLAG_HIDDEN);
-        }
         for (lv_obj_t* lbl : ppi_ring_labels_) {
             if (lbl) lv_obj_add_flag(lbl, LV_OBJ_FLAG_HIDDEN);
         }
@@ -519,13 +493,9 @@ int AdsbScreen::row_of(const std::vector<Row>& rows, const std::string& hex) con
     return -1;
 }
 
-void AdsbScreen::update_header(int track_count, int signal_quality) {
-    if (header_count_) {
-        // "16 trk  auto 150NM" — the range readout shows the current outer ring,
-        // with an "auto" prefix when it is auto-fitting the traffic.
-        lv_label_set_text_fmt(header_count_, "%d trk  %s%dNM",
-                              track_count, vm_.auto_range() ? "auto " : "", vm_.range_nm());
-    }
+void AdsbScreen::update_header(int signal_quality) {
+    // The left info label and centre title are set in tick() (screen-dependent);
+    // here we only drive the signal bar and the connection dot.
     if (sig_bar_) {
         lv_bar_set_value(sig_bar_, signal_quality, LV_ANIM_OFF);
     }
@@ -668,12 +638,11 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     // sorted order as the list) is shown with a larger dot ringed in white; scroll
     // it with the list keys to read each callsign in turn.
     const int sel = row_of(rows, vm_.selected_hex());
-    const bool labels_on = vm_.show_labels();
     const bool trails_on = vm_.show_trails();
 
-    const uint16_t sel_col = lv_color_to_u16(lv_color_white());
-    const uint16_t trail_col = lv_color_to_u16(lv_color_hex(0x55aa55));      // visible trail
-    const uint16_t trail_sel_col = lv_color_to_u16(lv_color_hex(0xffffff));  // selected trail
+    const uint16_t sel_ac_col = lv_color_to_u16(lv_color_hex(0xff9933));     // selected: orange
+    const uint16_t trail_col = lv_color_to_u16(lv_color_hex(0x55aa55));      // others' trail: green
+    const uint16_t trail_sel_col = sel_ac_col;                              // selected trail: orange
     const double max_nm = static_cast<double>(vm_.range_nm());
 
     // --- Trails: append the current position to each aircraft's history, prune
@@ -711,7 +680,6 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
             }
         }
     }
-    size_t label_i = 0;
     for (size_t i = 0; i < rows.size(); ++i) {
         const Row& r = rows[i];
         if (!r.has_pos) continue;
@@ -723,44 +691,13 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
         const int px = cx + dx;
         const int py = cy + dy;
         const bool is_sel = (static_cast<int>(i) == sel);
-        const uint16_t col = r.emergency ? emg_col : ac_col;
+        // Colour: emergency red, selected orange, everyone else the primary green.
+        // The selected aircraft (and its trail) stand out by colour, not a ring.
+        const uint16_t col = r.emergency ? emg_col : (is_sel ? sel_ac_col : ac_col);
 
-        // The aircraft is an arrowhead pointing along its track (lines are now
-        // reserved for trails, so heading and trail no longer look alike). The
-        // selected contact is enlarged and ringed.
-        plot_aircraft(buf, w, h, px, py, r.has_track, r.track, col, is_sel ? 1.5f : 1.0f);
-        if (is_sel) plot_ring(buf, w, h, px, py, 8, sel_col);
-
-        // Label the selected contact and any emergency (when labels are on), with
-        // the callsign and (for the selection) its altitude on a second line.
-        if (labels_on && (is_sel || r.emergency) && label_i < ppi_labels_.size()) {
-            lv_obj_t* lbl = ppi_labels_[label_i++];
-            std::string txt = r.flight.empty() ? r.hex : r.flight;
-            if (is_sel) {
-                if (r.has_alt) {
-                    char altbuf[16];
-                    std::snprintf(altbuf, sizeof(altbuf), "\n%ldft", r.alt);
-                    txt += altbuf;
-                } else if (r.on_ground) {
-                    txt += "\ngrnd";
-                }
-            }
-            lv_label_set_text(lbl, txt.c_str());
-            lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_LEFT, 0);
-            lv_obj_set_style_text_color(lbl, r.emergency ? lv_color_hex(0xff6060)
-                                                         : lv_color_hex(0xffffff), 0);
-            lv_obj_remove_flag(lbl, LV_OBJ_FLAG_HIDDEN);
-            // Labels are centred on body_, which shares the canvas centre, so the
-            // (dx,dy) projection offset maps straight onto the dot. Flip the label
-            // to the left of the dot in the right half so it stays over the scope.
-            const int32_t off_x = (dx > 0) ? (dx - 28) : (dx + 5);
-            lv_obj_align(lbl, LV_ALIGN_CENTER, off_x, dy - 7);
-        }
-    }
-
-    // Hide any pool labels left unused this tick.
-    for (size_t i = label_i; i < ppi_labels_.size(); ++i) {
-        if (ppi_labels_[i]) lv_obj_add_flag(ppi_labels_[i], LV_OBJ_FLAG_HIDDEN);
+        // The aircraft is an arrowhead pointing along its track (lines are reserved
+        // for trails). The callsign now lives in the title, not on the scope.
+        plot_aircraft(buf, w, h, px, py, r.has_track, r.track, col, is_sel ? 1.6f : 1.0f);
     }
 
     // Side callsign lists (all aircraft), colour-coded, with the selection (●) and
@@ -804,7 +741,6 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
             std::fill(detail_buf_.begin(), detail_buf_.end(), lv_color_to_u16(lv_color_black()));
             lv_obj_invalidate(detail_canvas_);
         }
-        if (detail_radar_label_) lv_obj_add_flag(detail_radar_label_, LV_OBJ_FLAG_HIDDEN);
         return;
     }
     const Row& r = rows[static_cast<size_t>(sel)];
@@ -856,14 +792,14 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
     const uint16_t ring = lv_color_to_u16(lv_color_hex(0x224422));
     const uint16_t north = lv_color_to_u16(lv_color_hex(0x66aa66));
     const uint16_t home = lv_color_to_u16(lv_color_white());
+    // The selected aircraft is orange (red if emergency); its trail matches.
     const uint16_t ac = lv_color_to_u16(r.emergency ? lv_color_hex(0xff4040)
-                                                    : view::palette(false).primary);
+                                                    : lv_color_hex(0xff9933));
     plot_ring(b, w, h, cx, cy, rad / 2, ring);
     plot_ring(b, w, h, cx, cy, rad, ring);
     for (int y = cy - rad; y < cy - rad + 6; ++y) if (y >= 0 && y < h) b[y * w + cx] = north;
     plot_disc(b, w, h, cx, cy, 2, home);
 
-    bool on_scope = false;
     int dx = 0, dy = 0;
     const double mnm = static_cast<double>(vm_.range_nm());
     if (r.has_pos && toolkit::geo::project(config_.home, r.pos, mnm, rad, dx, dy)) {
@@ -875,31 +811,12 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
                 for (const auto& p : it->second) {
                     int tx = 0, ty = 0;
                     if (!toolkit::geo::project(config_.home, p, mnm, rad, tx, ty)) { hp = false; continue; }
-                    if (hp) plot_line(b, w, h, cx + pdx, cy + pdy, cx + tx, cy + ty,
-                                      lv_color_to_u16(lv_color_hex(0xffffff)));
+                    if (hp) plot_line(b, w, h, cx + pdx, cy + pdy, cx + tx, cy + ty, ac);
                     pdx = tx; pdy = ty; hp = true;
                 }
             }
         }
-        plot_aircraft(b, w, h, px, py, r.has_track, r.track, ac, 1.5f);
-        on_scope = true;
-
-        if (vm_.show_labels() && detail_radar_label_) {
-            const std::string call = r.flight.empty() ? r.hex : r.flight;
-            lv_label_set_text(detail_radar_label_, call.c_str());
-            lv_obj_remove_flag(detail_radar_label_, LV_OBJ_FLAG_HIDDEN);
-            // Flip the label to the left of the dot near the right edge so it isn't
-            // clipped (rough width estimate: ~7 px per character).
-            const int est_w = static_cast<int>(call.size()) * 7;
-            int off_x = px + 5;
-            if (off_x + est_w > kDetailRadarSize) off_x = px - est_w - 3;
-            if (off_x < 0) off_x = 0;
-            lv_obj_align_to(detail_radar_label_, detail_canvas_, LV_ALIGN_TOP_LEFT,
-                            off_x, py - 7);
-        }
-    }
-    if ((!on_scope || !vm_.show_labels()) && detail_radar_label_) {
-        lv_obj_add_flag(detail_radar_label_, LV_OBJ_FLAG_HIDDEN);
+        plot_aircraft(b, w, h, px, py, r.has_track, r.track, ac, 1.6f);
     }
     lv_obj_invalidate(detail_canvas_);
 }
@@ -943,7 +860,67 @@ void AdsbScreen::tick() {
         show_view(screen);
     }
 
-    update_header(static_cast<int>(rows.size()), signal_quality);
+    const int sel_row = row_of(rows, vm_.selected_hex());
+
+    // Centre title: selected callsign + the value of the active sort field.
+    if (header_title_) {
+        if (sel_row >= 0) {
+            const Row& r = rows[static_cast<size_t>(sel_row)];
+            const std::string call = r.flight.empty() ? r.hex : r.flight;
+            char sv[16] = "";
+            switch (static_cast<AdsbViewModel::Sort>(vm_.sort_mode())) {
+                case AdsbViewModel::Sort::Distance:
+                    if (r.has_pos) std::snprintf(sv, sizeof(sv), " %.0fNM", r.range_nm);
+                    break;
+                case AdsbViewModel::Sort::Speed:
+                    if (r.has_gs) std::snprintf(sv, sizeof(sv), " %ldkt", r.gs);
+                    break;
+                case AdsbViewModel::Sort::Alt:
+                    if (r.has_alt) std::snprintf(sv, sizeof(sv), " %ldft", r.alt);
+                    else if (r.on_ground) std::snprintf(sv, sizeof(sv), " grnd");
+                    break;
+                case AdsbViewModel::Sort::Track:
+                    if (r.has_track) std::snprintf(sv, sizeof(sv), " %ld\xC2\xB0", r.track);
+                    break;
+                case AdsbViewModel::Sort::Callsign:
+                default:
+                    break;
+            }
+            char t[48];
+            std::snprintf(t, sizeof(t), "%s%s", call.c_str(), sv);
+            lv_label_set_text(header_title_, t);
+        } else {
+            lv_label_set_text(header_title_, "ADSB");
+        }
+    }
+
+    // Left: one screen-relevant info.
+    if (header_count_) {
+        char info[32];
+        switch (static_cast<AdsbViewModel::Screen>(vm_.screen())) {
+            case AdsbViewModel::Screen::Radar:
+                std::snprintf(info, sizeof(info), "%s%dNM", vm_.auto_range() ? "auto " : "",
+                              vm_.range_nm());
+                break;
+            case AdsbViewModel::Screen::Detail:
+                if (sel_row >= 0 && rows[static_cast<size_t>(sel_row)].has_pos)
+                    std::snprintf(info, sizeof(info), "%.0fNM",
+                                  rows[static_cast<size_t>(sel_row)].range_nm);
+                else
+                    std::snprintf(info, sizeof(info), "detail");
+                break;
+            case AdsbViewModel::Screen::Settings:
+                std::snprintf(info, sizeof(info), "settings");
+                break;
+            case AdsbViewModel::Screen::List:
+            default:
+                std::snprintf(info, sizeof(info), "%d trk", static_cast<int>(rows.size()));
+                break;
+        }
+        lv_label_set_text(header_count_, info);
+    }
+
+    update_header(signal_quality);
 
     switch (static_cast<AdsbViewModel::Screen>(screen)) {
         case AdsbViewModel::Screen::List:   update_list(rows); break;

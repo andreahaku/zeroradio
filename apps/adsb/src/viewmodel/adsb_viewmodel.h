@@ -36,7 +36,6 @@ public:
     int range_index() const;
     bool auto_range() const;
     bool show_trails() const;    // draw position trails on the radar
-    bool show_labels() const;    // draw callsign labels on the radar
 
     // The screen reports the farthest in-range aircraft each tick (auto range).
     void set_observed_max_nm(double nm);
@@ -53,7 +52,6 @@ public:
     lv_subject_t* sort_mode_subject();
     lv_subject_t* range_index_subject();
     lv_subject_t* show_trails_subject();
-    lv_subject_t* show_labels_subject();
 
     // --- actions (wired to NavBar slots per page) ---
     void cycle_sort();           // callsign / distance / speed / alt / track
@@ -63,7 +61,6 @@ public:
     void range_in();             // zoom in  (smaller outer ring)
     void range_out();            // zoom out (larger outer ring, up to AUTO)
     void toggle_trails();
-    void toggle_labels();
 
     // The screen reports the current sorted aircraft order (hexes) each tick.
     void set_visible_order(std::vector<std::string> order);
@@ -77,7 +74,6 @@ private:
     reactive::IntSubject  sort_mode_subject_{static_cast<int>(Sort::Distance)};
     reactive::IntSubject  range_index_subject_{5}; // 0..4 manual ladder, 5 = AUTO
     reactive::BoolSubject show_trails_subject_{true};
-    reactive::BoolSubject show_labels_subject_{true};
     double observed_max_nm_{0.0};
     std::string cursor_hex_;                  // list highlight (up/down)
     std::string selected_hex_;                // locked selection ("" = none)
