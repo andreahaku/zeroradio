@@ -99,8 +99,6 @@ private:
     lv_obj_t* ppi_canvas_     = nullptr;
     lv_obj_t* radar_left_     = nullptr; // left side callsign list (Radar view)
     lv_obj_t* radar_right_    = nullptr; // right side callsign list (Radar view)
-    lv_obj_t* radar_trails_ind_  = nullptr; // "trails on/off" badge (Radar)
-    lv_obj_t* detail_trails_ind_ = nullptr; // "trails on/off" badge (Detail)
     lv_obj_t* detail_box_     = nullptr;
     lv_obj_t* detail_label_   = nullptr; // column A field names (bold)
     lv_obj_t* detail_values_  = nullptr; // column A values

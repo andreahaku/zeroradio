@@ -340,14 +340,6 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     radar_right_ = make_side(LV_ALIGN_TOP_RIGHT, -1);
     lv_obj_set_style_text_align(radar_right_, LV_TEXT_ALIGN_RIGHT, 0);
 
-    // Trails on/off badge in the top-left corner of the scope.
-    radar_trails_ind_ = lv_label_create(body_);
-    lv_label_set_text(radar_trails_ind_, "");
-    lv_obj_set_style_text_font(radar_trails_ind_, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
-    lv_obj_remove_flag(radar_trails_ind_, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(radar_trails_ind_, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_align(radar_trails_ind_, LV_ALIGN_CENTER, -kPpiSize / 2 + 2, -kPpiSize / 2 + 2);
-
     // Detail view (all fields of the selected aircraft as label rows).
     detail_box_ = lv_obj_create(body_);
     lv_obj_remove_style_all(detail_box_);
@@ -387,13 +379,6 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     lv_obj_align(detail_canvas_, LV_ALIGN_RIGHT_MID, 0, 0);
     lv_obj_remove_flag(detail_canvas_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(detail_canvas_, LV_OBJ_FLAG_CLICKABLE);
-    // Trails on/off badge in the mini-radar corner.
-    detail_trails_ind_ = lv_label_create(detail_box_);
-    lv_label_set_text(detail_trails_ind_, "");
-    lv_obj_set_style_text_font(detail_trails_ind_, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
-    lv_obj_remove_flag(detail_trails_ind_, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(detail_trails_ind_, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_align_to(detail_trails_ind_, detail_canvas_, LV_ALIGN_TOP_LEFT, 2, 2);
 
     // Settings view: a 2-column table (name | value) with the focused row
     // highlighted, matching the List screen's look.
@@ -435,7 +420,6 @@ void AdsbScreen::show_view(int screen) {
     if (ppi_canvas_)    lv_obj_set_flag(ppi_canvas_,    LV_OBJ_FLAG_HIDDEN, !ppi);
     if (radar_left_)    lv_obj_set_flag(radar_left_,    LV_OBJ_FLAG_HIDDEN, !ppi);
     if (radar_right_)   lv_obj_set_flag(radar_right_,   LV_OBJ_FLAG_HIDDEN, !ppi);
-    if (radar_trails_ind_) lv_obj_set_flag(radar_trails_ind_, LV_OBJ_FLAG_HIDDEN, !ppi);
     if (detail_box_)    lv_obj_set_flag(detail_box_,    LV_OBJ_FLAG_HIDDEN, !detail);
     if (settings_box_)  lv_obj_set_flag(settings_box_,  LV_OBJ_FLAG_HIDDEN, !settings);
 
@@ -780,11 +764,9 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
         lv_label_set_text(radar_right_, right.c_str());
     }
 
-    if (radar_trails_ind_) {
-        lv_label_set_text(radar_trails_ind_, trails_on ? "trails on" : "trails off");
-        lv_obj_set_style_text_color(radar_trails_ind_,
-                                    trails_on ? lv_color_hex(0x66cc66) : lv_color_hex(0x777777), 0);
-    }
+    // Compact trails indicator: a small dot in the top-left corner.
+    plot_disc(buf, w, h, 6, 6, 3,
+              lv_color_to_u16(trails_on ? lv_color_hex(0x66cc66) : lv_color_hex(0x3a3a3a)));
 
     lv_obj_invalidate(ppi_canvas_);
 }
@@ -792,12 +774,6 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
 void AdsbScreen::update_detail(const std::vector<Row>& rows) {
     if (!detail_label_) {
         return;
-    }
-    if (detail_trails_ind_) {
-        const bool on = vm_.show_trails() && vm_.trail_len() > 0;
-        lv_label_set_text(detail_trails_ind_, on ? "trails on" : "trails off");
-        lv_obj_set_style_text_color(detail_trails_ind_,
-                                    on ? lv_color_hex(0x66cc66) : lv_color_hex(0x777777), 0);
     }
     const int sel = row_of(rows, vm_.selected_hex());
     if (rows.empty() || sel < 0) {
@@ -886,6 +862,10 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
         }
         plot_aircraft(b, w, h, px, py, r.has_track, r.track, ac, 1.6f);
     }
+    // Compact trails indicator dot (top-left corner).
+    plot_disc(b, w, h, 6, 6, 3,
+              lv_color_to_u16((vm_.show_trails() && vm_.trail_len() > 0) ? lv_color_hex(0x66cc66)
+                                                                        : lv_color_hex(0x3a3a3a)));
     lv_obj_invalidate(detail_canvas_);
 }
 
