@@ -173,17 +173,27 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     lv_obj_clear_flag(body_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_pad_all(body_, 0, 0);
 
-    // List view (a single-column table; row text = "CALLSIGN ALT GS RNG").
+    // List view: a 5-column table — callsign / altitude / speed / track / distance
+    // — with a header row. Row 0 is the header, so data rows are 1..N.
     list_table_ = lv_table_create(body_);
     lv_obj_set_size(list_table_, LV_PCT(100), LV_PCT(100));
     lv_obj_align(list_table_, LV_ALIGN_TOP_LEFT, 0, 0);
-    lv_table_set_column_count(list_table_, 1);
-    lv_table_set_column_width(list_table_, 0, view::kScreenWidth);
+    lv_table_set_column_count(list_table_, 5);
+    lv_table_set_column_width(list_table_, 0, 92); // CALL
+    lv_table_set_column_width(list_table_, 1, 58); // ALT
+    lv_table_set_column_width(list_table_, 2, 48); // SPD
+    lv_table_set_column_width(list_table_, 3, 46); // TRK
+    lv_table_set_column_width(list_table_, 4, 60); // DST
     lv_obj_set_style_pad_all(list_table_, 1, LV_PART_ITEMS);
     lv_obj_set_style_border_width(list_table_, 0, 0);
-    if (font_mono_) {
-        lv_obj_set_style_text_font(list_table_, font_mono_, LV_PART_ITEMS);
+    if (font_small_) {
+        lv_obj_set_style_text_font(list_table_, font_small_, LV_PART_ITEMS);
     }
+    lv_table_set_cell_value(list_table_, 0, 0, "CALL");
+    lv_table_set_cell_value(list_table_, 0, 1, "ALT");
+    lv_table_set_cell_value(list_table_, 0, 2, "SPD");
+    lv_table_set_cell_value(list_table_, 0, 3, "TRK");
+    lv_table_set_cell_value(list_table_, 0, 4, "DST");
     lv_obj_remove_flag(list_table_, LV_OBJ_FLAG_CLICKABLE);
 
     // PPI view (RGB565 canvas, square, centred).
@@ -237,24 +247,40 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     reactive::bind_theme(detail_label_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
     lv_obj_align(detail_label_, LV_ALIGN_TOP_LEFT, 0, 0);
 
-    // Start on the viewmodel's current view.
-    show_view(vm_.view_mode());
+    // Settings view (static for now: a hint + the quit key).
+    settings_box_ = lv_obj_create(body_);
+    lv_obj_remove_style_all(settings_box_);
+    lv_obj_set_size(settings_box_, LV_PCT(100), LV_PCT(100));
+    lv_obj_align(settings_box_, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_obj_clear_flag(settings_box_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(settings_box_, 6, 0);
+    settings_label_ = lv_label_create(settings_box_);
+    lv_label_set_text(settings_label_,
+                      "SETTINGS\n\nHome  45.46, 9.19\nUnits  NM\nTTL    30 s\n\n8: quit");
+    lv_obj_set_style_text_font(settings_label_, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
+    reactive::bind_theme(settings_label_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
+    lv_obj_align(settings_label_, LV_ALIGN_TOP_LEFT, 0, 0);
+
+    // Start on the viewmodel's current screen.
+    show_view(vm_.screen());
 
     timer_ = lv_timer_create(tick_cb, kTickPeriodMs, this);
 }
 
-void AdsbScreen::show_view(int view_mode) {
-    last_view_ = view_mode;
-    const bool list   = (view_mode == static_cast<int>(AdsbViewModel::View::List));
-    const bool ppi    = (view_mode == static_cast<int>(AdsbViewModel::View::PPI));
-    const bool detail = (view_mode == static_cast<int>(AdsbViewModel::View::Detail));
+void AdsbScreen::show_view(int screen) {
+    last_view_ = screen;
+    const bool list     = (screen == static_cast<int>(AdsbViewModel::Screen::List));
+    const bool ppi      = (screen == static_cast<int>(AdsbViewModel::Screen::Radar));
+    const bool detail   = (screen == static_cast<int>(AdsbViewModel::Screen::Detail));
+    const bool settings = (screen == static_cast<int>(AdsbViewModel::Screen::Settings));
 
-    if (list_table_)  lv_obj_set_flag(list_table_,  LV_OBJ_FLAG_HIDDEN, !list);
-    if (ppi_canvas_)  lv_obj_set_flag(ppi_canvas_,  LV_OBJ_FLAG_HIDDEN, !ppi);
-    if (detail_box_)  lv_obj_set_flag(detail_box_,  LV_OBJ_FLAG_HIDDEN, !detail);
+    if (list_table_)    lv_obj_set_flag(list_table_,    LV_OBJ_FLAG_HIDDEN, !list);
+    if (ppi_canvas_)    lv_obj_set_flag(ppi_canvas_,    LV_OBJ_FLAG_HIDDEN, !ppi);
+    if (detail_box_)    lv_obj_set_flag(detail_box_,    LV_OBJ_FLAG_HIDDEN, !detail);
+    if (settings_box_)  lv_obj_set_flag(settings_box_,  LV_OBJ_FLAG_HIDDEN, !settings);
 
-    // The PPI callsign labels only belong to the PPI view; hide them otherwise
-    // (update_ppi re-shows the ones it uses on each PPI tick).
+    // The PPI callsign labels only belong to the Radar view; hide them otherwise
+    // (update_ppi re-shows the ones it uses on each Radar tick).
     if (!ppi) {
         for (lv_obj_t* lbl : ppi_labels_) {
             if (lbl) lv_obj_add_flag(lbl, LV_OBJ_FLAG_HIDDEN);
@@ -292,24 +318,41 @@ std::vector<AdsbScreen::Row> AdsbScreen::build_rows() {
         rows.push_back(std::move(r));
     }
 
-    // Sort per the viewmodel. Position-less aircraft sort last for range.
-    const int sort = vm_.sort_mode();
-    if (sort == static_cast<int>(AdsbViewModel::Sort::Range)) {
-        std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
-            if (a.has_pos != b.has_pos) return a.has_pos; // positioned first
-            return a.range_nm < b.range_nm;
-        });
-    } else if (sort == static_cast<int>(AdsbViewModel::Sort::Alt)) {
-        std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
-            if (a.has_alt != b.has_alt) return a.has_alt;
-            return a.alt > b.alt; // highest first
-        });
-    } else { // Callsign
-        std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
-            const std::string& ka = a.flight.empty() ? a.hex : a.flight;
-            const std::string& kb = b.flight.empty() ? b.hex : b.flight;
-            return ka < kb;
-        });
+    // Sort per the viewmodel. Aircraft missing the sort field go last.
+    const auto call_of = [](const Row& r) -> const std::string& {
+        return r.flight.empty() ? r.hex : r.flight;
+    };
+    switch (static_cast<AdsbViewModel::Sort>(vm_.sort_mode())) {
+        case AdsbViewModel::Sort::Distance:
+            std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
+                if (a.has_pos != b.has_pos) return a.has_pos; // positioned first
+                return a.range_nm < b.range_nm;               // nearest first
+            });
+            break;
+        case AdsbViewModel::Sort::Speed:
+            std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
+                if (a.has_gs != b.has_gs) return a.has_gs;
+                return a.gs > b.gs;                            // fastest first
+            });
+            break;
+        case AdsbViewModel::Sort::Alt:
+            std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
+                if (a.has_alt != b.has_alt) return a.has_alt;
+                return a.alt > b.alt;                          // highest first
+            });
+            break;
+        case AdsbViewModel::Sort::Track:
+            std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
+                if (a.has_track != b.has_track) return a.has_track;
+                return a.track < b.track;                      // 0..360
+            });
+            break;
+        case AdsbViewModel::Sort::Callsign:
+        default:
+            std::sort(rows.begin(), rows.end(), [&](const Row& a, const Row& b) {
+                return call_of(a) < call_of(b);
+            });
+            break;
     }
 
     return rows;
@@ -345,37 +388,43 @@ void AdsbScreen::update_list(const std::vector<Row>& rows) {
         return;
     }
 
-    lv_table_set_row_count(list_table_, rows.empty() ? 1 : static_cast<uint32_t>(rows.size()));
-    if (rows.empty()) {
-        lv_table_set_cell_value(list_table_, 0, 0, "  (no aircraft)");
-        return;
-    }
+    // Row 0 is the header; data rows are 1..N.
+    lv_table_set_row_count(list_table_, static_cast<uint32_t>(rows.size()) + 1);
 
     for (size_t i = 0; i < rows.size(); ++i) {
         const Row& r = rows[i];
+        const uint32_t row = static_cast<uint32_t>(i) + 1;
         char alt_buf[12];
         char gs_buf[12];
+        char trk_buf[8];
         char rng_buf[12];
-        if (r.has_alt)        std::snprintf(alt_buf, sizeof(alt_buf), "%ldft", r.alt);
+        if (r.has_alt)        std::snprintf(alt_buf, sizeof(alt_buf), "%ld", r.alt);
         else if (r.on_ground) std::snprintf(alt_buf, sizeof(alt_buf), "grnd");
         else                  std::snprintf(alt_buf, sizeof(alt_buf), "-");
-        if (r.has_gs)  std::snprintf(gs_buf, sizeof(gs_buf), "%ldkt", r.gs);
-        else           std::snprintf(gs_buf, sizeof(gs_buf), "-");
-        if (r.has_pos) std::snprintf(rng_buf, sizeof(rng_buf), "%.0fNM", r.range_nm);
-        else           std::snprintf(rng_buf, sizeof(rng_buf), "-");
+        if (r.has_gs)    std::snprintf(gs_buf, sizeof(gs_buf), "%ld", r.gs);
+        else             std::snprintf(gs_buf, sizeof(gs_buf), "-");
+        if (r.has_track) std::snprintf(trk_buf, sizeof(trk_buf), "%ld", r.track);
+        else             std::snprintf(trk_buf, sizeof(trk_buf), "-");
+        if (r.has_pos)   std::snprintf(rng_buf, sizeof(rng_buf), "%.0f", r.range_nm);
+        else             std::snprintf(rng_buf, sizeof(rng_buf), "-");
 
-        const std::string call = r.flight.empty() ? r.hex : r.flight;
-        char line[64];
-        std::snprintf(line, sizeof(line), "%s%-8s %-7s %-6s %s",
-                      r.emergency ? "! " : "  ",
-                      call.c_str(), alt_buf, gs_buf, rng_buf);
-        lv_table_set_cell_value(list_table_, static_cast<uint32_t>(i), 0, line);
+        const std::string call =
+            (r.emergency ? std::string("!") : std::string()) +
+            (r.flight.empty() ? r.hex : r.flight);
+        lv_table_set_cell_value(list_table_, row, 0, call.c_str());
+        lv_table_set_cell_value(list_table_, row, 1, alt_buf);
+        lv_table_set_cell_value(list_table_, row, 2, gs_buf);
+        lv_table_set_cell_value(list_table_, row, 3, trk_buf);
+        lv_table_set_cell_value(list_table_, row, 4, rng_buf);
     }
 
-    // Highlight the selected row (located by hex, stable across re-sorts).
-    int sel = selected_row(rows);
-    if (sel < 0) sel = 0;
-    lv_table_set_selected_cell(list_table_, static_cast<uint16_t>(sel), 0);
+    // Highlight the selected row (by hex). With nothing selected, park the
+    // highlight on the header row (row 0) so no aircraft looks selected.
+    const int sel = selected_row(rows);
+    const uint16_t hl = (sel >= 0 && !vm_.selected_hex().empty())
+                            ? static_cast<uint16_t>(sel + 1)
+                            : 0;
+    lv_table_set_selected_cell(list_table_, hl, 0);
 }
 
 void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
@@ -428,7 +477,8 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     // every aircraft overlaps illegibly when the sky is busy. The selection (same
     // sorted order as the list) is shown with a larger dot ringed in white; scroll
     // it with the list keys to read each callsign in turn.
-    const int sel = selected_row(rows);
+    const int sel = vm_.selected_hex().empty() ? -1 : selected_row(rows);
+    const bool labels_on = vm_.show_labels();
 
     const uint16_t vec_col = lv_color_to_u16(lv_color_hex(0x88cc88));
     const uint16_t sel_col = lv_color_to_u16(lv_color_white());
@@ -464,9 +514,9 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
             plot_disc(buf, w, h, px, py, 2, col);
         }
 
-        // Label only the selected contact and any emergency, with the callsign
-        // and (for the selection) its altitude on a second line.
-        if ((is_sel || r.emergency) && label_i < ppi_labels_.size()) {
+        // Label the selected contact and any emergency (when labels are on), with
+        // the callsign and (for the selection) its altitude on a second line.
+        if (labels_on && (is_sel || r.emergency) && label_i < ppi_labels_.size()) {
             lv_obj_t* lbl = ppi_labels_[label_i++];
             std::string txt = r.flight.empty() ? r.hex : r.flight;
             if (is_sel) {
@@ -503,13 +553,11 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
     if (!detail_label_) {
         return;
     }
-    if (rows.empty()) {
-        lv_label_set_text(detail_label_, "(no aircraft selected)");
+    const int sel = vm_.selected_hex().empty() ? -1 : selected_row(rows);
+    if (rows.empty() || sel < 0) {
+        lv_label_set_text(detail_label_, "(no aircraft selected)\n\nList: \xE2\x86\x91/\xE2\x86\x93 + select");
         return;
     }
-
-    int sel = selected_row(rows);
-    if (sel < 0) sel = 0;
     const Row& r = rows[static_cast<size_t>(sel)];
 
     // Build each value into a named string first to avoid dangling temporaries.
@@ -575,25 +623,19 @@ void AdsbScreen::tick() {
     vm_.set_visible_order(std::move(order));
     vm_.set_observed_max_nm(max_nm); // feeds the auto range (before header/PPI use it)
 
-    const int view_mode = vm_.view_mode();
-    if (view_mode != last_view_) {
-        show_view(view_mode);
+    const int screen = vm_.screen();
+    if (screen != last_view_) {
+        show_view(screen);
     }
 
     update_header(static_cast<int>(rows.size()));
 
-    if (view_mode == static_cast<int>(AdsbViewModel::View::List)) {
-        update_list(rows);
-    } else if (view_mode == static_cast<int>(AdsbViewModel::View::PPI)) {
-        update_ppi(rows);
-    } else {
-        update_detail(rows);
+    switch (static_cast<AdsbViewModel::Screen>(screen)) {
+        case AdsbViewModel::Screen::List:   update_list(rows); break;
+        case AdsbViewModel::Screen::Radar:  update_ppi(rows); break;
+        case AdsbViewModel::Screen::Detail: update_detail(rows); break;
+        case AdsbViewModel::Screen::Settings: break; // static
     }
-
-    // Status line: "ADSB  N trk  MOCK".
-    char status[48];
-    std::snprintf(status, sizeof(status), "ADSB  %d trk  MOCK", static_cast<int>(rows.size()));
-    vm_.set_subtitle(status);
 }
 
 } // namespace adsb

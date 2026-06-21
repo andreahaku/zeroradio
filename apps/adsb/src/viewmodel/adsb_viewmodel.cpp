@@ -19,25 +19,21 @@ namespace {
 // top that fits the outer ring to the farthest aircraft. range_in zooms toward
 // 50 NM; range_out widens up to AUTO (the default).
 constexpr std::array<int, 3> kRingLadder = {50, 100, 200};
-constexpr int kManualCount     = 3;            // ladder entries (0..2)
+constexpr int kManualCount     = 3;
 constexpr int kRangeStateCount = kManualCount + 1; // + AUTO (index 3)
 
-// Round an observed max range (NM) up to a tidy outer-ring value, with headroom.
+// Short labels for the sort modes (List page slot 1).
+constexpr std::array<const char*, AdsbViewModel::kSortCount> kSortLabels = {
+    "CALL", "DST", "SPD", "ALT", "TRK"};
+
 int nice_range(double nm) {
     static constexpr int kNice[] = {25, 50, 100, 150, 200, 300, 400, 500};
-    const double want = nm * 1.15; // ~15% headroom so dots aren't on the edge
+    const double want = nm * 1.15; // ~15% headroom
     for (int v : kNice) {
         if (static_cast<double>(v) >= want) return v;
     }
     return 500;
 }
-
-// Two tool pages drive the 5 keys (slot 0 / key 4 always cycles the page, as in
-// SDRTerminal — maximum flexibility). Slots 1..4 map to keys 5..8:
-//   Page 0 (view):  1 cycle view  2 cycle sort   3 range-      4 range+
-//   Page 1 (list):  1 select prev 2 select next  3 open detail 4 (reserved)
-enum class Page : int { View = 0, List = 1 };
-constexpr int kPageCount = 2;
 
 } // namespace
 
@@ -46,8 +42,9 @@ AdsbViewModel::AdsbViewModel() {
     set_title("ADSB");
 }
 
-int AdsbViewModel::view_mode() const {
-    return lv_subject_get_int(const_cast<lv_subject_t*>(view_mode_subject_.native()));
+int AdsbViewModel::screen() const {
+    return lv_subject_get_int(const_cast<lv_subject_t*>(
+        const_cast<AdsbViewModel*>(this)->toolbar_page_subject()));
 }
 
 int AdsbViewModel::sort_mode() const {
@@ -74,6 +71,14 @@ void AdsbViewModel::set_observed_max_nm(double nm) {
     observed_max_nm_ = nm < 0.0 ? 0.0 : nm;
 }
 
+bool AdsbViewModel::show_trails() const {
+    return lv_subject_get_int(const_cast<lv_subject_t*>(show_trails_subject_.native())) != 0;
+}
+
+bool AdsbViewModel::show_labels() const {
+    return lv_subject_get_int(const_cast<lv_subject_t*>(show_labels_subject_.native())) != 0;
+}
+
 const std::string& AdsbViewModel::selected_hex() const {
     return selected_hex_;
 }
@@ -82,42 +87,14 @@ void AdsbViewModel::set_selected_hex(std::string hex) {
     selected_hex_ = std::move(hex);
 }
 
-lv_subject_t* AdsbViewModel::view_mode_subject() {
-    return view_mode_subject_.native();
-}
-
-lv_subject_t* AdsbViewModel::sort_mode_subject() {
-    return sort_mode_subject_.native();
-}
-
-lv_subject_t* AdsbViewModel::range_index_subject() {
-    return range_index_subject_.native();
-}
-
-void AdsbViewModel::cycle_view() {
-    view_mode_subject_.set((view_mode() + 1) % 3);
-    bump_nav_refresh();
-}
+lv_subject_t* AdsbViewModel::sort_mode_subject()   { return sort_mode_subject_.native(); }
+lv_subject_t* AdsbViewModel::range_index_subject() { return range_index_subject_.native(); }
+lv_subject_t* AdsbViewModel::show_trails_subject() { return show_trails_subject_.native(); }
+lv_subject_t* AdsbViewModel::show_labels_subject() { return show_labels_subject_.native(); }
 
 void AdsbViewModel::cycle_sort() {
-    sort_mode_subject_.set((sort_mode() + 1) % 3);
-    bump_nav_refresh();
-}
-
-void AdsbViewModel::range_in() {
-    const int idx = range_index();
-    if (idx > 0) {
-        range_index_subject_.set(idx - 1);
-        bump_nav_refresh();
-    }
-}
-
-void AdsbViewModel::range_out() {
-    const int idx = range_index();
-    if (idx + 1 < kRangeStateCount) { // widen up to AUTO
-        range_index_subject_.set(idx + 1);
-        bump_nav_refresh();
-    }
+    sort_mode_subject_.set((sort_mode() + 1) % kSortCount);
+    bump_nav_refresh(); // the sort label changes
 }
 
 void AdsbViewModel::select_prev() {
@@ -143,64 +120,107 @@ void AdsbViewModel::select_next() {
     }
 }
 
-void AdsbViewModel::open_detail() {
-    view_mode_subject_.set(static_cast<int>(View::Detail));
-    bump_nav_refresh();
-}
-
-void AdsbViewModel::set_visible_order(std::vector<std::string> order) {
-    visible_order_ = std::move(order);
-    if (visible_order_.empty()) {
-        selected_hex_.clear();
-        return;
-    }
-    // Keep the current selection if it is still on screen; otherwise snap to the
-    // first (nearest, by the active sort) aircraft.
-    if (selected_hex_.empty() ||
-        std::find(visible_order_.begin(), visible_order_.end(), selected_hex_) ==
-            visible_order_.end()) {
+void AdsbViewModel::toggle_select() {
+    if (!selected_hex_.empty()) {
+        selected_hex_.clear(); // deselect
+    } else if (!visible_order_.empty()) {
         selected_hex_ = visible_order_.front();
     }
 }
 
+void AdsbViewModel::range_in() {
+    const int idx = range_index();
+    if (idx > 0) {
+        range_index_subject_.set(idx - 1);
+        bump_nav_refresh();
+    }
+}
+
+void AdsbViewModel::range_out() {
+    const int idx = range_index();
+    if (idx + 1 < kRangeStateCount) {
+        range_index_subject_.set(idx + 1);
+        bump_nav_refresh();
+    }
+}
+
+void AdsbViewModel::toggle_trails() {
+    show_trails_subject_.set(!show_trails());
+}
+
+void AdsbViewModel::toggle_labels() {
+    show_labels_subject_.set(!show_labels());
+}
+
+void AdsbViewModel::set_visible_order(std::vector<std::string> order) {
+    visible_order_ = std::move(order);
+    // Drop the selection if its aircraft is gone; never auto-select (deselected
+    // is a valid state).
+    if (!selected_hex_.empty() &&
+        std::find(visible_order_.begin(), visible_order_.end(), selected_hex_) ==
+            visible_order_.end()) {
+        selected_hex_.clear();
+    }
+}
+
 int AdsbViewModel::nav_page_count() const {
-    return kPageCount;
+    return 4; // List / Radar / Detail / Settings
 }
 
 void AdsbViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
-    // Slot 0 is overridden by the NavBar (page number); we still fill it for
-    // clarity but its text is ignored.
-    out[0] = {"#", true, true};
-    if (page == static_cast<int>(Page::List)) {
-        out[1] = {view::ICON_CARET_LEFT, false, true};   // select previous
-        out[2] = {view::ICON_CARET_RIGHT, false, true};  // select next
-        out[3] = {view::ICON_INFO, false, true};         // open detail of selection
-        out[4] = {"", false, false};                     // reserved (filters later)
-    } else { // Page::View
-        out[1] = {view::ICON_MODE, false, true};   // cycle view
-        out[2] = {view::ICON_BAND, false, true};   // cycle sort
-        out[3] = {view::ICON_MINUS, false, true};  // range- (smaller outer ring)
-        out[4] = {view::ICON_PLUS, false, true};   // range+ (larger outer ring)
+    out[0] = {"#", true, true}; // page number (text overridden by the NavBar)
+    switch (static_cast<Screen>(page)) {
+        case Screen::List: {
+            const int s = sort_mode();
+            sort_label_ = kSortLabels[s >= 0 && s < kSortCount ? s : 0];
+            out[1] = {sort_label_.c_str(), true, true};      // cycle sort (shows mode)
+            out[2] = {view::ICON_CARET_LEFT, false, true};   // up (previous)
+            out[3] = {view::ICON_CARET_RIGHT, false, true};  // down (next)
+            out[4] = {view::ICON_INFO, false, true};         // select / deselect
+            break;
+        }
+        case Screen::Radar:
+            out[1] = {view::ICON_PLUS, false, true};         // zoom in
+            out[2] = {view::ICON_MINUS, false, true};        // zoom out
+            out[3] = {view::ICON_GRID_TIME, false, true};    // trails on/off
+            out[4] = {view::ICON_GRID_FREQ, false, true};    // labels on/off
+            break;
+        case Screen::Detail:
+            out[1] = {view::ICON_GRID_TIME, false, true};    // trails on/off
+            out[2] = {view::ICON_GRID_FREQ, false, true};    // labels on/off
+            out[3] = {"", false, false};                     // reserved
+            out[4] = {"", false, false};                     // reserved
+            break;
+        case Screen::Settings:
+            out[1] = {"", false, false};
+            out[2] = {"", false, false};
+            out[3] = {"", false, false};
+            out[4] = {view::ICON_SIGN_OUT, false, true};     // quit
+            break;
     }
 }
 
 void AdsbViewModel::nav_activate(int page, int slot) {
-    if (page == static_cast<int>(Page::List)) {
-        switch (slot) {
-            case 1: select_prev(); break;
-            case 2: select_next(); break;
-            case 3: open_detail(); break;
-            default: break;
-        }
-        return;
-    }
-    // Page::View
-    switch (slot) {
-        case 1: cycle_view(); break;
-        case 2: cycle_sort(); break;
-        case 3: range_in(); break;
-        case 4: range_out(); break;
-        default: break;
+    switch (static_cast<Screen>(page)) {
+        case Screen::List:
+            if (slot == 1) cycle_sort();
+            else if (slot == 2) select_prev();
+            else if (slot == 3) select_next();
+            else if (slot == 4) toggle_select();
+            break;
+        case Screen::Radar:
+            if (slot == 1) range_in();
+            else if (slot == 2) range_out();
+            else if (slot == 3) toggle_trails();
+            else if (slot == 4) toggle_labels();
+            break;
+        case Screen::Detail:
+            if (slot == 1) toggle_trails();
+            else if (slot == 2) toggle_labels();
+            break;
+        case Screen::Settings:
+            if (slot == 4) request_quit();
+            break;
     }
 }
 
