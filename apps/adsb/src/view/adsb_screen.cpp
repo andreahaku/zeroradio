@@ -48,6 +48,17 @@ std::string field_str(const toolkit::Entity& e, const char* key) {
     return it != e.fields.end() ? it->second : std::string{};
 }
 
+// Text colour encoding the aircraft category (emergency overrides to red).
+lv_color_t category_color(const std::string& category, bool emergency) {
+    if (emergency) return lv_color_hex(0xff5050);
+    if (category == "light")      return lv_color_hex(0x6fd66f); // green
+    if (category == "small")      return lv_color_hex(0x66ccff); // cyan
+    if (category == "large")      return lv_color_hex(0x4d9fff); // blue
+    if (category == "heavy")      return lv_color_hex(0xffb347); // orange
+    if (category == "rotorcraft") return lv_color_hex(0xc792ea); // purple
+    return lv_color_hex(0xc8c8c8);                               // other/unknown: grey
+}
+
 // Plot a filled disc of `r` px around (cx, cy) in the RGB565 buffer.
 void plot_disc(uint16_t* buf, int w, int h, int cx, int cy, int r, uint16_t color) {
     for (int dy = -r; dy <= r; ++dy) {
@@ -204,6 +215,9 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     lv_table_set_cell_value(list_table_, 0, 3, "TRK");
     lv_table_set_cell_value(list_table_, 0, 4, "DST");
     lv_obj_remove_flag(list_table_, LV_OBJ_FLAG_CLICKABLE);
+    // Per-row colouring (category / emergency) via the draw-task event.
+    lv_obj_add_event_cb(list_table_, list_draw_event_cb, LV_EVENT_DRAW_TASK_ADDED, this);
+    lv_obj_add_flag(list_table_, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
 
     // PPI view (RGB565 canvas, square, centred).
     ppi_canvas_ = lv_canvas_create(body_);
@@ -401,6 +415,25 @@ void AdsbScreen::update_header(int track_count, int signal_quality) {
     }
 }
 
+void AdsbScreen::list_draw_event_cb(lv_event_t* event) {
+    auto* self = static_cast<AdsbScreen*>(lv_event_get_user_data(event));
+    auto* task = lv_event_get_draw_task(event);
+    if (!self || !task || lv_draw_task_get_type(task) != LV_DRAW_TASK_TYPE_LABEL) {
+        return;
+    }
+    auto* ldsc = lv_draw_task_get_label_dsc(task);
+    if (!ldsc) {
+        return;
+    }
+    const uint32_t row = ldsc->base.id1; // table row index
+    if (row == 0) {
+        return; // header row: keep the theme colour
+    }
+    if (row < self->list_row_colors_.size()) {
+        ldsc->color = self->list_row_colors_[row];
+    }
+}
+
 void AdsbScreen::update_list(const std::vector<Row>& rows) {
     if (!list_table_) {
         return;
@@ -409,9 +442,13 @@ void AdsbScreen::update_list(const std::vector<Row>& rows) {
     // Row 0 is the header; data rows are 1..N.
     lv_table_set_row_count(list_table_, static_cast<uint32_t>(rows.size()) + 1);
 
+    // Per-row colours (index 0 = header, kept default).
+    list_row_colors_.assign(rows.size() + 1, lv_color_white());
+
     for (size_t i = 0; i < rows.size(); ++i) {
         const Row& r = rows[i];
         const uint32_t row = static_cast<uint32_t>(i) + 1;
+        list_row_colors_[row] = category_color(r.category, r.emergency);
         char alt_buf[12];
         char gs_buf[12];
         char trk_buf[8];

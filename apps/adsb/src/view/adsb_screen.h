@@ -40,6 +40,9 @@ protected:
 private:
     static void tick_cb(lv_timer_t* timer);
     void tick();
+    // Per-row text colour for the list table (category / emergency), applied via
+    // the table's draw-task event. Index 0 is the header row (left default).
+    static void list_draw_event_cb(lv_event_t* event);
 
     // A compact, sorted view row built from the store snapshot each tick.
     struct Row {
@@ -99,6 +102,8 @@ private:
     std::vector<lv_obj_t*> ppi_labels_;
     // Range-ring scale labels (NM at each ring), one per concentric ring.
     std::vector<lv_obj_t*> ppi_ring_labels_;
+    // Per-row text colours for the list table (index 0 = header row).
+    std::vector<lv_color_t> list_row_colors_;
 
     // PPI canvas backing store (RGB565).
     std::vector<uint16_t> ppi_buf_;
