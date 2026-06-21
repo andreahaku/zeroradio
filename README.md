@@ -20,7 +20,8 @@ apps/
 - **`adsb_app`**: dump1090 `aircraft.json` viewer with **four screens** cycled by one key — **List**
   (colour-coded sortable table), **Radar** (north-up scope: aircraft as heading arrows, range rings, side
   callsign lists, position trails), **Detail** (selected aircraft fields + decoded ADS-B status + a
-  per-aircraft mini-radar), and **Settings** (units, TTL, range, trails, filters, theme — persisted).
+  mini-radar with the same scope as Radar — rings, NM labels and all traffic, selected one highlighted),
+  and **Settings** (units, TTL, range, trails, filters, theme — persisted).
   Hex-stable selection, auto-range, an RSSI signal bar, and a configurable home. Runs on a bundled mock
   `aircraft.json` (no dongle) or a live dump1090 feed.
 - **`sdr_app`**: SDR receiver ported from `../SDRTerminal` onto the toolkit — FFT line chart + scrolling
