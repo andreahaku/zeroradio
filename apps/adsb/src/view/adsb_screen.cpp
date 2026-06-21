@@ -383,12 +383,21 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     // Home dot at the centre.
     plot_disc(buf, w, h, cx, cy, 2, home_col);
 
-    // One dot per positioned aircraft within range, with a heading vector and a
-    // pooled callsign label overlaid.
+    // One dot per positioned aircraft within range, with a heading vector. Only
+    // the *selected* contact (and any emergency) gets a callsign label — labelling
+    // every aircraft overlaps illegibly when the sky is busy. The selection (same
+    // sorted order as the list) is shown with a larger dot ringed in white; scroll
+    // it with the list keys to read each callsign in turn.
+    int sel = vm_.selected_index();
+    if (sel >= static_cast<int>(rows.size())) sel = static_cast<int>(rows.size()) - 1;
+    if (sel < 0) sel = 0;
+
     const uint16_t vec_col = lv_color_to_u16(lv_color_hex(0x88cc88));
+    const uint16_t sel_col = lv_color_to_u16(lv_color_white());
     const double max_nm = static_cast<double>(vm_.range_nm());
     size_t label_i = 0;
-    for (const auto& r : rows) {
+    for (size_t i = 0; i < rows.size(); ++i) {
+        const Row& r = rows[i];
         if (!r.has_pos) continue;
         int dx = 0;
         int dy = 0;
@@ -397,6 +406,7 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
         }
         const int px = cx + dx;
         const int py = cy + dy;
+        const bool is_sel = (static_cast<int>(i) == sel);
         const uint16_t col = r.emergency ? emg_col : ac_col;
 
         // Heading vector: a short line from the dot along the reported track
@@ -408,15 +418,21 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
             plot_line(buf, w, h, px, py, ex, ey, r.emergency ? emg_col : vec_col);
         }
 
-        plot_disc(buf, w, h, px, py, 2, col);
+        if (is_sel) {
+            // Selected contact: brighter, larger, ringed so it stands out.
+            plot_disc(buf, w, h, px, py, 3, col);
+            plot_ring(buf, w, h, px, py, 5, sel_col);
+        } else {
+            plot_disc(buf, w, h, px, py, 2, col);
+        }
 
-        // Callsign label next to the dot (offset so it does not cover it).
-        if (label_i < ppi_labels_.size()) {
+        // Label only the selected contact and any emergency.
+        if ((is_sel || r.emergency) && label_i < ppi_labels_.size()) {
             lv_obj_t* lbl = ppi_labels_[label_i++];
             const std::string call = r.flight.empty() ? r.hex : r.flight;
             lv_label_set_text(lbl, call.c_str());
             lv_obj_set_style_text_color(lbl, r.emergency ? lv_color_hex(0xff6060)
-                                                         : lv_color_hex(0xc8d6c8), 0);
+                                                         : lv_color_hex(0xffffff), 0);
             lv_obj_remove_flag(lbl, LV_OBJ_FLAG_HIDDEN);
             // Labels are centred on body_, which shares the canvas centre, so the
             // (dx,dy) projection offset maps straight onto the dot.
