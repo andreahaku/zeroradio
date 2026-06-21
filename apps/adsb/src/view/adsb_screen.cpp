@@ -340,6 +340,14 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     radar_right_ = make_side(LV_ALIGN_TOP_RIGHT, -1);
     lv_obj_set_style_text_align(radar_right_, LV_TEXT_ALIGN_RIGHT, 0);
 
+    // Trails on/off badge in the top-left corner of the scope.
+    radar_trails_ind_ = lv_label_create(body_);
+    lv_label_set_text(radar_trails_ind_, "");
+    lv_obj_set_style_text_font(radar_trails_ind_, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
+    lv_obj_remove_flag(radar_trails_ind_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(radar_trails_ind_, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_align(radar_trails_ind_, LV_ALIGN_CENTER, -kPpiSize / 2 + 2, -kPpiSize / 2 + 2);
+
     // Detail view (all fields of the selected aircraft as label rows).
     detail_box_ = lv_obj_create(body_);
     lv_obj_remove_style_all(detail_box_);
@@ -379,20 +387,36 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     lv_obj_align(detail_canvas_, LV_ALIGN_RIGHT_MID, 0, 0);
     lv_obj_remove_flag(detail_canvas_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(detail_canvas_, LV_OBJ_FLAG_CLICKABLE);
+    // Trails on/off badge in the mini-radar corner.
+    detail_trails_ind_ = lv_label_create(detail_box_);
+    lv_label_set_text(detail_trails_ind_, "");
+    lv_obj_set_style_text_font(detail_trails_ind_, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
+    lv_obj_remove_flag(detail_trails_ind_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(detail_trails_ind_, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_align_to(detail_trails_ind_, detail_canvas_, LV_ALIGN_TOP_LEFT, 2, 2);
 
-    // Settings view: a navigable list (filled in update_settings each tick).
+    // Settings view: a 2-column table (name | value) with the focused row
+    // highlighted, matching the List screen's look.
     settings_box_ = lv_obj_create(body_);
     lv_obj_remove_style_all(settings_box_);
     lv_obj_set_size(settings_box_, LV_PCT(100), LV_PCT(100));
     lv_obj_align(settings_box_, LV_ALIGN_TOP_LEFT, 0, 0);
     lv_obj_clear_flag(settings_box_, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_pad_all(settings_box_, 6, 0);
-    lv_obj_set_style_pad_row(settings_box_, 0, 0);
-    settings_label_ = lv_label_create(settings_box_);
-    lv_label_set_text(settings_label_, "");
-    lv_obj_set_style_text_font(settings_label_, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
-    reactive::bind_theme(settings_label_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
-    lv_obj_align(settings_label_, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_obj_set_style_pad_all(settings_box_, 0, 0);
+
+    settings_table_ = lv_table_create(settings_box_);
+    lv_obj_set_size(settings_table_, LV_PCT(100), LV_PCT(100));
+    lv_obj_align(settings_table_, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_table_set_column_count(settings_table_, 2);
+    lv_table_set_column_width(settings_table_, 0, 150); // name
+    lv_table_set_column_width(settings_table_, 1, 158); // value
+    lv_obj_set_style_pad_ver(settings_table_, 3, LV_PART_ITEMS);
+    lv_obj_set_style_pad_hor(settings_table_, 8, LV_PART_ITEMS);
+    lv_obj_set_style_border_width(settings_table_, 0, 0);
+    if (font_mono_) lv_obj_set_style_text_font(settings_table_, font_mono_, LV_PART_ITEMS);
+    lv_obj_remove_flag(settings_table_, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(settings_table_, settings_draw_event_cb, LV_EVENT_DRAW_TASK_ADDED, this);
+    lv_obj_add_flag(settings_table_, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
 
     // Start on the viewmodel's current screen.
     show_view(vm_.screen());
@@ -411,6 +435,7 @@ void AdsbScreen::show_view(int screen) {
     if (ppi_canvas_)    lv_obj_set_flag(ppi_canvas_,    LV_OBJ_FLAG_HIDDEN, !ppi);
     if (radar_left_)    lv_obj_set_flag(radar_left_,    LV_OBJ_FLAG_HIDDEN, !ppi);
     if (radar_right_)   lv_obj_set_flag(radar_right_,   LV_OBJ_FLAG_HIDDEN, !ppi);
+    if (radar_trails_ind_) lv_obj_set_flag(radar_trails_ind_, LV_OBJ_FLAG_HIDDEN, !ppi);
     if (detail_box_)    lv_obj_set_flag(detail_box_,    LV_OBJ_FLAG_HIDDEN, !detail);
     if (settings_box_)  lv_obj_set_flag(settings_box_,  LV_OBJ_FLAG_HIDDEN, !settings);
 
@@ -755,12 +780,24 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
         lv_label_set_text(radar_right_, right.c_str());
     }
 
+    if (radar_trails_ind_) {
+        lv_label_set_text(radar_trails_ind_, trails_on ? "trails on" : "trails off");
+        lv_obj_set_style_text_color(radar_trails_ind_,
+                                    trails_on ? lv_color_hex(0x66cc66) : lv_color_hex(0x777777), 0);
+    }
+
     lv_obj_invalidate(ppi_canvas_);
 }
 
 void AdsbScreen::update_detail(const std::vector<Row>& rows) {
     if (!detail_label_) {
         return;
+    }
+    if (detail_trails_ind_) {
+        const bool on = vm_.show_trails() && vm_.trail_len() > 0;
+        lv_label_set_text(detail_trails_ind_, on ? "trails on" : "trails off");
+        lv_obj_set_style_text_color(detail_trails_ind_,
+                                    on ? lv_color_hex(0x66cc66) : lv_color_hex(0x777777), 0);
     }
     const int sel = row_of(rows, vm_.selected_hex());
     if (rows.empty() || sel < 0) {
@@ -852,20 +889,40 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
     lv_obj_invalidate(detail_canvas_);
 }
 
+void AdsbScreen::settings_draw_event_cb(lv_event_t* event) {
+    auto* self = static_cast<AdsbScreen*>(lv_event_get_user_data(event));
+    auto* task = lv_event_get_draw_task(event);
+    if (!self || !task) return;
+    auto* base = static_cast<lv_draw_dsc_base_t*>(lv_draw_task_get_draw_dsc(task));
+    if (!base) return;
+    const bool is_sel = (static_cast<int>(base->id1) == self->settings_sel_row_);
+    const lv_draw_task_type_t type = lv_draw_task_get_type(task);
+    if (type == LV_DRAW_TASK_TYPE_FILL && is_sel && base->part == LV_PART_ITEMS) {
+        auto* fd = static_cast<lv_draw_fill_dsc_t*>(lv_draw_task_get_draw_dsc(task));
+        fd->color = view::palette(false).primary;
+        fd->opa = LV_OPA_COVER;
+    } else if (type == LV_DRAW_TASK_TYPE_LABEL && is_sel) {
+        auto* ld = static_cast<lv_draw_label_dsc_t*>(lv_draw_task_get_draw_dsc(task));
+        ld->color = lv_color_black();
+    }
+}
+
 void AdsbScreen::update_settings() {
-    if (!settings_label_) {
+    if (!settings_table_) {
         return;
     }
-    std::string s;
-    const int cur = vm_.settings_cursor();
-    for (int i = 0; i < vm_.settings_count(); ++i) {
-        s += (i == cur) ? "\xE2\x80\xBA " : "  "; // › cursor
-        s += vm_.setting_name(i);
-        s += ":  ";
-        s += vm_.setting_value(i);
-        s += "\n";
+    const int n = vm_.settings_count();
+    lv_table_set_row_count(settings_table_, static_cast<uint32_t>(n));
+    for (int i = 0; i < n; ++i) {
+        lv_table_set_cell_value(settings_table_, static_cast<uint32_t>(i), 0,
+                                vm_.setting_name(i).c_str());
+        lv_table_set_cell_value(settings_table_, static_cast<uint32_t>(i), 1,
+                                vm_.setting_value(i).c_str());
     }
-    lv_label_set_text(settings_label_, s.c_str());
+    settings_sel_row_ = vm_.settings_cursor();
+    if (settings_sel_row_ >= 0) {
+        lv_table_set_selected_cell(settings_table_, static_cast<uint16_t>(settings_sel_row_), 0);
+    }
 }
 
 void AdsbScreen::tick_cb(lv_timer_t* timer) {

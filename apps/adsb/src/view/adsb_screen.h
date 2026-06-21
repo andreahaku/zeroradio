@@ -99,6 +99,8 @@ private:
     lv_obj_t* ppi_canvas_     = nullptr;
     lv_obj_t* radar_left_     = nullptr; // left side callsign list (Radar view)
     lv_obj_t* radar_right_    = nullptr; // right side callsign list (Radar view)
+    lv_obj_t* radar_trails_ind_  = nullptr; // "trails on/off" badge (Radar)
+    lv_obj_t* detail_trails_ind_ = nullptr; // "trails on/off" badge (Detail)
     lv_obj_t* detail_box_     = nullptr;
     lv_obj_t* detail_label_   = nullptr; // column A field names (bold)
     lv_obj_t* detail_values_  = nullptr; // column A values
@@ -107,7 +109,9 @@ private:
     lv_obj_t* detail_msg_     = nullptr; // decoded message line (full width, bottom)
     lv_obj_t* detail_canvas_  = nullptr; // mini-radar of the selected aircraft
     lv_obj_t* settings_box_   = nullptr;
-    lv_obj_t* settings_label_ = nullptr;
+    lv_obj_t* settings_table_ = nullptr; // navigable settings (name | value)
+    int       settings_sel_row_ = -1;    // highlighted settings row (cursor)
+    static void settings_draw_event_cb(lv_event_t* event);
 
     // Range-ring scale labels (NM at each ring), one per concentric ring.
     std::vector<lv_obj_t*> ppi_ring_labels_;
