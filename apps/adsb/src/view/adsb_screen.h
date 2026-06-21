@@ -68,8 +68,8 @@ private:
     };
 
     std::vector<Row> build_rows();   // snapshot + sort per the viewmodel
-    // Index in `rows` of the viewmodel's selected hex (0 if absent/empty).
-    int selected_row(const std::vector<Row>& rows) const;
+    // Index in `rows` of the given hex, or -1 if absent/empty.
+    int row_of(const std::vector<Row>& rows, const std::string& hex) const;
     void update_header(int track_count, int signal_quality);
     void update_list(const std::vector<Row>& rows);
     void update_ppi(const std::vector<Row>& rows);
@@ -90,6 +90,7 @@ private:
 
     // Body containers (one shown at a time).
     lv_obj_t* body_           = nullptr;
+    lv_obj_t* list_view_      = nullptr; // List container: fixed header + table
     lv_obj_t* list_table_     = nullptr;
     lv_obj_t* ppi_canvas_     = nullptr;
     lv_obj_t* detail_box_     = nullptr;

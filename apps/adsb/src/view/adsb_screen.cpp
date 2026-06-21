@@ -193,27 +193,47 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     lv_obj_clear_flag(body_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_pad_all(body_, 0, 0);
 
-    // List view: a 5-column table — callsign / altitude / speed / track / distance
-    // — with a header row. Row 0 is the header, so data rows are 1..N.
-    list_table_ = lv_table_create(body_);
-    lv_obj_set_size(list_table_, LV_PCT(100), LV_PCT(100));
-    lv_obj_align(list_table_, LV_ALIGN_TOP_LEFT, 0, 0);
+    // List view: a fixed column-header strip on top + a scrolling 5-column table
+    // (callsign / altitude / speed / track / distance). The header stays put while
+    // the table scrolls, so columns are always labelled. Data rows are 0-based.
+    static constexpr int32_t kColW[5] = {92, 58, 48, 46, 60};
+    static const char* kColTitle[5] = {"CALL", "ALT", "SPD", "TRK", "DST"};
+    constexpr int32_t kListHeaderH = 15;
+
+    list_view_ = lv_obj_create(body_);
+    lv_obj_remove_style_all(list_view_);
+    lv_obj_set_size(list_view_, LV_PCT(100), LV_PCT(100));
+    lv_obj_align(list_view_, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_obj_clear_flag(list_view_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(list_view_, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_all(list_view_, 0, 0);
+    lv_obj_set_style_pad_row(list_view_, 0, 0);
+
+    // Fixed header strip: column titles at the same x as the table columns.
+    lv_obj_t* list_header = lv_obj_create(list_view_);
+    lv_obj_remove_style_all(list_header);
+    lv_obj_set_size(list_header, LV_PCT(100), kListHeaderH);
+    lv_obj_clear_flag(list_header, LV_OBJ_FLAG_SCROLLABLE);
+    int32_t hx = 0;
+    for (int c = 0; c < 5; ++c) {
+        lv_obj_t* h = lv_label_create(list_header);
+        lv_label_set_text(h, kColTitle[c]);
+        lv_obj_set_style_text_font(h, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
+        reactive::bind_theme(h, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
+        lv_obj_align(h, LV_ALIGN_LEFT_MID, hx + 3, 0);
+        hx += kColW[c];
+    }
+
+    list_table_ = lv_table_create(list_view_);
+    lv_obj_set_width(list_table_, LV_PCT(100));
+    lv_obj_set_flex_grow(list_table_, 1);
     lv_table_set_column_count(list_table_, 5);
-    lv_table_set_column_width(list_table_, 0, 92); // CALL
-    lv_table_set_column_width(list_table_, 1, 58); // ALT
-    lv_table_set_column_width(list_table_, 2, 48); // SPD
-    lv_table_set_column_width(list_table_, 3, 46); // TRK
-    lv_table_set_column_width(list_table_, 4, 60); // DST
+    for (int c = 0; c < 5; ++c) lv_table_set_column_width(list_table_, c, kColW[c]);
     lv_obj_set_style_pad_all(list_table_, 1, LV_PART_ITEMS);
     lv_obj_set_style_border_width(list_table_, 0, 0);
     if (font_small_) {
         lv_obj_set_style_text_font(list_table_, font_small_, LV_PART_ITEMS);
     }
-    lv_table_set_cell_value(list_table_, 0, 0, "CALL");
-    lv_table_set_cell_value(list_table_, 0, 1, "ALT");
-    lv_table_set_cell_value(list_table_, 0, 2, "SPD");
-    lv_table_set_cell_value(list_table_, 0, 3, "TRK");
-    lv_table_set_cell_value(list_table_, 0, 4, "DST");
     lv_obj_remove_flag(list_table_, LV_OBJ_FLAG_CLICKABLE);
     // Per-row colouring (category / emergency) via the draw-task event.
     lv_obj_add_event_cb(list_table_, list_draw_event_cb, LV_EVENT_DRAW_TASK_ADDED, this);
@@ -297,7 +317,7 @@ void AdsbScreen::show_view(int screen) {
     const bool detail   = (screen == static_cast<int>(AdsbViewModel::Screen::Detail));
     const bool settings = (screen == static_cast<int>(AdsbViewModel::Screen::Settings));
 
-    if (list_table_)    lv_obj_set_flag(list_table_,    LV_OBJ_FLAG_HIDDEN, !list);
+    if (list_view_)     lv_obj_set_flag(list_view_,     LV_OBJ_FLAG_HIDDEN, !list);
     if (ppi_canvas_)    lv_obj_set_flag(ppi_canvas_,    LV_OBJ_FLAG_HIDDEN, !ppi);
     if (detail_box_)    lv_obj_set_flag(detail_box_,    LV_OBJ_FLAG_HIDDEN, !detail);
     if (settings_box_)  lv_obj_set_flag(settings_box_,  LV_OBJ_FLAG_HIDDEN, !settings);
@@ -387,13 +407,12 @@ std::vector<AdsbScreen::Row> AdsbScreen::build_rows() {
     return rows;
 }
 
-int AdsbScreen::selected_row(const std::vector<Row>& rows) const {
-    if (rows.empty()) return -1;
-    const std::string& hex = vm_.selected_hex();
+int AdsbScreen::row_of(const std::vector<Row>& rows, const std::string& hex) const {
+    if (hex.empty()) return -1;
     for (size_t i = 0; i < rows.size(); ++i) {
         if (rows[i].hex == hex) return static_cast<int>(i);
     }
-    return 0; // selection not on screen -> fall back to the first row
+    return -1;
 }
 
 void AdsbScreen::update_header(int track_count, int signal_quality) {
@@ -438,11 +457,8 @@ void AdsbScreen::list_draw_event_cb(lv_event_t* event) {
     }
     if (type == LV_DRAW_TASK_TYPE_LABEL) {
         auto* ld = static_cast<lv_draw_label_dsc_t*>(lv_draw_task_get_draw_dsc(task));
-        if (row == 0) {
-            return; // header row keeps the theme colour
-        }
         if (is_sel) {
-            ld->color = lv_color_black();    // contrast against the accent fill
+            ld->color = lv_color_black();    // contrast against the accent (cursor) fill
         } else if (row < self->list_row_colors_.size()) {
             ld->color = self->list_row_colors_[row];
         }
@@ -454,15 +470,14 @@ void AdsbScreen::update_list(const std::vector<Row>& rows) {
         return;
     }
 
-    // Row 0 is the header; data rows are 1..N.
-    lv_table_set_row_count(list_table_, static_cast<uint32_t>(rows.size()) + 1);
+    // Data rows are 0-based (the column titles live in the fixed header strip).
+    lv_table_set_row_count(list_table_, static_cast<uint32_t>(rows.size()));
+    list_row_colors_.assign(rows.size(), lv_color_white());
 
-    // Per-row colours (index 0 = header, kept default).
-    list_row_colors_.assign(rows.size() + 1, lv_color_white());
-
+    const std::string& sel_hex = vm_.selected_hex();
     for (size_t i = 0; i < rows.size(); ++i) {
         const Row& r = rows[i];
-        const uint32_t row = static_cast<uint32_t>(i) + 1;
+        const uint32_t row = static_cast<uint32_t>(i);
         list_row_colors_[row] = category_color(r.category, r.emergency);
         char alt_buf[12];
         char gs_buf[12];
@@ -478,9 +493,10 @@ void AdsbScreen::update_list(const std::vector<Row>& rows) {
         if (r.has_pos)   std::snprintf(rng_buf, sizeof(rng_buf), "%.0f", r.range_nm);
         else             std::snprintf(rng_buf, sizeof(rng_buf), "-");
 
-        const std::string call =
-            (r.emergency ? std::string("!") : std::string()) +
-            (r.flight.empty() ? r.hex : r.flight);
+        // Mark the locked selection with a leading dot, emergency with "!".
+        const char* mark = (r.hex == sel_hex && !sel_hex.empty()) ? "\xE2\x97\x8f" // ●
+                           : (r.emergency ? "!" : "");
+        const std::string call = std::string(mark) + (r.flight.empty() ? r.hex : r.flight);
         lv_table_set_cell_value(list_table_, row, 0, call.c_str());
         lv_table_set_cell_value(list_table_, row, 1, alt_buf);
         lv_table_set_cell_value(list_table_, row, 2, gs_buf);
@@ -488,12 +504,12 @@ void AdsbScreen::update_list(const std::vector<Row>& rows) {
         lv_table_set_cell_value(list_table_, row, 4, rng_buf);
     }
 
-    // Highlight the selected row (by hex). With nothing selected, park the
-    // highlight on the header row (row 0) so no aircraft looks selected.
-    const int sel = selected_row(rows);
-    const bool has_sel = (sel >= 0 && !vm_.selected_hex().empty());
-    list_sel_row_ = has_sel ? sel + 1 : -1; // drives the strong row highlight
-    lv_table_set_selected_cell(list_table_, has_sel ? static_cast<uint16_t>(sel + 1) : 0, 0);
+    // The cursor row gets the strong highlight (accent fill + black text).
+    const int cur = row_of(rows, vm_.cursor_hex());
+    list_sel_row_ = cur;
+    if (cur >= 0) {
+        lv_table_set_selected_cell(list_table_, static_cast<uint16_t>(cur), 0);
+    }
 }
 
 void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
@@ -546,7 +562,7 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     // every aircraft overlaps illegibly when the sky is busy. The selection (same
     // sorted order as the list) is shown with a larger dot ringed in white; scroll
     // it with the list keys to read each callsign in turn.
-    const int sel = vm_.selected_hex().empty() ? -1 : selected_row(rows);
+    const int sel = row_of(rows, vm_.selected_hex());
     const bool labels_on = vm_.show_labels();
 
     const uint16_t vec_col = lv_color_to_u16(lv_color_hex(0x88cc88));
@@ -622,9 +638,9 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
     if (!detail_label_) {
         return;
     }
-    const int sel = vm_.selected_hex().empty() ? -1 : selected_row(rows);
+    const int sel = row_of(rows, vm_.selected_hex());
     if (rows.empty() || sel < 0) {
-        lv_label_set_text(detail_label_, "(no aircraft selected)\n\nList: \xE2\x86\x91/\xE2\x86\x93 + select");
+        lv_label_set_text(detail_label_, "(no aircraft selected)\n\nList: select an aircraft");
         return;
     }
     const Row& r = rows[static_cast<size_t>(sel)];

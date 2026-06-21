@@ -41,8 +41,12 @@ public:
     // The screen reports the farthest in-range aircraft each tick (auto range).
     void set_observed_max_nm(double nm);
 
-    // Selection is tracked by aircraft hex (stable across re-sorts). An empty hex
-    // means nothing is selected; select/deselect toggles it.
+    // Two ids, both tracked by hex (stable across re-sorts):
+    //  - cursor: the list highlight, moved by up/down (always on an aircraft when
+    //    any exist);
+    //  - selected: the locked aircraft (toggled with the select key), which is the
+    //    Detail/Radar focus and gets a marker in the list. Empty = none selected.
+    const std::string& cursor_hex() const;
     const std::string& selected_hex() const;
     void set_selected_hex(std::string hex);
 
@@ -75,7 +79,8 @@ private:
     reactive::BoolSubject show_trails_subject_{true};
     reactive::BoolSubject show_labels_subject_{true};
     double observed_max_nm_{0.0};
-    std::string selected_hex_;               // selected aircraft id ("" = none)
+    std::string cursor_hex_;                  // list highlight (up/down)
+    std::string selected_hex_;                // locked selection ("" = none)
     std::vector<std::string> visible_order_;  // sorted hexes reported by the screen
 
     // Scratch buffer for the dynamic sort-mode NavBar label (List page slot 1).

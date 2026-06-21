@@ -79,6 +79,10 @@ bool AdsbViewModel::show_labels() const {
     return lv_subject_get_int(const_cast<lv_subject_t*>(show_labels_subject_.native())) != 0;
 }
 
+const std::string& AdsbViewModel::cursor_hex() const {
+    return cursor_hex_;
+}
+
 const std::string& AdsbViewModel::selected_hex() const {
     return selected_hex_;
 }
@@ -99,32 +103,33 @@ void AdsbViewModel::cycle_sort() {
 
 void AdsbViewModel::select_prev() {
     if (visible_order_.empty()) return;
-    auto it = std::find(visible_order_.begin(), visible_order_.end(), selected_hex_);
+    auto it = std::find(visible_order_.begin(), visible_order_.end(), cursor_hex_);
     if (it == visible_order_.end()) {
-        selected_hex_ = visible_order_.front();
+        cursor_hex_ = visible_order_.front();
     } else if (it != visible_order_.begin()) {
-        selected_hex_ = *std::prev(it);
+        cursor_hex_ = *std::prev(it);
     }
 }
 
 void AdsbViewModel::select_next() {
     if (visible_order_.empty()) return;
-    auto it = std::find(visible_order_.begin(), visible_order_.end(), selected_hex_);
+    auto it = std::find(visible_order_.begin(), visible_order_.end(), cursor_hex_);
     if (it == visible_order_.end()) {
-        selected_hex_ = visible_order_.front();
+        cursor_hex_ = visible_order_.front();
         return;
     }
     auto next = std::next(it);
     if (next != visible_order_.end()) {
-        selected_hex_ = *next;
+        cursor_hex_ = *next;
     }
 }
 
 void AdsbViewModel::toggle_select() {
-    if (!selected_hex_.empty()) {
-        selected_hex_.clear(); // deselect
-    } else if (!visible_order_.empty()) {
-        selected_hex_ = visible_order_.front();
+    // Lock the cursor's aircraft as the selection, or unlock if it already is.
+    if (!cursor_hex_.empty() && selected_hex_ == cursor_hex_) {
+        selected_hex_.clear();
+    } else {
+        selected_hex_ = cursor_hex_;
     }
 }
 
@@ -154,11 +159,16 @@ void AdsbViewModel::toggle_labels() {
 
 void AdsbViewModel::set_visible_order(std::vector<std::string> order) {
     visible_order_ = std::move(order);
-    // Drop the selection if its aircraft is gone; never auto-select (deselected
-    // is a valid state).
-    if (!selected_hex_.empty() &&
-        std::find(visible_order_.begin(), visible_order_.end(), selected_hex_) ==
-            visible_order_.end()) {
+    const auto present = [&](const std::string& h) {
+        return !h.empty() && std::find(visible_order_.begin(), visible_order_.end(), h) !=
+                                 visible_order_.end();
+    };
+    // The cursor always sits on an aircraft when any exist (it is the highlight).
+    if (!present(cursor_hex_)) {
+        cursor_hex_ = visible_order_.empty() ? std::string() : visible_order_.front();
+    }
+    // The locked selection is dropped if its aircraft is gone (deselected is valid).
+    if (!present(selected_hex_)) {
         selected_hex_.clear();
     }
 }
