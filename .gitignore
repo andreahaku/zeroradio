@@ -3,3 +3,6 @@
 /dist/
 compile_commands.json
 .DS_Store
+
+# Claude Code agent worktrees
+.claude/worktrees/
