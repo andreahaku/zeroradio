@@ -386,6 +386,7 @@ file(GLOB_RECURSE TOOLKIT_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/toolkit/src/platform/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/toolkit/src/view/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/toolkit/src/geo/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/toolkit/src/map/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/toolkit/src/model/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/toolkit/src/net/*.cpp"
 )
@@ -410,6 +411,7 @@ target_include_directories(radio_toolkit
         ${CMAKE_CURRENT_SOURCE_DIR}/toolkit/src/view/widgets
         ${CMAKE_CURRENT_SOURCE_DIR}/toolkit/src/view/screens
         ${CMAKE_CURRENT_SOURCE_DIR}/toolkit/src/geo
+        ${CMAKE_CURRENT_SOURCE_DIR}/toolkit/src/map
         ${CMAKE_CURRENT_SOURCE_DIR}/toolkit/src/model
         ${CMAKE_CURRENT_SOURCE_DIR}/toolkit/src/net
         ${CMAKE_CURRENT_SOURCE_DIR}/tools/remote-fb

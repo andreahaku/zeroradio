@@ -90,4 +90,70 @@ bool project(LatLon home,
     return true;
 }
 
+namespace {
+// Mercator northing in radians: y = ln(tan(pi/4 + lat/2)). Clamped away from the
+// poles so the map view never blows up on a bogus 90° fix.
+double mercator_y(double lat_deg) {
+    const double lat = deg2rad(std::clamp(lat_deg, -85.0, 85.0));
+    return std::log(std::tan(kPi / 4.0 + lat / 2.0));
+}
+} // namespace
+
+bool project_mercator(LatLon home,
+                      LatLon p,
+                      double span_nm,
+                      int radius_px,
+                      int& out_dx,
+                      int& out_dy) {
+    if (!valid(home) || !valid(p) || span_nm <= 0.0 || radius_px <= 0) {
+        return false;
+    }
+
+    // Conformal Mercator offsets in earth-radii (radians of Mercator space).
+    const double dx_merc = deg2rad(p.lon - home.lon);
+    const double dy_merc = mercator_y(p.lat) - mercator_y(home.lat);
+
+    // A north-south ground distance of `span_nm` at the centre latitude spans
+    // `span_nm * sec(lat0)` in Mercator northing (NM), i.e. `span_nm/cos(lat0)`
+    // earth-radii units once divided by the earth radius. Scale so that maps to
+    // `radius_px` vertical pixels: px-per-merc-radian = radius_px*cos(lat0)/(span_nm/R).
+    const double cos_lat0 = std::cos(deg2rad(home.lat));
+    const double scale = static_cast<double>(radius_px) * kEarthRadNm * cos_lat0 / span_nm;
+
+    out_dx = static_cast<int>(std::lround(scale * dx_merc));
+    out_dy = static_cast<int>(std::lround(-scale * dy_merc));
+    return true;
+}
+
+bool clip_segment(double x0, double y0, double x1, double y1,
+                  double xmin, double ymin, double xmax, double ymax,
+                  double& cx0, double& cy0, double& cx1, double& cy1) {
+    const double dx = x1 - x0;
+    const double dy = y1 - y0;
+    const double p[4] = {-dx, dx, -dy, dy};
+    const double q[4] = {x0 - xmin, xmax - x0, y0 - ymin, ymax - y0};
+    double u0 = 0.0, u1 = 1.0;
+    for (int i = 0; i < 4; ++i) {
+        if (p[i] == 0.0) {
+            if (q[i] < 0.0) {
+                return false; // parallel to an edge and outside it
+            }
+        } else {
+            const double t = q[i] / p[i];
+            if (p[i] < 0.0) {
+                if (t > u1) return false;
+                if (t > u0) u0 = t;
+            } else {
+                if (t < u0) return false;
+                if (t < u1) u1 = t;
+            }
+        }
+    }
+    cx0 = x0 + u0 * dx;
+    cy0 = y0 + u0 * dy;
+    cx1 = x0 + u1 * dx;
+    cy1 = y0 + u1 * dy;
+    return true;
+}
+
 } // namespace toolkit::geo

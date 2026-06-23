@@ -38,6 +38,7 @@ constexpr const char* ICON_BAND               = "\uE77E"; // radio, band switch
 constexpr const char* ICON_KEYBOARD           = "\uE2D8"; // frequency entry
 constexpr const char* ICON_GRID_FREQ          = "\uE546"; // columns (vertical lines)
 constexpr const char* ICON_GRID_TIME          = "\uE5A2"; // rows (horizontal lines)
+constexpr const char* ICON_MAP_TOGGLE         = "\uE3E6"; // squares-2x2, radar<->map view (provisional)
 constexpr const char* ICON_PEAK               = "\uE802"; // waveform, peak hold
 constexpr const char* ICON_SPEAKER            = "\uE44A"; // speaker-high, audio on
 constexpr const char* ICON_SPEAKER_MUTE       = "\uE458"; // speaker-x, muted

@@ -45,7 +45,7 @@ public:
     // SETTINGS: a 2-column list (name | value), same interaction as ADS-B settings.
     // V1 items: Theme (dark/light), Long name (text edit), Short name (text edit),
     // Region (picker), Channel (read-only display from ChannelTable).
-    static constexpr int kSettingCount = 5;
+    static constexpr int kSettingCount = 6;
     int         settings_cursor() const;
     void        settings_up();
     void        settings_down();
@@ -110,6 +110,12 @@ public:
     void set_map_count(int n);        // screen reports the positioned-node count
     void map_cycle_selection();       // key 7: -1 -> 0 -> ... -> n-1 -> -1
 
+    // MAP projection mode: false = azimuthal PPI radar (range/bearing rings),
+    // true = conformal Mercator map with the coastline/border base layer. Toggled
+    // by key 8 in the Map view or the "Map view" settings row; persisted.
+    bool map_mercator() const;
+    void toggle_map_mode();
+
     // CHATS conversation: the feed/compose target is either a channel slot or a DM
     // peer. Key 5 cycles the active channels; the DM entry point is set by Node
     // detail (open_dm), which also switches the view back to Chats.
@@ -142,6 +148,7 @@ private:
     double map_fit_km_   = 5.0; // last fitted-to-all-nodes distance (from the screen)
     int    map_cursor_   = -1;  // selected positioned node, -1 = none
     int    map_count_    = 0;   // positioned-node count (from the screen)
+    bool   map_mercator_ = false; // false = radar PPI, true = Mercator map view
 
     int  settings_cursor_   = 0;
     bool settings_editing_  = false;

@@ -106,6 +106,7 @@ bool MeshtasticViewModel::settings_activate() {
             return false;
         }
         case 4: return false; // Channel — read-only display (write via meshtasticd V2)
+        case 5: map_mercator_ = !map_mercator_; save_settings(); return false; // Map view
         default: return false;
     }
 }
@@ -117,6 +118,7 @@ std::string MeshtasticViewModel::setting_name(int i) const {
         case 2: return "Short name";
         case 3: return "Region";
         case 4: return "Channel";
+        case 5: return "Map view";
         default: return "";
     }
 }
@@ -128,6 +130,7 @@ std::string MeshtasticViewModel::setting_value(int i) const {
         case 2: return settings_short_name_.empty() ? "(not set)" : settings_short_name_;
         case 3: return settings_region_;
         case 4: return settings_channel_.empty() ? "-" : settings_channel_;
+        case 5: return map_mercator_ ? "Map" : "Radar";
         default: return "";
     }
 }
@@ -194,6 +197,8 @@ void MeshtasticViewModel::load_settings() {
         for (int k = 0; k < kRegionCount; ++k)
             if (reg == kRegions[k]) { settings_region_ = reg; break; }
     }
+    int mm = 0;
+    if (in >> mm) map_mercator_ = (mm != 0); // optional: absent in older files
 }
 
 void MeshtasticViewModel::save_settings() const {
@@ -206,7 +211,8 @@ void MeshtasticViewModel::save_settings() const {
         << (is_dark_mode() ? 1 : 0) << "\n"
         << (settings_long_name_.empty()  ? "-" : settings_long_name_)  << "\n"
         << (settings_short_name_.empty() ? "-" : settings_short_name_) << "\n"
-        << settings_region_ << "\n";
+        << settings_region_ << "\n"
+        << (map_mercator_ ? 1 : 0) << "\n";
 }
 
 // ---- end Settings ----
@@ -283,6 +289,13 @@ void MeshtasticViewModel::map_cycle_selection() {
     if (map_cursor_ >= map_count_) map_cursor_ = -1;
 }
 
+bool MeshtasticViewModel::map_mercator() const { return map_mercator_; }
+
+void MeshtasticViewModel::toggle_map_mode() {
+    map_mercator_ = !map_mercator_;
+    save_settings();
+}
+
 MeshtasticViewModel::Conv MeshtasticViewModel::conv_kind() const { return conv_kind_; }
 int MeshtasticViewModel::conv_channel() const { return conv_channel_; }
 uint32_t MeshtasticViewModel::conv_dm_peer() const { return conv_dm_peer_; }
@@ -351,8 +364,8 @@ void MeshtasticViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const 
         case Page::Map:
             out[1] = {view::ICON_MINUS, false, true};       // range -
             out[2] = {view::ICON_PLUS, false, true};        // range +
-            out[3] = {view::ICON_BROADCAST, false, true};   // center on self
-            out[4] = {view::ICON_CHECK, false, true};       // detail
+            out[3] = {view::ICON_BROADCAST, false, true};   // cycle selection
+            out[4] = {view::ICON_MAP_TOGGLE, map_mercator_, true}; // radar <-> map toggle (icon provisional)
             break;
         case Page::Tools:
             out[1] = {view::ICON_CARET_UP,   false, true};  // up
@@ -390,10 +403,11 @@ void MeshtasticViewModel::nav_activate(int page, int slot) {
             }
             break;
         case Page::Map:
-            // 5=range-, 6=range+, 7=cycle selection, 8=detail (later).
+            // 5=range-, 6=range+, 7=cycle selection, 8=radar/map toggle.
             if (slot == 1) map_zoom_in();
             else if (slot == 2) map_zoom_out();
             else if (slot == 3) map_cycle_selection();
+            else if (slot == 4) toggle_map_mode();
             break;
         case Page::Tools:
             if (slot == 1)      tools_cursor_up();

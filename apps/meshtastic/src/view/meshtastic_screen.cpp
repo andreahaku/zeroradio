@@ -10,6 +10,7 @@
 #include "bindings.h"
 #include "geo.h"
 #include "linux_input.h"
+#include "map_renderer.h"
 #include "theme.h"
 
 #include <algorithm>
@@ -55,6 +56,11 @@ constexpr int kCannedCount = static_cast<int>(sizeof(kCanned) / sizeof(kCanned[0
 // a 106px square canvas fits with a hair of margin; the flanking side columns
 // carry the colour-coded node names.
 constexpr int kMapSize = 106;
+// The Mercator map view isn't bound to a circle, so it spreads to twice the
+// width (same height) to use more of the 320px-wide screen; the flanking
+// short-name columns stay anchored to the screen edges either way.
+constexpr int kMapMercW = 212;
+constexpr int kMapMercH = 106;
 
 // Self node colour (theme accent green); each peer gets a distinct hue so its
 // radar dot and its side-list name share one colour — that's how you read which
@@ -132,10 +138,16 @@ void MeshtasticScreen::build_content(lv_obj_t* content) {
     lv_obj_set_style_pad_all(content, 0, 0);
     lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
 
-    font_big_   = assets().load_font("inter-semibold.ttf", 22);
-    font_small_ = assets().load_font("inter-regular.ttf", 12);
+    font_big_        = assets().load_font("inter-semibold.ttf", 22);
+    font_small_      = assets().load_font("inter-regular.ttf", 12);
+    font_small_bold_ = assets().load_font("inter-bold.ttf", 12);
     const lv_font_t* fb = font_big_ ? font_big_ : &lv_font_montserrat_12;
     const lv_font_t* fs = font_small_ ? font_small_ : &lv_font_montserrat_12;
+
+    // Base map for the Mercator view (coastline + borders). Loaded once; if the
+    // asset is missing the map degrades to an empty background (valid()==false).
+    base_map_ = toolkit::map::VectorMap::load(
+        assets().resolve("mapdata/adriatic.rmap").string());
 
     // Placeholder big label, centred — shown on every page except NODES.
     view_label_ = lv_label_create(content);
@@ -289,6 +301,7 @@ void MeshtasticScreen::build_content(lv_obj_t* content) {
     lv_obj_set_style_pad_all(map_view_, 0, 0);
     lv_obj_add_flag(map_view_, LV_OBJ_FLAG_HIDDEN);
 
+    // Square PPI radar canvas.
     map_buf_.assign(static_cast<size_t>(kMapSize) * kMapSize, 0u);
     map_canvas_ = lv_canvas_create(map_view_);
     lv_canvas_set_buffer(map_canvas_, map_buf_.data(), kMapSize, kMapSize,
@@ -296,6 +309,18 @@ void MeshtasticScreen::build_content(lv_obj_t* content) {
     lv_obj_set_size(map_canvas_, kMapSize, kMapSize);
     lv_canvas_fill_bg(map_canvas_, lv_color_black(), LV_OPA_COVER);
     lv_obj_align(map_canvas_, LV_ALIGN_CENTER, 0, 0);
+
+    // Wider Mercator map canvas (shown instead of the radar in map mode). Kept as
+    // a separate fixed-size canvas — resizing a single canvas at runtime crashes
+    // the SDL/Mesa flush. Hidden by default; update_map() swaps visibility.
+    map_buf_merc_.assign(static_cast<size_t>(kMapMercW) * kMapMercH, 0u);
+    map_canvas_merc_ = lv_canvas_create(map_view_);
+    lv_canvas_set_buffer(map_canvas_merc_, map_buf_merc_.data(), kMapMercW, kMapMercH,
+                         LV_COLOR_FORMAT_RGB565);
+    lv_obj_set_size(map_canvas_merc_, kMapMercW, kMapMercH);
+    lv_canvas_fill_bg(map_canvas_merc_, lv_color_black(), LV_OPA_COVER);
+    lv_obj_align(map_canvas_merc_, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_add_flag(map_canvas_merc_, LV_OBJ_FLAG_HIDDEN);
 
     // Three range-ring scale labels (km) over the north axis.
     map_ring_labels_.reserve(3);
@@ -307,18 +332,38 @@ void MeshtasticScreen::build_content(lv_obj_t* content) {
         map_ring_labels_.push_back(lbl);
     }
 
-    // Side short-name columns (recolour per node, matching the radar dots).
+    // Side short-name columns: a pool of reusable row labels per side, each
+    // manually pinned to its column's outer edge (left col flush-left, right col
+    // flush-right). Each row carries its own font + background so the selected
+    // node renders inverted (dot colour fill, black text) and self renders bold.
+    constexpr int kSideRows = 7; // == kPerSide in update_map()
+    const int side_rh = lv_font_get_line_height(fs) + 1; // per-row vertical step
     const auto make_side = [&](lv_align_t al, int dx) {
-        lv_obj_t* l = lv_label_create(map_view_);
-        lv_label_set_recolor(l, true);
-        lv_obj_set_style_text_font(l, fs, 0);
-        lv_label_set_text(l, "");
-        lv_obj_align(l, al, dx, 2);
-        return l;
+        lv_obj_t* c = lv_obj_create(map_view_);
+        lv_obj_remove_style_all(c);
+        lv_obj_set_size(c, 56, kSideRows * side_rh);
+        lv_obj_clear_flag(c, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_align(c, al, dx, 2);
+        return c;
     };
     map_left_  = make_side(LV_ALIGN_TOP_LEFT, 2);
     map_right_ = make_side(LV_ALIGN_TOP_RIGHT, -2);
-    lv_obj_set_style_text_align(map_right_, LV_TEXT_ALIGN_RIGHT, 0);
+
+    const auto make_rows = [&](lv_obj_t* parent, std::vector<lv_obj_t*>& pool, bool right) {
+        for (int i = 0; i < kSideRows; ++i) {
+            lv_obj_t* l = lv_label_create(parent);
+            lv_obj_set_style_text_font(l, fs, 0);
+            lv_obj_set_style_pad_hor(l, 2, 0);   // breathing room for the inverted pill
+            lv_obj_set_style_radius(l, 2, 0);
+            // Flush to the column's outer edge; right column also right-aligns text.
+            lv_obj_align(l, right ? LV_ALIGN_TOP_RIGHT : LV_ALIGN_TOP_LEFT, 0, i * side_rh);
+            if (right) lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_RIGHT, 0);
+            lv_obj_add_flag(l, LV_OBJ_FLAG_HIDDEN);
+            pool.push_back(l);
+        }
+    };
+    make_rows(map_left_, map_left_rows_, false);
+    make_rows(map_right_, map_right_rows_, true);
 
     // Range / status hint, bottom-centre over the scope.
     map_status_ = lv_label_create(map_view_);
@@ -679,24 +724,37 @@ void MeshtasticScreen::update_chats(const std::vector<toolkit::Entity>& snap) {
 }
 
 void MeshtasticScreen::update_map(const std::vector<toolkit::Entity>& snap) {
-    if (!map_canvas_) return;
-    const int w = kMapSize, h = kMapSize;
+    if (!map_canvas_ || !map_canvas_merc_) return;
+    const bool mercator = vm_.map_mercator();
+    // Swap which fixed-size canvas is visible; the radar is square (106), the
+    // Mercator map is twice as wide (212) to use more of the screen.
+    lv_obj_t* canvas = mercator ? map_canvas_merc_ : map_canvas_;
+    std::vector<uint16_t>& buf_vec = mercator ? map_buf_merc_ : map_buf_;
+    lv_obj_add_flag(mercator ? map_canvas_ : map_canvas_merc_, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(canvas, LV_OBJ_FLAG_HIDDEN);
+
+    const int w = mercator ? kMapMercW : kMapSize;
+    const int h = mercator ? kMapMercH : kMapSize;
     const int cx = w / 2, cy = h / 2;
     const int radius_px = (std::min(w, h) / 2) - 4;
-    uint16_t* buf = map_buf_.data();
+    uint16_t* buf = buf_vec.data();
 
-    std::fill(map_buf_.begin(), map_buf_.end(), lv_color_to_u16(lv_color_black()));
+    std::fill(buf_vec.begin(), buf_vec.end(), lv_color_to_u16(lv_color_black()));
 
     const uint16_t ring_col  = lv_color_to_u16(lv_color_hex(0x224422));
     const uint16_t north_col = lv_color_to_u16(lv_color_hex(0x66aa66));
     const uint16_t nofix_col = lv_color_to_u16(lv_color_hex(0x555555));
     const uint16_t outline_col = lv_color_to_u16(lv_color_white());
 
-    // Rings + north tick (always drawn so it reads as a radar).
+    // Rings + north tick (radar mode). The Mercator view draws the coastline /
+    // border base layer instead, once `home` is known (see below). ring_px stays
+    // defined either way so the scale labels can align to it.
     const int ring_px[3] = {radius_px / 3, (radius_px * 2) / 3, radius_px};
-    for (int rp : ring_px) plot_ring(buf, w, h, cx, cy, rp, ring_col);
-    for (int y = cy - radius_px; y < cy - radius_px + 6; ++y)
-        if (y >= 0 && y < h) buf[y * w + cx] = north_col;
+    if (!mercator) {
+        for (int rp : ring_px) plot_ring(buf, w, h, cx, cy, rp, ring_col);
+        for (int y = cy - radius_px; y < cy - radius_px + 6; ++y)
+            if (y >= 0 && y < h) buf[y * w + cx] = north_col;
+    }
 
     // Positioned nodes (snapshot order = stable) + the self node (if present).
     std::vector<const toolkit::Entity*> pos;
@@ -738,10 +796,10 @@ void MeshtasticScreen::update_map(const std::vector<toolkit::Entity>& snap) {
         plot_disc(buf, w, h, cx, cy, 2, nofix_col);
         for (auto* lbl : map_ring_labels_)
             if (lbl) lv_obj_add_flag(lbl, LV_OBJ_FLAG_HIDDEN);
-        if (map_left_)  lv_label_set_text(map_left_, "");
-        if (map_right_) lv_label_set_text(map_right_, "");
+        for (auto* l : map_left_rows_)  lv_obj_add_flag(l, LV_OBJ_FLAG_HIDDEN);
+        for (auto* l : map_right_rows_) lv_obj_add_flag(l, LV_OBJ_FLAG_HIDDEN);
         if (map_status_) lv_label_set_text(map_status_, "no positioned nodes");
-        lv_obj_invalidate(map_canvas_);
+        lv_obj_invalidate(canvas);
         return;
     }
 
@@ -756,17 +814,37 @@ void MeshtasticScreen::update_map(const std::vector<toolkit::Entity>& snap) {
     const double range_km = vm_.map_range_km();
     const double range_nm = range_km / 1.852;
 
-    // Range-ring scale labels (km), one per ring on the north axis.
-    for (size_t i = 0; i < map_ring_labels_.size(); ++i) {
-        lv_obj_t* lbl = map_ring_labels_[i];
-        if (!lbl) continue;
-        const double v = range_km * (static_cast<double>(i) + 1) / 3.0;
-        char t[16];
-        if (v < 1.0) std::snprintf(t, sizeof(t), "%.0fm", v * 1000.0);
-        else std::snprintf(t, sizeof(t), "%.0fkm", v);
-        lv_label_set_text(lbl, t);
-        lv_obj_remove_flag(lbl, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_align_to(lbl, map_canvas_, LV_ALIGN_CENTER, 6, -ring_px[i] + 6);
+    // Mercator base map: coastline + national borders centred on home, scaled so
+    // the outer-ring distance spans the canvas vertically. Drawn under the dots.
+    if (mercator && base_map_.valid()) {
+        toolkit::map::MapViewport vp;
+        vp.width = w;
+        vp.height = h;
+        vp.cx = cx;
+        vp.cy = cy;
+        vp.radius_px = radius_px;
+        vp.home = home;
+        vp.range_nm = range_nm;
+        vp.projection = toolkit::map::Projection::Mercator;
+        toolkit::map::draw_base(buf, vp, base_map_, toolkit::map::MapStyle{});
+    }
+
+    // Range-ring scale labels (km), one per ring on the north axis — radar only.
+    if (mercator) {
+        for (auto* lbl : map_ring_labels_)
+            if (lbl) lv_obj_add_flag(lbl, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        for (size_t i = 0; i < map_ring_labels_.size(); ++i) {
+            lv_obj_t* lbl = map_ring_labels_[i];
+            if (!lbl) continue;
+            const double v = range_km * (static_cast<double>(i) + 1) / 3.0;
+            char t[16];
+            if (v < 1.0) std::snprintf(t, sizeof(t), "%.0fm", v * 1000.0);
+            else std::snprintf(t, sizeof(t), "%.0fkm", v);
+            lv_label_set_text(lbl, t);
+            lv_obj_remove_flag(lbl, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_align_to(lbl, map_canvas_, LV_ALIGN_CENTER, 6, -ring_px[i] + 6);
+        }
     }
 
     // Home dot at the centre (self green, or grey when it's a centroid).
@@ -780,39 +858,65 @@ void MeshtasticScreen::update_map(const std::vector<toolkit::Entity>& snap) {
     for (size_t i = 0; i < pos.size(); ++i) {
         if (pos[i] == self) continue; // already the centre dot
         int dx = 0, dy = 0;
-        if (!toolkit::geo::project(home, pos[i]->pos, range_nm, radius_px, dx, dy)) continue;
+        const bool ok = mercator
+            ? toolkit::geo::project_mercator(home, pos[i]->pos, range_nm, radius_px, dx, dy)
+            : toolkit::geo::project(home, pos[i]->pos, range_nm, radius_px, dx, dy);
+        if (!ok) continue;
+        // Mercator doesn't cull, so drop dots that fall outside the canvas.
+        if (mercator && (cx + dx < 0 || cx + dx >= w || cy + dy < 0 || cy + dy >= h)) continue;
         const bool is_sel = (static_cast<int>(i) == cursor);
         if (is_sel) plot_disc(buf, w, h, cx + dx, cy + dy, 6, outline_col);
         plot_disc(buf, w, h, cx + dx, cy + dy, is_sel ? 5 : 4,
                   lv_color_to_u16(lv_color_hex(colors[i])));
     }
 
-    // Side short-name columns, recoloured to match the dots; the selected node is
-    // marked with a leading caret.
-    constexpr size_t kPerSide = 7;
+    // Side short-name columns (pool of row labels). Each row matches its dot's
+    // colour; the selected node renders inverted (colour fill + black text), and
+    // the self node renders bold.
+    const lv_font_t* fs  = font_small_      ? font_small_      : &lv_font_montserrat_12;
+    const lv_font_t* fsb = font_small_bold_ ? font_small_bold_ : fs;
     const size_t left_n = (pos.size() + 1) / 2;
-    std::string left, right;
+    size_t li = 0, ri = 0;
     for (size_t i = 0; i < pos.size(); ++i) {
+        const bool on_left = (i < left_n);
+        auto& pool = on_left ? map_left_rows_ : map_right_rows_;
+        size_t& slot = on_left ? li : ri;
+        if (slot >= pool.size()) continue;
+        lv_obj_t* l = pool[slot++];
+
         std::string sh = field_of(*pos[i], "short");
         if (sh.empty()) sh = pos[i]->id;
-        const char* mk = (static_cast<int>(i) == cursor) ? "\xE2\x80\xBA" : " "; // ›
-        char line[96];
-        std::snprintf(line, sizeof(line), "#%06x %s%s#\n", colors[i], mk, sh.c_str());
-        std::string& col = (i < left_n) ? left : right;
-        const size_t shown = (i < left_n) ? i : (i - left_n);
-        if (shown < kPerSide) col += line;
+        lv_label_set_text(l, sh.c_str());
+
+        const bool is_self = (pos[i] == self);
+        const bool is_sel  = (static_cast<int>(i) == cursor);
+        lv_obj_set_style_text_font(l, is_self ? fsb : fs, 0);
+        if (is_sel) {
+            lv_obj_set_style_bg_color(l, lv_color_hex(colors[i]), 0);
+            lv_obj_set_style_bg_opa(l, LV_OPA_COVER, 0);
+            lv_obj_set_style_text_color(l, lv_color_black(), 0);
+        } else {
+            lv_obj_set_style_bg_opa(l, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_text_color(l, lv_color_hex(colors[i]), 0);
+        }
+        lv_obj_remove_flag(l, LV_OBJ_FLAG_HIDDEN);
     }
-    if (map_left_)  lv_label_set_text(map_left_, left.c_str());
-    if (map_right_) lv_label_set_text(map_right_, right.c_str());
+    for (size_t k = li; k < map_left_rows_.size(); ++k)
+        lv_obj_add_flag(map_left_rows_[k], LV_OBJ_FLAG_HIDDEN);
+    for (size_t k = ri; k < map_right_rows_.size(); ++k)
+        lv_obj_add_flag(map_right_rows_[k], LV_OBJ_FLAG_HIDDEN);
 
     if (map_status_) {
         char s[40];
+        const char* view = mercator ? "map" : "ppi";
         const char* mode = vm_.map_auto_range() ? "auto" : "rng";
-        if (range_km < 1.0) std::snprintf(s, sizeof(s), "%s %.0fm", mode, range_km * 1000.0);
-        else std::snprintf(s, sizeof(s), "%s %.0fkm", mode, range_km);
+        if (range_km < 1.0)
+            std::snprintf(s, sizeof(s), "%s %s %.0fm", view, mode, range_km * 1000.0);
+        else
+            std::snprintf(s, sizeof(s), "%s %s %.0fkm", view, mode, range_km);
         lv_label_set_text(map_status_, s);
     }
-    lv_obj_invalidate(map_canvas_);
+    lv_obj_invalidate(canvas);
 }
 
 void MeshtasticScreen::settings_draw_event_cb(lv_event_t* event) {

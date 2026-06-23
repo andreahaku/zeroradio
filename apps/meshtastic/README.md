@@ -25,11 +25,13 @@ Working (verified on a `meshtasticd -s` bench / scripted peer, both presets host
   and the title shows the current one. The DM entry point (from a node) lands with Node detail.
 - **Canned messages** — key `6` opens a numbered overlay of quick replies; pressing a digit sends that
   preset on the current conversation, `Esc` cancels. Reactions (`7`) are greyed (V2).
-- **Map (PPI)** — a north-up radar centred on the self node (or the mesh centroid when self has no fix),
-  reusing the ADS-B scope pattern. Range auto-fits all positioned nodes (km rings) with manual zoom on
-  keys `5`/`6`; key `7` cycles the selection (white-outlined dot + `›` in the list). Each peer gets a
-  distinct colour shared by its radar dot and its **side-column** name — names live beside the scope, not
-  on it, since the 320×170 screen is too small for on-canvas labels. Title shows the positioned count.
+- **Map** — a north-up scope centred on the self node (or the mesh centroid when self has no fix), with
+  two modes toggled by key `8` (also a "Map view" settings row, persisted): a **radar** (azimuthal PPI,
+  km rings) and a **Mercator map** that draws a vector coastline/border background (Natural Earth, bundled
+  as `assets/mapdata/*.rmap`) under the node dots — the map canvas is twice as wide as the square radar.
+  Range auto-fits all positioned nodes with manual zoom on keys `5`/`6`; key `7` cycles the selection.
+  Each peer gets a distinct colour shared by its dot and its **side-column** name; the selected node
+  renders inverted (its colour as background, black text) and the self node bold. Title shows the count.
 
 - **Node detail** — key `8` from the NODES list opens a full-field sub-screen: `SHORT · LONG · id`,
   `HW / ROLE`, `SNR / HOPS`, `BATT / VOLT`, `POS / DIST / BRG` (relative to the self node),

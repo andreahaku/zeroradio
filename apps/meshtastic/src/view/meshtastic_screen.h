@@ -12,6 +12,7 @@
 #include "meshtastic_client_source.h"
 #include "message_log.h"
 #include "meshtastic_viewmodel.h"
+#include "vector_map.h"
 
 #include "lvgl.h"
 
@@ -117,12 +118,21 @@ private:
     long tools_last_tick_  = 0;
 
     lv_obj_t* map_view_   = nullptr;  // MAP container (canvas + side columns)
-    lv_obj_t* map_canvas_ = nullptr;
-    lv_obj_t* map_left_   = nullptr;  // left short-name column (colour-coded)
-    lv_obj_t* map_right_  = nullptr;  // right short-name column (colour-coded)
+    // Two fixed-size canvases swapped by mode (resizing one at runtime crashes
+    // the SDL/Mesa flush): square PPI radar vs the wider Mercator map.
+    lv_obj_t* map_canvas_      = nullptr;  // radar PPI (106x106)
+    lv_obj_t* map_canvas_merc_ = nullptr;  // Mercator map (212x106)
+    lv_obj_t* map_left_   = nullptr;  // left short-name column container
+    lv_obj_t* map_right_  = nullptr;  // right short-name column container
     lv_obj_t* map_status_ = nullptr;  // range / "no fix" hint
     std::vector<lv_obj_t*> map_ring_labels_; // km scale labels on the north axis
-    std::vector<uint16_t> map_buf_;          // RGB565 canvas backing buffer
+    // One label per side row (pool, reused each tick): selected node renders
+    // inverted (its colour as background, black text); self renders bold.
+    std::vector<lv_obj_t*> map_left_rows_;
+    std::vector<lv_obj_t*> map_right_rows_;
+    std::vector<uint16_t> map_buf_;          // RGB565 backing for the radar canvas
+    std::vector<uint16_t> map_buf_merc_;     // RGB565 backing for the Mercator canvas
+    toolkit::map::VectorMap base_map_;       // coastline/border layer (Mercator view)
 
     bool compose_active_ = false;
     std::string compose_buf_;
@@ -134,8 +144,9 @@ private:
     std::vector<lv_color_t> nodes_row_colors_; // index = data row
     int nodes_sel_row_ = -1;                   // cursor row, -1 = none
 
-    const lv_font_t* font_big_   = nullptr;
-    const lv_font_t* font_small_ = nullptr;
+    const lv_font_t* font_big_        = nullptr;
+    const lv_font_t* font_small_      = nullptr;
+    const lv_font_t* font_small_bold_ = nullptr; // self short-name in side columns
 
     lv_timer_t* timer_ = nullptr;
 };
