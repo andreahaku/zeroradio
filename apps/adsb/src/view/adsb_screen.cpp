@@ -217,6 +217,7 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     font_small_ = assets().load_font("inter-regular.ttf", 12);
     font_mono_  = assets().load_font("inter-semibold.ttf", 12);
     font_bold_  = assets().load_font("inter-bold.ttf", 12);
+    font_tiny_  = assets().load_font("inter-regular.ttf", 10); // compact side rows
 
     // Base map for the Mercator radar mode (coastline + borders). Loaded once; if
     // the asset is missing the map degrades to an empty background (invalid).
@@ -351,22 +352,40 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     }
 
     // Radar side lists: all aircraft callsigns flanking the scope (left/right),
-    // colour-coded by category, with the cursor/selection marked. Recolour labels
-    // so each line can take its own colour. Display-only here (navigate on List).
+    // colour-coded by category. A pool of reusable row labels per side, each row
+    // carrying its own colour + background so the selected aircraft renders
+    // inverted (category colour fill, black text) and the rest are coloured text
+    // on a transparent background — they overlay the full-width map in map mode.
+    // Compact rows (10px font, 11px step) so all 11 fit the short scope body.
+    constexpr int kSideRows = 11; // == kPerSide in update_ppi()
+    constexpr int kSideRowH = 11; // vertical step; keeps 11 rows within the body
+    const lv_font_t* side_font = font_tiny_ ? font_tiny_ : &lv_font_montserrat_12;
     const auto make_side = [&](lv_align_t align, int32_t xoff) {
-        lv_obj_t* l = lv_label_create(body_);
-        lv_label_set_recolor(l, true);
-        lv_label_set_text(l, "");
-        lv_obj_set_width(l, 98);
-        lv_obj_set_style_text_font(l, font_small_ ? font_small_ : &lv_font_montserrat_12, 0);
-        lv_obj_remove_flag(l, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_remove_flag(l, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_align(l, align, xoff, 0);
-        return l;
+        lv_obj_t* c = lv_obj_create(body_);
+        lv_obj_remove_style_all(c);
+        lv_obj_set_size(c, 100, kSideRows * kSideRowH);
+        lv_obj_clear_flag(c, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_align(c, align, xoff, 0);
+        return c;
     };
     radar_left_  = make_side(LV_ALIGN_TOP_LEFT, 1);
     radar_right_ = make_side(LV_ALIGN_TOP_RIGHT, -1);
-    lv_obj_set_style_text_align(radar_right_, LV_TEXT_ALIGN_RIGHT, 0);
+
+    const auto make_rows = [&](lv_obj_t* parent, std::vector<lv_obj_t*>& pool, bool right) {
+        for (int i = 0; i < kSideRows; ++i) {
+            lv_obj_t* l = lv_label_create(parent);
+            lv_obj_set_style_text_font(l, side_font, 0);
+            lv_obj_set_style_pad_hor(l, 2, 0);   // breathing room for the inverted pill
+            lv_obj_set_style_radius(l, 2, 0);
+            // Flush to the column's outer edge; right column also right-aligns text.
+            lv_obj_align(l, right ? LV_ALIGN_TOP_RIGHT : LV_ALIGN_TOP_LEFT, 0, i * kSideRowH);
+            if (right) lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_RIGHT, 0);
+            lv_obj_add_flag(l, LV_OBJ_FLAG_HIDDEN);
+            pool.push_back(l);
+        }
+    };
+    make_rows(radar_left_, radar_left_rows_, false);
+    make_rows(radar_right_, radar_right_rows_, true);
 
     // Detail view (all fields of the selected aircraft as label rows).
     detail_box_ = lv_obj_create(body_);
@@ -851,34 +870,41 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     // full-width and the labels sit over it with a transparent background (left
     // column left-aligned, right column right-aligned), so you get both at once.
 
-    // Side callsign lists (all aircraft), colour-coded, with the selection (●) and
-    // cursor (›) marked. First half on the left column, the rest on the right.
-    if (radar_left_ && radar_right_) {
-        const std::string& cur = vm_.cursor_hex();
-        const std::string& selh = vm_.selected_hex();
-        constexpr size_t kPerSide = 11;
-        const size_t left_n = (rows.size() + 1) / 2;
-        std::string left, right;
-        for (size_t i = 0; i < rows.size(); ++i) {
-            const Row& r = rows[i];
-            const std::string call = r.flight.empty() ? r.hex : r.flight;
-            const char* mk = (!selh.empty() && r.hex == selh) ? "\xE2\x97\x8f"  // ●
-                             : (!cur.empty() && r.hex == cur) ? "\xE2\x80\xBA" // ›
-                                                              : " ";
-            // Wide enough that a long flight string can't truncate away the
-            // closing "#" — a dropped recolor terminator would bleed the colour
-            // into the rest of the label.
-            char line[128];
-            std::snprintf(line, sizeof(line), "#%06X %s%s#\n",
-                          category_rgb(r.category, r.emergency), mk, call.c_str());
-            std::string& col = (i < left_n) ? left : right;
-            // Cap each column so it fits the scope height.
-            const size_t shown = (i < left_n) ? i : (i - left_n);
-            if (shown < kPerSide) col += line;
+    // Side callsign lists (all aircraft), colour-coded. Each row renders into the
+    // pool: the selected aircraft inverted (category colour fill + black text),
+    // the cursor marked with a leading ›, everyone else coloured text on a
+    // transparent background. First half on the left column, the rest on the right.
+    const std::string& cur = vm_.cursor_hex();
+    const std::string& selh = vm_.selected_hex();
+    const size_t left_n = (rows.size() + 1) / 2;
+    size_t li = 0, ri = 0;
+    for (size_t i = 0; i < rows.size(); ++i) {
+        const bool on_left = (i < left_n);
+        auto& pool = on_left ? radar_left_rows_ : radar_right_rows_;
+        size_t& slot = on_left ? li : ri;
+        if (slot >= pool.size()) continue;
+        lv_obj_t* l = pool[slot++];
+
+        const Row& r = rows[i];
+        const std::string call = r.flight.empty() ? r.hex : r.flight;
+        const bool is_sel = (!selh.empty() && r.hex == selh);
+        const bool is_cur = (!is_sel && !cur.empty() && r.hex == cur);
+        lv_label_set_text(l, (is_cur ? "\xE2\x80\xBA" + call : call).c_str()); // › cursor
+
+        if (is_sel) {
+            lv_obj_set_style_bg_color(l, lv_color_hex(category_rgb(r.category, r.emergency)), 0);
+            lv_obj_set_style_bg_opa(l, LV_OPA_COVER, 0);
+            lv_obj_set_style_text_color(l, lv_color_black(), 0);
+        } else {
+            lv_obj_set_style_bg_opa(l, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_text_color(l, lv_color_hex(category_rgb(r.category, r.emergency)), 0);
         }
-        lv_label_set_text(radar_left_, left.c_str());
-        lv_label_set_text(radar_right_, right.c_str());
+        lv_obj_remove_flag(l, LV_OBJ_FLAG_HIDDEN);
     }
+    for (size_t k = li; k < radar_left_rows_.size(); ++k)
+        lv_obj_add_flag(radar_left_rows_[k], LV_OBJ_FLAG_HIDDEN);
+    for (size_t k = ri; k < radar_right_rows_.size(); ++k)
+        lv_obj_add_flag(radar_right_rows_[k], LV_OBJ_FLAG_HIDDEN);
 }
 
 void AdsbScreen::update_detail(const std::vector<Row>& rows) {

@@ -110,8 +110,13 @@ private:
     lv_obj_t* list_table_     = nullptr;
     lv_obj_t* ppi_canvas_      = nullptr;
     lv_obj_t* ppi_canvas_merc_ = nullptr; // wider Mercator map canvas (radar<->map toggle)
-    lv_obj_t* radar_left_     = nullptr; // left side callsign list (Radar view)
-    lv_obj_t* radar_right_    = nullptr; // right side callsign list (Radar view)
+    lv_obj_t* radar_left_     = nullptr; // left side callsign column container
+    lv_obj_t* radar_right_    = nullptr; // right side callsign column container
+    // One label per row (pool, reused each tick): the selected aircraft renders
+    // inverted (its category colour as background, black text); others are
+    // coloured text on a transparent background so they overlay the map.
+    std::vector<lv_obj_t*> radar_left_rows_;
+    std::vector<lv_obj_t*> radar_right_rows_;
     lv_obj_t* detail_box_     = nullptr;
     lv_obj_t* detail_label_   = nullptr; // column A field names (bold)
     lv_obj_t* detail_values_  = nullptr; // column A values
@@ -148,6 +153,7 @@ private:
     const lv_font_t* font_small_ = nullptr;
     const lv_font_t* font_mono_  = nullptr;
     const lv_font_t* font_bold_  = nullptr; // field-name labels (Detail)
+    const lv_font_t* font_tiny_  = nullptr; // compact side-column rows (10px)
 
     int last_view_ = -1;
     lv_timer_t* timer_ = nullptr;
