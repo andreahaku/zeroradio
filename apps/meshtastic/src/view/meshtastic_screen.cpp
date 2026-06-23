@@ -8,6 +8,7 @@
 
 #include "asset_manager.h"
 #include "bindings.h"
+#include "linux_input.h"
 #include "theme.h"
 
 #include <cstdint>
@@ -39,8 +40,13 @@ std::string field_of(const toolkit::Entity& e, const char* key) {
 MeshtasticScreen::MeshtasticScreen(MeshtasticViewModel& vm,
                                    app::AssetManager& assets,
                                    toolkit::EntityStore& store,
-                                   MessageLog& messages)
-    : BaseScreen(vm, vm, assets), vm_(vm), store_(store), messages_(messages) {
+                                   MessageLog& messages,
+                                   std::function<uint32_t(const std::string&)> on_send)
+    : BaseScreen(vm, vm, assets),
+      vm_(vm),
+      store_(store),
+      messages_(messages),
+      on_send_(std::move(on_send)) {
     init();
 }
 
@@ -85,6 +91,21 @@ void MeshtasticScreen::build_content(lv_obj_t* content) {
     lv_obj_align(chats_label_, LV_ALIGN_TOP_LEFT, 6, 2);
     lv_obj_add_flag(chats_label_, LV_OBJ_FLAG_HIDDEN);
 
+    // CHATS compose input row, pinned at the bottom; shown only while composing.
+    compose_row_ = lv_label_create(content);
+    lv_label_set_long_mode(compose_row_, LV_LABEL_LONG_WRAP);
+    lv_label_set_text(compose_row_, "> _");
+    lv_obj_set_width(compose_row_, LV_PCT(100));
+    lv_obj_set_style_text_font(compose_row_, fs, 0);
+    lv_obj_set_style_bg_color(compose_row_, view::palette(vm_.is_dark_mode()).surface, 0);
+    lv_obj_set_style_bg_opa(compose_row_, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(compose_row_, view::palette(vm_.is_dark_mode()).primary, 0);
+    lv_obj_set_style_border_width(compose_row_, 1, 0);
+    lv_obj_set_style_pad_all(compose_row_, 3, 0);
+    reactive::bind_theme(compose_row_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
+    lv_obj_align(compose_row_, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+    lv_obj_add_flag(compose_row_, LV_OBJ_FLAG_HIDDEN);
+
     // NODES view: a fixed column header strip + a themed table. Hidden by default.
     nodes_view_ = lv_obj_create(content);
     lv_obj_remove_style_all(nodes_view_);
@@ -122,8 +143,69 @@ void MeshtasticScreen::build_content(lv_obj_t* content) {
     lv_obj_add_event_cb(nodes_table_, nodes_draw_event_cb, LV_EVENT_DRAW_TASK_ADDED, this);
     lv_obj_add_flag(nodes_table_, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
 
+    // The "write" key bumps compose_req; observe it to enter compose mode.
+    last_compose_req_ = lv_subject_get_int(vm_.compose_req_subject());
+    lv_subject_add_observer(vm_.compose_req_subject(), compose_req_cb, this);
+
     timer_ = lv_timer_create(tick_cb, kTickPeriodMs, this);
     tick(); // initial paint
+}
+
+void MeshtasticScreen::compose_req_cb(lv_observer_t* observer, lv_subject_t* subject) {
+    auto* self = static_cast<MeshtasticScreen*>(lv_observer_get_user_data(observer));
+    if (!self) return;
+    const int v = lv_subject_get_int(subject);
+    if (v == self->last_compose_req_) return; // ignore the initial notification
+    self->last_compose_req_ = v;
+    // Only meaningful on the CHATS page; the "write" key only maps there anyway.
+    if (self->vm_.page() == static_cast<int>(MeshtasticViewModel::Page::Chats)) {
+        self->enter_compose();
+    }
+}
+
+void MeshtasticScreen::compose_key_cb(uint32_t key, void* ctx) {
+    if (auto* self = static_cast<MeshtasticScreen*>(ctx)) self->on_compose_key(key);
+}
+
+void MeshtasticScreen::enter_compose() {
+    if (compose_active_) return;
+    compose_active_ = true;
+    compose_buf_.clear();
+    update_compose_row();
+    lv_obj_remove_flag(compose_row_, LV_OBJ_FLAG_HIDDEN);
+    platform::set_key_capture(compose_key_cb, this);
+}
+
+void MeshtasticScreen::exit_compose() {
+    platform::set_key_capture(nullptr, nullptr);
+    compose_active_ = false;
+    compose_buf_.clear();
+    if (compose_row_) lv_obj_add_flag(compose_row_, LV_OBJ_FLAG_HIDDEN);
+}
+
+void MeshtasticScreen::on_compose_key(uint32_t key) {
+    if (key == LV_KEY_ENTER) {
+        if (!compose_buf_.empty() && on_send_) on_send_(compose_buf_);
+        exit_compose(); // modal per-message: send and return to BROWSE
+    } else if (key == LV_KEY_ESC) {
+        exit_compose(); // cancel
+    } else if (key == LV_KEY_BACKSPACE) {
+        if (!compose_buf_.empty()) {
+            compose_buf_.pop_back();
+            update_compose_row();
+        }
+    } else if (key >= 0x20 && key < 0x7f) {
+        if (compose_buf_.size() < 200) {
+            compose_buf_.push_back(static_cast<char>(key));
+            update_compose_row();
+        }
+    }
+}
+
+void MeshtasticScreen::update_compose_row() {
+    if (!compose_row_) return;
+    std::string s = "> " + compose_buf_ + "_";
+    lv_label_set_text(compose_row_, s.c_str());
 }
 
 void MeshtasticScreen::nodes_draw_event_cb(lv_event_t* event) {

@@ -73,6 +73,13 @@ public:
     bool ok() const;         // connected AND handshake complete
     int  node_count() const; // nodes seen in the last completed config burst
 
+    // Queue a text message for transmission (TEXT_MESSAGE_APP). Thread-safe: the
+    // frame is enqueued and the reader loop writes it. Echoes the message back
+    // via on_message immediately (is_self) so it shows in our own feed. Returns
+    // the packet id (for future ACK matching). Default: broadcast on channel 0.
+    uint32_t send_text(const std::string& text, uint32_t to = 0xFFFFFFFFu,
+                       uint8_t channel = 0, bool want_ack = true);
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

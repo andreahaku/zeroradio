@@ -76,7 +76,9 @@ int main() {
 
     std::unique_ptr<meshtastic::MeshtasticScreen> screen;
     const int rc = toolkit::run_app(view_model, assets, [&]() -> lv_obj_t* {
-        screen = std::make_unique<meshtastic::MeshtasticScreen>(view_model, assets, store, messages);
+        screen = std::make_unique<meshtastic::MeshtasticScreen>(
+            view_model, assets, store, messages,
+            [&source](const std::string& t) { return source.send_text(t); });
         return screen->root();
     });
 

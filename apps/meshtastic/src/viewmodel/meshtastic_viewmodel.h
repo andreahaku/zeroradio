@@ -8,6 +8,7 @@
 
 #include "nav_provider.h"
 #include "shell_viewmodel.h"
+#include "subjects.h"
 
 #include "lvgl.h"
 
@@ -37,6 +38,11 @@ public:
     void nodes_up();
     void nodes_down();
 
+    // CHATS compose: the "write" key (slot 4) bumps this subject; the screen
+    // observes it to enter compose mode (raw key capture).
+    lv_subject_t* compose_req_subject();
+    void request_compose();
+
     // --- NavProvider ---
     int nav_page_count() const override;
     void nav_fill(int page, NavProvider::NavSlot out[5]) const override;
@@ -45,6 +51,7 @@ public:
 private:
     int nodes_cursor_ = 0;
     int nodes_count_ = 0;
+    reactive::IntSubject compose_req_{0};
 };
 
 } // namespace meshtastic

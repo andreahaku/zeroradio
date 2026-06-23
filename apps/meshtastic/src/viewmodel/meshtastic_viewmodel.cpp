@@ -48,6 +48,15 @@ void MeshtasticViewModel::nodes_down() {
     if (nodes_cursor_ + 1 < nodes_count_) ++nodes_cursor_;
 }
 
+lv_subject_t* MeshtasticViewModel::compose_req_subject() {
+    return compose_req_.native();
+}
+
+void MeshtasticViewModel::request_compose() {
+    lv_subject_t* s = compose_req_.native();
+    lv_subject_set_int(s, lv_subject_get_int(s) + 1);
+}
+
 int MeshtasticViewModel::nav_page_count() const {
     return kPageCount; // Chats / Nodes / Map / Tools / Settings
 }
@@ -90,6 +99,10 @@ void MeshtasticViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const 
 
 void MeshtasticViewModel::nav_activate(int page, int slot) {
     switch (static_cast<Page>(page)) {
+        case Page::Chats:
+            // 5=channel (later), 6=canned (later), 7=react (later), 8=write.
+            if (slot == 4) request_compose();
+            break;
         case Page::Nodes:
             // 5=sort (later), 6=up, 7=down, 8=detail (later).
             if (slot == 2) nodes_up();

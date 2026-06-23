@@ -22,6 +22,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <deque>
+#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -63,7 +65,12 @@ struct MeshtasticClientSource::Impl {
     std::thread thread;
 
     uint32_t nonce = 0x1000;
-    uint32_t my_node_num = 0;
+    std::atomic<uint32_t> my_node_num{0};
+
+    // Outbound TX queue (UI thread enqueues, reader loop writes).
+    std::mutex out_mutex;
+    std::deque<std::vector<uint8_t>> outbox;
+    std::atomic<uint32_t> next_id{1};
 
     // Reused across decodes: FromRadio is a big union, keep it off the stack.
     meshtastic_FromRadio scratch{};
@@ -113,6 +120,57 @@ struct MeshtasticClientSource::Impl {
         return send_toradio(fd, t);
     }
 
+    static bool encode_frame(const meshtastic_ToRadio& msg, std::vector<uint8_t>& out) {
+        uint8_t payload[kMaxFrame];
+        pb_ostream_t os = pb_ostream_from_buffer(payload, sizeof(payload));
+        if (!pb_encode(&os, meshtastic_ToRadio_fields, &msg)) return false;
+        const size_t len = os.bytes_written;
+        out.clear();
+        out.reserve(4 + len);
+        out.push_back(kStart1);
+        out.push_back(kStart2);
+        out.push_back(static_cast<uint8_t>((len >> 8) & 0xff));
+        out.push_back(static_cast<uint8_t>(len & 0xff));
+        out.insert(out.end(), payload, payload + len);
+        return true;
+    }
+
+    uint32_t enqueue_text(const std::string& text, uint32_t to, uint8_t channel,
+                          bool want_ack) {
+        const uint32_t id = next_id.fetch_add(1);
+        meshtastic_ToRadio t = meshtastic_ToRadio_init_zero;
+        t.which_payload_variant = meshtastic_ToRadio_packet_tag;
+        meshtastic_MeshPacket& p = t.packet;
+        p.from = my_node_num.load();
+        p.to = to;
+        p.channel = channel;
+        p.id = id;
+        p.want_ack = want_ack;
+        p.which_payload_variant = meshtastic_MeshPacket_decoded_tag;
+        p.decoded.portnum = meshtastic_PortNum_TEXT_MESSAGE_APP;
+        size_t n = text.size();
+        if (n > sizeof(p.decoded.payload.bytes)) n = sizeof(p.decoded.payload.bytes);
+        p.decoded.payload.size = static_cast<pb_size_t>(n);
+        std::memcpy(p.decoded.payload.bytes, text.data(), n);
+
+        std::vector<uint8_t> frame;
+        if (encode_frame(t, frame)) {
+            std::lock_guard<std::mutex> lk(out_mutex);
+            outbox.push_back(std::move(frame));
+        }
+        // Echo to our own feed immediately (optimistic; ACK state lands later).
+        if (cb.on_message) {
+            MeshMessage m;
+            m.from = my_node_num.load();
+            m.is_self = true;
+            m.channel = channel;
+            m.text.assign(text.data(), n);
+            m.id = id;
+            cb.on_message(m);
+        }
+        return id;
+    }
+
     enum class Frame { NeedMore, Skipped, Decoded };
 
     // Pull one frame from `buf` (consuming it). Resyncs past noise, waits for a
@@ -139,11 +197,11 @@ struct MeshtasticClientSource::Impl {
     void handle(bool& synced, int& burst_nodes) {
         switch (scratch.which_payload_variant) {
             case meshtastic_FromRadio_my_info_tag:
-                my_node_num = scratch.my_info.my_node_num;
+                my_node_num.store(scratch.my_info.my_node_num);
                 std::fprintf(stderr,
                              "[meshtastic] my_info: node_num=0x%08x nodedb=%u\n",
-                             my_node_num, scratch.my_info.nodedb_count);
-                if (cb.on_self) cb.on_self(my_node_num);
+                             my_node_num.load(), scratch.my_info.nodedb_count);
+                if (cb.on_self) cb.on_self(my_node_num.load());
                 break;
             case meshtastic_FromRadio_node_info_tag: {
                 if (!synced) ++burst_nodes;
@@ -156,7 +214,7 @@ struct MeshtasticClientSource::Impl {
                     std::snprintf(idbuf, sizeof(idbuf), "!%08x", ni.num);
                     u.id = idbuf;
                 }
-                u.is_self = (ni.num == my_node_num);
+                u.is_self = (ni.num == my_node_num.load());
                 if (ni.has_user) {
                     if (ni.user.long_name[0] != '\0') {
                         u.has_long = true;
@@ -202,7 +260,7 @@ struct MeshtasticClientSource::Impl {
                     pkt.decoded.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP) {
                     MeshMessage m;
                     m.from = pkt.from;
-                    m.is_self = (pkt.from == my_node_num);
+                    m.is_self = (pkt.from == my_node_num.load());
                     m.channel = pkt.channel;
                     m.id = pkt.id;
                     m.rx_time = pkt.rx_time;
@@ -261,6 +319,24 @@ struct MeshtasticClientSource::Impl {
                         if (r == Frame::Decoded) handle(synced, burst_nodes);
                     }
                 }
+
+                // Drain queued outbound frames (send_text from the UI thread).
+                {
+                    std::deque<std::vector<uint8_t>> pending;
+                    {
+                        std::lock_guard<std::mutex> lk(out_mutex);
+                        pending.swap(outbox);
+                    }
+                    bool werr = false;
+                    for (const auto& f : pending) {
+                        if (!write_all(fd, f.data(), f.size())) {
+                            werr = true;
+                            break;
+                        }
+                    }
+                    if (werr) break;
+                }
+
                 const auto now = std::chrono::steady_clock::now();
                 if (synced && now - last_hb > kHeartbeat) {
                     if (!send_heartbeat(fd)) break;
@@ -298,6 +374,11 @@ bool MeshtasticClientSource::ok() const {
 
 int MeshtasticClientSource::node_count() const {
     return impl_->node_count.load();
+}
+
+uint32_t MeshtasticClientSource::send_text(const std::string& text, uint32_t to,
+                                           uint8_t channel, bool want_ack) {
+    return impl_->enqueue_text(text, to, channel, want_ack);
 }
 
 } // namespace meshtastic
