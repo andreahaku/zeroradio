@@ -186,6 +186,7 @@ provisioned in the BSP sysroot.
 
 - Verify NFM/AM/SSB/CW audio with a proper antenna / quieter RF environment (WFM is confirmed).
 - Settings page: sample rate, bias-tee, ppm correction (gain is done).
+- HackRF front-end via SoapySDR (RTL-SDR v3/v4 and compatible dongles supported today).
 - On-device `.deb` deployment.
 - Networked source (remote `rtl_tcp` tap) — the TCP boundary already supports it.
 

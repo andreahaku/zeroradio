@@ -181,7 +181,7 @@ The cross build (`cp0-cross`) and `.deb` packaging are monorepo-wide concerns (p
   so no shared file is needed.
 - `DecoderSupervisor`: spawn/stop/retune a local `dump1090` from the app, enabling decoder settings
   (gain / ppm / bias-tee) on the Settings screen.
-- Add screenshots / a demo recording to `docs/media/`.
+- HackRF front-end (via SoapySDR), in addition to RTL-SDR (v3/v4 supported today).
 - On-device `.deb` deployment.
 
 ## License

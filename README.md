@@ -71,5 +71,38 @@ Architecture and design (shared toolkit, shell decoupling, per-app data paths): 
 [`docs/architecture.md`](docs/architecture.md). Per-app docs: [`apps/adsb/README.md`](apps/adsb/README.md),
 [`apps/sdr/README.md`](apps/sdr/README.md).
 
+## Hardware & data sources
+
+The apps are **viewers**: a decoder runs as a **local process** and each app reads its output (a local
+file, or a `127.0.0.1` socket). Today you start the decoder yourself (each app's README has the exact
+command); summary:
+
+| App | Decoder (local process) | App reads | Install (Arch) |
+| --- | --- | --- | --- |
+| **ADS-B** | `dump1090 --write-json <dir> --write-json-every 1` | `<dir>/aircraft.json` (via `ADSB_JSON`) | `dump1090` |
+| **SDR** | `rtl_tcp -a 127.0.0.1 -p 1234 -s 2400000` | raw IQ over TCP `127.0.0.1:1234` | `rtl-sdr` |
+
+Each app also runs with **no hardware** on bundled mock/synthetic data (ADS-B: the bundled
+`aircraft.json`; SDR: `SDR_SOURCE=mock`), so the whole UI works on the desktop simulator without a dongle.
+
+### SDR front-ends
+
+- **RTL-SDR** — supported today: **v3, v4, and compatible R820T2 / R828D dongles**. The **RTL-SDR Blog V4**
+  needs the `rtl-sdr-blog` driver (`rtl-sdr` ≥ 2.0). On Linux, **blacklist the kernel DVB driver** so it
+  doesn't grab the dongle, then replug:
+  ```bash
+  echo 'blacklist dvb_usb_rtl28xxu' | sudo tee /etc/modprobe.d/blacklist-rtl.conf
+  ```
+- **HackRF** — *planned*: wider frequency coverage and TX, wired in through SoapySDR. The apps are
+  front-end-agnostic (they consume a decoder's output, not raw IQ), so adding HackRF is mostly decoder /
+  source configuration rather than app changes.
+
+### On-device auto-start (planned)
+
+On the desktop you launch the decoder by hand. **On the CardputerZero the goal is a single step:** launch
+the app and it starts (and retunes) the background decoder for you, off the on-board RTL-SDR. A
+`DecoderSupervisor` in the toolkit will own the dongle, run the right decoder per app, and frequency-hop
+when one dongle has to cover multiple bands. Until that lands, start the decoder as shown above.
+
 ## License
 MIT (matches the SDRTerminal base and the M5Stack template).
