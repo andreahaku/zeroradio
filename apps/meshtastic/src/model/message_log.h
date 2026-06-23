@@ -25,6 +25,8 @@ public:
     MessageLog& operator=(const MessageLog&) = delete;
 
     void add(const MeshMessage& m);
+    // Update the delivery state of a sent message (matched by packet id).
+    void update_ack(uint32_t id, AckState state);
     std::vector<MeshMessage> snapshot() const; // chronological, newest last
     std::size_t size() const;
 

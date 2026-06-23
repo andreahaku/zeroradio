@@ -67,6 +67,7 @@ int main() {
                 });
             },
             [&messages](const meshtastic::MeshMessage& m) { messages.add(m); },
+            [&messages](uint32_t id, meshtastic::AckState st) { messages.update_ack(id, st); },
         });
     source.start();
 

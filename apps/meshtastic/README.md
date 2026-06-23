@@ -18,9 +18,11 @@ Working (verified on a `meshtasticd -s` bench / scripted peer, both presets host
 - **Chat send + compose** — the `8` (write) key enters a compose row (raw key capture via
   `platform::set_key_capture`); type, **`Enter` sends and returns**, `Esc` cancels. `send_text` queues a
   `ToRadio` `MeshPacket` (the reader loop writes it) and echoes the message to our own feed.
+- **ACK color-outline** — `ROUTING_APP` matched by `request_id` updates a sent message's state; the feed
+  shows a delivery dot: amber (pending) → green (delivered) / red (failed).
 
-Placeholders / pending: **ACK color-outline** (ROUTING_APP), channel switch / canned / reactions / DMs,
-Map (PPI), Tools, Settings. See `radio-apps/09b` (build order) and `09c` (per-screen design).
+Placeholders / pending: channel switch / canned / reactions / DMs, Map (PPI), Tools, Settings. See
+`radio-apps/09b` (build order) and `09c` (per-screen design).
 
 ## Architecture
 

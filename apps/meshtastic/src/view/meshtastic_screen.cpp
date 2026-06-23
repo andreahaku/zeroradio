@@ -320,6 +320,15 @@ void MeshtasticScreen::update_chats(const std::vector<toolkit::Entity>& snap) {
                       m.is_self ? 0x63e2b7u : 0x70c0e8u, sh.c_str());
         text += hdr;
         text += m.text;
+        // Delivery dot for our own messages: green ack / amber pending / red fail.
+        if (m.is_self && m.ack != AckState::None) {
+            const uint32_t c = m.ack == AckState::Delivered ? 0x63e2b7u
+                               : m.ack == AckState::Failed  ? 0xe88080u
+                                                            : 0xf0a020u;
+            char dot[24];
+            std::snprintf(dot, sizeof(dot), " #%06x \xE2\x97\x8f#", c);
+            text += dot;
+        }
         text += "\n";
     }
     if (msgs.empty()) {

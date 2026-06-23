@@ -27,14 +27,23 @@ struct NodeUpdate {
     bool has_last_heard = false; uint32_t last_heard = 0; // epoch seconds
 };
 
-// A received text message (TEXT_MESSAGE_APP) decoded from a MeshPacket.
+// Delivery state of one of our own sent messages (color-outline in the feed).
+enum class AckState : uint8_t {
+    None = 0,   // not applicable (received message)
+    Pending,    // sent, awaiting ACK (yellow)
+    Delivered,  // acknowledged (green)
+    Failed,     // routing failure / no ACK (red)
+};
+
+// A text message (TEXT_MESSAGE_APP) decoded from a MeshPacket.
 struct MeshMessage {
     uint32_t from = 0;       // sender node number
     bool is_self = false;    // sent by our own node
     uint8_t channel = 0;     // channel index
     std::string text;        // UTF-8 body
-    uint32_t id = 0;         // packet id (for future ACK matching)
+    uint32_t id = 0;         // packet id (ACK matching)
     uint32_t rx_time = 0;    // epoch seconds (0 if unknown)
+    AckState ack = AckState::None;
 };
 
 // TCP client of a local `meshtasticd` Client API (default 127.0.0.1:4403). A
@@ -59,6 +68,8 @@ public:
         std::function<void(const NodeUpdate&)> on_node;
         // A received text message (TEXT_MESSAGE_APP). Fired on the reader thread.
         std::function<void(const MeshMessage&)> on_message;
+        // ACK/failure for one of our sent messages (ROUTING_APP, matched by id).
+        std::function<void(uint32_t req_id, AckState)> on_ack;
     };
 
     MeshtasticClientSource(std::string host, uint16_t port, Callbacks cb);

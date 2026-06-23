@@ -166,6 +166,7 @@ struct MeshtasticClientSource::Impl {
             m.channel = channel;
             m.text.assign(text.data(), n);
             m.id = id;
+            m.ack = want_ack ? AckState::Pending : AckState::None;
             cb.on_message(m);
         }
         return id;
@@ -256,18 +257,32 @@ struct MeshtasticClientSource::Impl {
                 break;
             case meshtastic_FromRadio_packet_tag: {
                 const meshtastic_MeshPacket& pkt = scratch.packet;
-                if (pkt.which_payload_variant == meshtastic_MeshPacket_decoded_tag &&
-                    pkt.decoded.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP) {
+                if (pkt.which_payload_variant != meshtastic_MeshPacket_decoded_tag) {
+                    break;
+                }
+                const meshtastic_Data& d = pkt.decoded;
+                if (d.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP) {
                     MeshMessage m;
                     m.from = pkt.from;
                     m.is_self = (pkt.from == my_node_num.load());
                     m.channel = pkt.channel;
                     m.id = pkt.id;
                     m.rx_time = pkt.rx_time;
-                    m.text.assign(
-                        reinterpret_cast<const char*>(pkt.decoded.payload.bytes),
-                        pkt.decoded.payload.size);
+                    m.text.assign(reinterpret_cast<const char*>(d.payload.bytes),
+                                  d.payload.size);
                     if (cb.on_message) cb.on_message(m);
+                } else if (d.portnum == meshtastic_PortNum_ROUTING_APP) {
+                    // ACK / failure for a message we sent (matched by request_id).
+                    meshtastic_Routing r = meshtastic_Routing_init_zero;
+                    pb_istream_t is = pb_istream_from_buffer(d.payload.bytes, d.payload.size);
+                    if (pb_decode(&is, meshtastic_Routing_fields, &r) &&
+                        r.which_variant == meshtastic_Routing_error_reason_tag &&
+                        cb.on_ack && d.request_id != 0) {
+                        const AckState st = (r.error_reason == meshtastic_Routing_Error_NONE)
+                                                ? AckState::Delivered
+                                                : AckState::Failed;
+                        cb.on_ack(d.request_id, st);
+                    }
                 }
                 break;
             }

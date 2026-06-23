@@ -14,6 +14,17 @@ void MessageLog::add(const MeshMessage& m) {
     while (messages_.size() > kCap) messages_.pop_front();
 }
 
+void MessageLog::update_ack(uint32_t id, AckState state) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    // Most-recent first: the matching sent message is usually near the end.
+    for (auto it = messages_.rbegin(); it != messages_.rend(); ++it) {
+        if (it->is_self && it->id == id) {
+            it->ack = state;
+            return;
+        }
+    }
+}
+
 std::vector<MeshMessage> MessageLog::snapshot() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return std::vector<MeshMessage>(messages_.begin(), messages_.end());
