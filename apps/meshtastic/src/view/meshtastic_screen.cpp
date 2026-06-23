@@ -289,9 +289,9 @@ void MeshtasticScreen::build_content(lv_obj_t* content) {
     lv_label_set_text(map_status_, "");
     lv_obj_align(map_status_, LV_ALIGN_BOTTOM_MID, 0, -1);
 
-    // TOOLS view: a list label (4 items) in the upper half + an output panel in
-    // the lower half. Both are children of the content directly (not in a flex
-    // container) so their heights are fixed and don't fight each other.
+    // TOOLS view: list on the LEFT (~110px wide), output panel on the RIGHT
+    // (remaining ~210px). Side-by-side uses the landscape format efficiently,
+    // mirrors the ADS-B radar/sidebar pattern and the rest of the Meshtastic UI.
     tools_view_ = lv_obj_create(content);
     lv_obj_remove_style_all(tools_view_);
     lv_obj_set_size(tools_view_, LV_PCT(100), LV_PCT(100));
@@ -299,28 +299,34 @@ void MeshtasticScreen::build_content(lv_obj_t* content) {
     lv_obj_set_style_pad_all(tools_view_, 0, 0);
     lv_obj_add_flag(tools_view_, LV_OBJ_FLAG_HIDDEN);
 
-    // List in the top half (4 items ≈ 4 × 14px lines = 56px, fits well in 110px)
+    // Left column: 4-item list (≈110px wide).
+    constexpr int32_t kListW = 110;
     tools_list_ = lv_label_create(tools_view_);
     lv_label_set_recolor(tools_list_, true);
+    lv_label_set_long_mode(tools_list_, LV_LABEL_LONG_CLIP);
     lv_obj_set_style_text_font(tools_list_, fs, 0);
     lv_obj_set_style_pad_all(tools_list_, 3, 0);
     reactive::bind_theme(tools_list_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
-    lv_obj_set_width(tools_list_, LV_PCT(100));
+    lv_obj_set_size(tools_list_, kListW, LV_PCT(100));
     lv_obj_align(tools_list_, LV_ALIGN_TOP_LEFT, 0, 0);
     lv_label_set_text(tools_list_, "");
 
-    // Output panel in the lower ~half; hidden until the tool is "running".
+    // Thin vertical divider between list and output.
+    lv_obj_t* div = lv_obj_create(tools_view_);
+    lv_obj_remove_style_all(div);
+    lv_obj_set_size(div, 1, LV_PCT(100));
+    lv_obj_set_style_bg_color(div, view::palette(vm_.is_dark_mode()).border, 0);
+    lv_obj_set_style_bg_opa(div, LV_OPA_COVER, 0);
+    lv_obj_align(div, LV_ALIGN_TOP_LEFT, kListW, 0);
+
+    // Right column: output panel (rest of width). Hidden until a tool is run.
     tools_output_ = lv_label_create(tools_view_);
     lv_label_set_recolor(tools_output_, true);
     lv_label_set_long_mode(tools_output_, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_font(tools_output_, fs, 0);
     lv_obj_set_style_pad_all(tools_output_, 4, 0);
-    lv_obj_set_style_bg_color(tools_output_, view::palette(vm_.is_dark_mode()).surface, 0);
-    lv_obj_set_style_bg_opa(tools_output_, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(tools_output_, view::palette(vm_.is_dark_mode()).border, 0);
-    lv_obj_set_style_border_width(tools_output_, 1, 0);
-    lv_obj_set_size(tools_output_, LV_PCT(100), 54); // bottom 54px of the 110px content
-    lv_obj_align(tools_output_, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+    lv_obj_set_size(tools_output_, 320 - kListW - 1, LV_PCT(100));
+    lv_obj_align(tools_output_, LV_ALIGN_TOP_LEFT, kListW + 1, 0);
     reactive::bind_theme(tools_output_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
     lv_label_set_text(tools_output_, "");
     lv_obj_add_flag(tools_output_, LV_OBJ_FLAG_HIDDEN);
