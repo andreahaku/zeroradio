@@ -198,7 +198,14 @@ int    AdsbViewModel::trail_len() const       { return trail_len_; }
 bool   AdsbViewModel::show_ground() const     { return show_ground_; }
 bool   AdsbViewModel::emergency_only() const  { return emergency_only_; }
 
-int AdsbViewModel::settings_count() const { return 7; }
+int AdsbViewModel::settings_count() const { return 8; }
+
+bool AdsbViewModel::map_mercator() const { return map_mercator_; }
+
+void AdsbViewModel::toggle_map_mode() {
+    map_mercator_ = !map_mercator_;
+    save_settings();
+}
 int AdsbViewModel::settings_cursor() const { return settings_cursor_; }
 
 void AdsbViewModel::settings_up() {
@@ -234,6 +241,7 @@ void AdsbViewModel::settings_activate() {
         }
         case 5: show_ground_ = !show_ground_; break;              // Ground
         case 6: emergency_only_ = !emergency_only_; break;        // Emergency only
+        case 7: map_mercator_ = !map_mercator_; break;            // Map view (Radar/Map)
         default: break;
     }
     save_settings();
@@ -241,7 +249,7 @@ void AdsbViewModel::settings_activate() {
 
 std::string AdsbViewModel::setting_name(int i) const {
     static const char* kNames[] = {"Theme", "Units", "TTL", "Range",
-                                   "Trails", "Ground", "Emerg only"};
+                                   "Trails", "Ground", "Emerg only", "Map view"};
     return (i >= 0 && i < settings_count()) ? kNames[i] : "";
 }
 
@@ -255,6 +263,7 @@ std::string AdsbViewModel::setting_value(int i) const {
         case 4: return trail_len_ == 0 ? std::string("All") : std::to_string(trail_len_);
         case 5: return show_ground_ ? "Show" : "Hide";
         case 6: return emergency_only_ ? "On" : "Off";
+        case 7: return map_mercator_ ? "Map" : "Radar";
         default: return "";
     }
 }
@@ -290,6 +299,10 @@ void AdsbViewModel::load_settings() {
             if (sort >= 0 && sort < kSortCount) sort_mode_subject_.set(sort);
             detail_show_others_ = (others != 0);
         }
+        // Appended later than the original v2 fields: older v2 files lack it and
+        // just keep the default (radar). Read optionally so they still parse.
+        int map_view = 0;
+        if (in >> map_view) map_mercator_ = (map_view != 0);
     }
 }
 
@@ -307,7 +320,7 @@ void AdsbViewModel::save_settings() const {
             << static_cast<int>(ttl_seconds_) << ' ' << range_index() << ' ' << trail_len_
             << ' ' << (show_ground_ ? 1 : 0) << ' ' << (emergency_only_ ? 1 : 0) << ' '
             << (show_trails() ? 1 : 0) << ' ' << sort_mode() << ' '
-            << (detail_show_others_ ? 1 : 0) << '\n';
+            << (detail_show_others_ ? 1 : 0) << ' ' << (map_mercator_ ? 1 : 0) << '\n';
         if (!out) return; // don't rename a bad write over the good file
     }
     std::error_code ec;
@@ -335,7 +348,7 @@ void AdsbViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
             out[1] = {view::ICON_PLUS, false, true};         // zoom in
             out[2] = {view::ICON_MINUS, false, true};        // zoom out
             out[3] = {view::ICON_CHART_LINE, false, true};   // trails on/off
-            out[4] = {"", false, false};                     // reserved
+            out[4] = {view::ICON_MAP_TOGGLE, map_mercator_, true}; // radar <-> map (icon provisional)
             break;
         case Screen::Detail:
             out[1] = {view::ICON_PLUS, false, true};         // zoom in
@@ -364,6 +377,7 @@ void AdsbViewModel::nav_activate(int page, int slot) {
             if (slot == 1) range_in();
             else if (slot == 2) range_out();
             else if (slot == 3) toggle_trails();
+            else if (slot == 4) toggle_map_mode();
             break;
         case Screen::Detail:
             if (slot == 1) range_in();

@@ -34,6 +34,13 @@ constexpr int32_t kHeaderHeight = 18;
 // square would be clipped vertically by the body.
 constexpr int32_t kPpiSize = 120;
 
+// Mercator map canvas: not bound to a circle, so it spreads to twice the width
+// (same height) to use more of the 320px-wide screen. Shown instead of the
+// square PPI when the Radar screen is in map mode (a separate fixed-size canvas
+// — resizing one at runtime crashes the SDL/Mesa flush).
+constexpr int32_t kPpiMercW = 240;
+constexpr int32_t kPpiMercH = 120;
+
 // Detail mini-radar: a square on the right of the split Detail view.
 constexpr int32_t kDetailRadarSize = 118; // 118*2 = 236 bytes (4-byte aligned)
 
@@ -189,6 +196,7 @@ AdsbScreen::AdsbScreen(AdsbViewModel& vm,
       config_(config),
       conn_state_(std::move(conn_state)),
       ppi_buf_(static_cast<size_t>(kPpiSize) * kPpiSize, 0u),
+      ppi_buf_merc_(static_cast<size_t>(kPpiMercW) * kPpiMercH, 0u),
       detail_buf_(static_cast<size_t>(kDetailRadarSize) * kDetailRadarSize, 0u) {
     init();
 }
@@ -209,6 +217,11 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     font_small_ = assets().load_font("inter-regular.ttf", 12);
     font_mono_  = assets().load_font("inter-semibold.ttf", 12);
     font_bold_  = assets().load_font("inter-bold.ttf", 12);
+
+    // Base map for the Mercator radar mode (coastline + borders). Loaded once; if
+    // the asset is missing the map degrades to an empty background (invalid).
+    base_map_ = toolkit::map::VectorMap::load(
+        assets().resolve("mapdata/adriatic.rmap").string());
 
     // --- Header row: title | "N trk" | conn dot ---
     header_ = lv_obj_create(content);
@@ -310,6 +323,18 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     lv_obj_align(ppi_canvas_, LV_ALIGN_CENTER, 0, 0);
     lv_obj_remove_flag(ppi_canvas_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(ppi_canvas_, LV_OBJ_FLAG_CLICKABLE);
+
+    // Wider Mercator map canvas, shown instead of the square PPI in map mode.
+    // Separate fixed-size canvas (resizing one at runtime crashes SDL/Mesa).
+    ppi_canvas_merc_ = lv_canvas_create(body_);
+    lv_canvas_set_buffer(ppi_canvas_merc_, ppi_buf_merc_.data(), kPpiMercW, kPpiMercH,
+                         LV_COLOR_FORMAT_RGB565);
+    lv_canvas_fill_bg(ppi_canvas_merc_, lv_color_black(), LV_OPA_COVER);
+    lv_obj_set_size(ppi_canvas_merc_, kPpiMercW, kPpiMercH);
+    lv_obj_align(ppi_canvas_merc_, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_remove_flag(ppi_canvas_merc_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(ppi_canvas_merc_, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(ppi_canvas_merc_, LV_OBJ_FLAG_HIDDEN);
 
     // Range-ring scale labels: one tiny NM label per concentric ring, dim so it
     // reads as chrome. Positioned along the north axis in update_ppi.
@@ -432,10 +457,15 @@ void AdsbScreen::show_view(int screen) {
     const bool detail   = (screen == static_cast<int>(AdsbViewModel::Screen::Detail));
     const bool settings = (screen == static_cast<int>(AdsbViewModel::Screen::Settings));
 
+    // On the Radar screen, update_ppi swaps between the square radar and the wide
+    // Mercator canvas (and hides the side columns in map mode); here we just
+    // honour the current mode so there's no one-frame flash of the wrong canvas.
+    const bool merc = vm_.map_mercator();
     if (list_view_)     lv_obj_set_flag(list_view_,     LV_OBJ_FLAG_HIDDEN, !list);
-    if (ppi_canvas_)    lv_obj_set_flag(ppi_canvas_,    LV_OBJ_FLAG_HIDDEN, !ppi);
-    if (radar_left_)    lv_obj_set_flag(radar_left_,    LV_OBJ_FLAG_HIDDEN, !ppi);
-    if (radar_right_)   lv_obj_set_flag(radar_right_,   LV_OBJ_FLAG_HIDDEN, !ppi);
+    if (ppi_canvas_)      lv_obj_set_flag(ppi_canvas_,      LV_OBJ_FLAG_HIDDEN, !ppi || merc);
+    if (ppi_canvas_merc_) lv_obj_set_flag(ppi_canvas_merc_, LV_OBJ_FLAG_HIDDEN, !ppi || !merc);
+    if (radar_left_)    lv_obj_set_flag(radar_left_,    LV_OBJ_FLAG_HIDDEN, !ppi || merc);
+    if (radar_right_)   lv_obj_set_flag(radar_right_,   LV_OBJ_FLAG_HIDDEN, !ppi || merc);
     if (detail_box_)    lv_obj_set_flag(detail_box_,    LV_OBJ_FLAG_HIDDEN, !detail);
     if (settings_box_)  lv_obj_set_flag(settings_box_,  LV_OBJ_FLAG_HIDDEN, !settings);
 
@@ -685,13 +715,15 @@ void AdsbScreen::record_trails(const std::vector<Row>& rows) {
 
 void AdsbScreen::render_scope(uint16_t* buf, int size, lv_obj_t* canvas,
                              std::vector<lv_obj_t*>& ring_labels,
-                             const std::vector<Row>& rows, int sel, bool show_others) {
+                             const std::vector<Row>& rows, int sel, bool show_others,
+                             bool mercator) {
     if (!canvas) return;
     const int w = size, h = size;
     std::fill(buf, buf + static_cast<size_t>(w) * h, lv_color_to_u16(lv_color_black()));
 
     const int cx = w / 2, cy = h / 2;
     const int radius_px = (std::min(w, h) / 2) - 4;
+    const double max_nm = static_cast<double>(vm_.range_nm());
 
     const uint16_t ring_col = lv_color_to_u16(lv_color_hex(0x224422));
     const uint16_t north_col = lv_color_to_u16(lv_color_hex(0x66aa66));
@@ -702,29 +734,56 @@ void AdsbScreen::render_scope(uint16_t* buf, int size, lv_obj_t* canvas,
     const uint16_t trail_col = lv_color_to_u16(lv_color_hex(0x55aa55));  // others' trail
     const uint16_t trail_sel_col = sel_ac_col;                          // selected trail
 
-    // Concentric range rings (1/3, 2/3, full).
-    const int ring_px[3] = {radius_px / 3, (radius_px * 2) / 3, radius_px};
-    for (int rp : ring_px) plot_ring(buf, w, h, cx, cy, rp, ring_col);
+    if (mercator) {
+        // Map mode: coastline + national borders centred on home, instead of rings.
+        toolkit::map::MapViewport vp;
+        vp.width = w;
+        vp.height = h;
+        vp.cx = cx;
+        vp.cy = cy;
+        vp.radius_px = radius_px;
+        vp.home = config_.home;
+        vp.range_nm = max_nm;
+        vp.projection = toolkit::map::Projection::Mercator;
+        toolkit::map::draw_base(buf, vp, base_map_, toolkit::map::MapStyle{});
+        for (lv_obj_t* lbl : ring_labels)
+            if (lbl) lv_obj_add_flag(lbl, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        // Concentric range rings (1/3, 2/3, full).
+        const int ring_px[3] = {radius_px / 3, (radius_px * 2) / 3, radius_px};
+        for (int rp : ring_px) plot_ring(buf, w, h, cx, cy, rp, ring_col);
 
-    // North tick (short line up from centre) + home dot.
-    for (int y = cy - radius_px; y < cy - radius_px + 8; ++y)
-        if (y >= 0 && y < h) buf[y * w + cx] = north_col;
+        // North tick (short line up from centre).
+        for (int y = cy - radius_px; y < cy - radius_px + 8; ++y)
+            if (y >= 0 && y < h) buf[y * w + cx] = north_col;
+
+        // Range-ring scale labels (NM), one per ring, over the canvas's north axis.
+        const int ring_nm = vm_.range_nm();
+        const bool ring_km = vm_.units_km();
+        for (size_t i = 0; i < ring_labels.size(); ++i) {
+            lv_obj_t* lbl = ring_labels[i];
+            if (!lbl) continue;
+            lv_label_set_text_fmt(lbl, "%.0f",
+                                  to_unit(ring_nm * (static_cast<double>(i) + 1) / 3.0, ring_km));
+            lv_obj_remove_flag(lbl, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_align_to(lbl, canvas, LV_ALIGN_CENTER, 4, -ring_px[i] + 6);
+        }
+    }
+    // Home dot at the centre (both modes).
     plot_disc(buf, w, h, cx, cy, 2, home_col);
 
-    // Range-ring scale labels (NM), one per ring, over the canvas's north axis.
-    const int ring_nm = vm_.range_nm();
-    const bool ring_km = vm_.units_km();
-    for (size_t i = 0; i < ring_labels.size(); ++i) {
-        lv_obj_t* lbl = ring_labels[i];
-        if (!lbl) continue;
-        lv_label_set_text_fmt(lbl, "%.0f",
-                              to_unit(ring_nm * (static_cast<double>(i) + 1) / 3.0, ring_km));
-        lv_obj_remove_flag(lbl, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_align_to(lbl, canvas, LV_ALIGN_CENTER, 4, -ring_px[i] + 6);
-    }
+    // Project a point with the active projection. Mercator (map) doesn't cull, so
+    // drop points that fall outside the canvas; azimuthal (radar) culls by range.
+    auto project_pt = [&](const toolkit::geo::LatLon& p, int& dx, int& dy) -> bool {
+        if (mercator) {
+            if (!toolkit::geo::project_mercator(config_.home, p, max_nm, radius_px, dx, dy))
+                return false;
+            return cx + dx >= 0 && cx + dx < w && cy + dy >= 0 && cy + dy < h;
+        }
+        return toolkit::geo::project(config_.home, p, max_nm, radius_px, dx, dy);
+    };
 
     const bool trails_on = vm_.show_trails(); // length is the Trails setting; on/off is the key
-    const double max_nm = static_cast<double>(vm_.range_nm());
     const std::string& sel_hex = vm_.selected_hex();
 
     // Trails are recorded once per tick in record_trails(); here we only draw the
@@ -741,7 +800,7 @@ void AdsbScreen::render_scope(uint16_t* buf, int size, lv_obj_t* canvas,
             bool have_prev = false;
             for (const auto& p : it->second) {
                 int tx = 0, ty = 0;
-                if (!toolkit::geo::project(config_.home, p, max_nm, radius_px, tx, ty)) {
+                if (!project_pt(p, tx, ty)) {
                     have_prev = false;
                     continue;
                 }
@@ -759,7 +818,7 @@ void AdsbScreen::render_scope(uint16_t* buf, int size, lv_obj_t* canvas,
         // When "show others" is off, draw only the selected aircraft.
         if (!show_others && static_cast<int>(i) != sel) continue;
         int dx = 0, dy = 0;
-        if (!toolkit::geo::project(config_.home, r.pos, max_nm, radius_px, dx, dy)) continue;
+        if (!project_pt(r.pos, dx, dy)) continue;
         const bool is_sel = (static_cast<int>(i) == sel);
         const uint16_t col = r.emergency ? emg_col : (is_sel ? sel_ac_col : ac_col);
         plot_aircraft(buf, w, h, cx + dx, cy + dy, r.has_track, r.track, col,
@@ -775,8 +834,27 @@ void AdsbScreen::render_scope(uint16_t* buf, int size, lv_obj_t* canvas,
 
 void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     const int sel = row_of(rows, vm_.selected_hex());
-    render_scope(ppi_buf_.data(), kPpiSize, ppi_canvas_, ppi_ring_labels_, rows, sel,
-                 /*show_others=*/true);
+    const bool mercator = vm_.map_mercator();
+
+    // Swap which fixed-size canvas is visible (square radar vs wide Mercator map).
+    lv_obj_t* canvas = mercator ? ppi_canvas_merc_ : ppi_canvas_;
+    uint16_t* buf = mercator ? ppi_buf_merc_.data() : ppi_buf_.data();
+    const int size = mercator ? kPpiMercW : kPpiSize;
+    if (ppi_canvas_)      lv_obj_set_flag(ppi_canvas_,      LV_OBJ_FLAG_HIDDEN, mercator);
+    if (ppi_canvas_merc_) lv_obj_set_flag(ppi_canvas_merc_, LV_OBJ_FLAG_HIDDEN, !mercator);
+
+    render_scope(buf, size, canvas, ppi_ring_labels_, rows, sel,
+                 /*show_others=*/true, mercator);
+
+    // Side callsign columns overlap the wide map, and callsigns live on the List
+    // screen anyway — hide them in map mode.
+    if (mercator) {
+        if (radar_left_)  lv_obj_add_flag(radar_left_,  LV_OBJ_FLAG_HIDDEN);
+        if (radar_right_) lv_obj_add_flag(radar_right_, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    if (radar_left_)  lv_obj_remove_flag(radar_left_,  LV_OBJ_FLAG_HIDDEN);
+    if (radar_right_) lv_obj_remove_flag(radar_right_, LV_OBJ_FLAG_HIDDEN);
 
     // Side callsign lists (all aircraft), colour-coded, with the selection (●) and
     // cursor (›) marked. First half on the left column, the rest on the right.

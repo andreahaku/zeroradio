@@ -10,6 +10,8 @@
 #include "app_config.h"
 #include "base_screen.h"
 #include "entity_store.h"
+#include "map_renderer.h"
+#include "vector_map.h"
 
 #include "lvgl.h"
 
@@ -83,7 +85,8 @@ private:
     // Used by both the PPI (Radar) and the Detail mini-radar so they look alike.
     void render_scope(uint16_t* buf, int size, lv_obj_t* canvas,
                       std::vector<lv_obj_t*>& ring_labels,
-                      const std::vector<Row>& rows, int sel, bool show_others);
+                      const std::vector<Row>& rows, int sel, bool show_others,
+                      bool mercator = false);
     void update_ppi(const std::vector<Row>& rows);
     void update_detail(const std::vector<Row>& rows);
     void update_settings();
@@ -105,7 +108,8 @@ private:
     lv_obj_t* body_           = nullptr;
     lv_obj_t* list_view_      = nullptr; // List container: fixed header + table
     lv_obj_t* list_table_     = nullptr;
-    lv_obj_t* ppi_canvas_     = nullptr;
+    lv_obj_t* ppi_canvas_      = nullptr;
+    lv_obj_t* ppi_canvas_merc_ = nullptr; // wider Mercator map canvas (radar<->map toggle)
     lv_obj_t* radar_left_     = nullptr; // left side callsign list (Radar view)
     lv_obj_t* radar_right_    = nullptr; // right side callsign list (Radar view)
     lv_obj_t* detail_box_     = nullptr;
@@ -134,8 +138,12 @@ private:
 
     // PPI canvas backing store (RGB565).
     std::vector<uint16_t> ppi_buf_;
+    // Wider Mercator map canvas backing store (RGB565).
+    std::vector<uint16_t> ppi_buf_merc_;
     // Detail mini-radar backing store (RGB565).
     std::vector<uint16_t> detail_buf_;
+    // Coastline/border base layer for the Mercator map view.
+    toolkit::map::VectorMap base_map_;
 
     const lv_font_t* font_small_ = nullptr;
     const lv_font_t* font_mono_  = nullptr;

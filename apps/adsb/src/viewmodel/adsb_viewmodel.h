@@ -37,6 +37,12 @@ public:
     bool auto_range() const;
     bool show_trails() const;    // draw position trails on the radar
 
+    // Radar projection mode: false = azimuthal PPI radar (range/bearing rings),
+    // true = conformal Mercator map with the coastline/border base layer. Toggled
+    // by key 8 on the Radar screen or the "Map view" settings row; persisted.
+    bool map_mercator() const;
+    void toggle_map_mode();
+
     // The screen reports the farthest in-range aircraft each tick (auto range).
     void set_observed_max_nm(double nm);
 
@@ -112,6 +118,7 @@ private:
     bool   show_ground_{true};
     bool   emergency_only_{false};
     bool   detail_show_others_{true}; // Detail radar: show all traffic vs selected only
+    bool   map_mercator_{false};      // Radar screen: false = PPI radar, true = Mercator map
     void load_settings();
     void save_settings() const;
 
