@@ -40,7 +40,9 @@ cmake --build --preset linux-x86-64-dbg     # → build/linux-x86-64/apps/{adsb,
 # centre the radar on you: ADSB_HOME_LAT=.. ADSB_HOME_LON=.. ./.../adsb_app  (default: Bologna, IT)
 # point SDR at a real receiver: SDR_RTLTCP=host:port ./.../sdr_app   (needs rtl_tcp running)
 ```
-Status, architecture, what works vs. what's stubbed, and next steps: see [`HANDOVER.md`](HANDOVER.md).
+Architecture and design (shared toolkit, shell decoupling, per-app data paths): see
+[`docs/architecture.md`](docs/architecture.md). Per-app docs: [`apps/adsb/README.md`](apps/adsb/README.md),
+[`apps/sdr/README.md`](apps/sdr/README.md).
 
 ## License
 MIT (matches the SDRTerminal base and the M5Stack template).

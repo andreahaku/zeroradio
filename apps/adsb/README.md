@@ -14,6 +14,11 @@ Development happens on a desktop **SDL simulator** at the exact device resolutio
 > Status (2026-06-21): building green on the desktop SDL simulator. Verified end-to-end on hardware
 > with a real **RTL-SDR Blog V4** feeding `dump1090 --write-json`: live traffic on the list and radar.
 
+![ADS-B radar with live traffic](docs/media/demo.gif)
+
+> The Radar screen on the SDL simulator at native 320×170: aircraft as heading arrows, concentric range
+> rings with NM labels, position trails, zoom in/out. (Simulated feed around the home location.)
+
 ## Features
 
 - **Four screens, one key** — **List** (colour-coded, sortable traffic table), **Radar** (north-up PPI
@@ -63,6 +68,16 @@ right. The body is one of the four screens.
 
 **It remembers.** Every preference — including the Radar/Detail view toggles — is saved the moment you
 change it and restored next launch.
+
+## Screenshots
+
+| List | Radar | Detail | Settings |
+| --- | --- | --- | --- |
+| ![list](docs/media/list.png) | ![radar](docs/media/radar.png) | ![detail](docs/media/detail.png) | ![settings](docs/media/settings.png) |
+
+Native 320×170 (the device resolution). List is colour-coded by category (emergency red); Radar is a
+north-up scope with range rings; Detail pairs the selected-aircraft fields with a mini-radar; Settings
+is a navigable name/value list.
 
 ## Quick start (desktop, with a real RTL-SDR + dump1090)
 

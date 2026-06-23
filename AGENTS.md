@@ -1,7 +1,7 @@
 # AGENTS.md — cardputer-radio
 
 Context for any coding session working in this repo (auto-loaded by Claude Code and
-Pi). Read this first, then the relevant per-app `README.md` / `HANDOVER.md`.
+Pi). Read this first, then the relevant per-app `README.md` and `docs/architecture.md`.
 
 ## What this is
 
@@ -82,8 +82,7 @@ dependencies, optional emulator-window integration of the stream.
 
 ## Conventions
 
-- **No Claude/AI attribution** in commits or PRs in this repo (no `Co-Authored-By`,
-  no session trailer). Commit messages are plain Conventional Commits.
+- Commit messages: plain Conventional Commits.
 - Keep the desktop build green; the `remote_fb` driver compiles on desktop too.
 - Match existing patterns (MVVM reactive subjects, the toolkit's source-over-a-TCP
   boundary) — a new app should be mostly a parser + a field mapping.

@@ -6,9 +6,8 @@
 
 # ====================================================
 # sdr_app — the SDR receiver executable (ported from SDRTerminal)
-# Scaffold step: shell + stub screen reusing radio_toolkit. The spectrum/
-# waterfall pipeline, RTL-SDR source (FFTW3f + Threads) and audio demod are
-# added in later steps. See docs/sdrterminal-port-plan.md.
+# Spectrum/waterfall pipeline, RTL-SDR source (FFTW3f + Threads) and audio demod,
+# built on radio_toolkit. See apps/sdr/README.md.
 # ====================================================
 file(GLOB_RECURSE SDR_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"

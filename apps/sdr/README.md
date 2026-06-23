@@ -17,7 +17,7 @@ resolution (320×170), fed by a real RTL-SDR over `rtl_tcp`.
 ![SDR — live WFM broadcast, scrolling waterfall](docs/media/demo.gif)
 
 > Running on the desktop SDL simulator at the native device resolution (320×170), driven by a real
-> RTL-SDR Blog V4 — a live WFM broadcast at 98.1 MHz.
+> RTL-SDR Blog V4 — a live WFM broadcast around 99.6 MHz.
 
 ## Features
 
@@ -67,12 +67,11 @@ every change and restored the next time you open the app.
 
 ## Screenshots
 
-| Tuning (spectrum + waterfall) | Audio controls | Settings / gain |
+| Spectrum + waterfall | Frequency entry | Visual controls |
 | --- | --- | --- |
-| ![tuning](docs/media/tuning.png) | ![audio](docs/media/audio.png) | ![settings](docs/media/settings.png) |
+| ![spectrum](docs/media/spectrum.png) | ![frequency entry](docs/media/freq-entry.png) | ![visual](docs/media/visual.png) |
 
-A short demo recording with sound (scrolling waterfall + live WFM audio) lives at
-[`docs/media/demo.mp4`](docs/media/demo.mp4).
+All captured live from a real RTL-SDR Blog V4 (WFM broadcast, ~99.6 MHz) at native 320×170.
 
 ## Quick start (desktop, with a real RTL-SDR)
 
@@ -172,6 +171,16 @@ cmake --build --preset linux-x86-64-dbg   # → build/linux-x86-64/apps/sdr/Debu
 The cross build (`cp0-cross`) and `.deb` packaging are monorepo-wide concerns (pending hardware); the
 real RTL-SDR source is currently desktop-only and the cross build keeps the mock until `fftw3f` is
 provisioned in the BSP sysroot.
+
+## Known limitations
+
+- NFM/AM/SSB/CW audio is implemented but **not yet verified by ear** — in a high-noise RF environment
+  with a short antenna, only WFM comes through clearly. The demod code is correct in theory but needs a
+  better antenna/location (or a networked dongle) to confirm.
+- Waterfall frequency labels show 3 decimals (1 kHz resolution); the header keeps 4 decimals, so 100 Hz
+  fine tuning shows on the header but not on the waterfall scale.
+- The real RTL-SDR source is **desktop-only**; the cross (device) build uses the synthetic mock until
+  `fftw3f` is provisioned in the BSP sysroot.
 
 ## Roadmap
 
