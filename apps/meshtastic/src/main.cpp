@@ -7,11 +7,18 @@
 #include "asset_manager.h"
 #include "meshtastic_screen.h"
 #include "meshtastic_viewmodel.h"
+#include "proto_smoke.h"
 #include "run_app.h"
 
+#include <cstdio>
 #include <memory>
 
 int main() {
+    // Step-1 plumbing check (radio-apps/09b): the vendored nanopb + Meshtastic
+    // protobuf stack links and decodes. Real wire decode lands with the source.
+    std::fprintf(stderr, "[meshtastic] proto smoke decode: %s\n",
+                 meshtastic::proto_smoke_decode() ? "ok" : "FAILED");
+
     app::AssetManager assets;
 
     meshtastic::MeshtasticViewModel view_model; // also the NavProvider (set in ctor)
