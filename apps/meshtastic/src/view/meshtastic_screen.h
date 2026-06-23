@@ -52,6 +52,15 @@ private:
     void update_node_detail(const std::vector<toolkit::Entity>& snap);
     // CHATS feed: sender short name (resolved from the node store) + text.
     void update_chats(const std::vector<toolkit::Entity>& snap);
+    // SETTINGS: a 2-col lv_table (name | value) with a green cursor band, plus a
+    // compose-style text editor for Long/Short name fields.
+    void update_settings(const std::vector<toolkit::Entity>& snap);
+    static void settings_draw_event_cb(lv_event_t* event);
+    static void settings_edit_key_cb(uint32_t key, void* ctx);
+    void on_settings_edit_key(uint32_t key);
+    void open_settings_editor();
+    void close_settings_editor();
+
     // TOOLS: a list (4 items) with an inline output panel below.
     void update_tools(const std::vector<toolkit::Entity>& snap);
 
@@ -93,7 +102,12 @@ private:
     lv_obj_t* canned_box_  = nullptr; // CHATS canned-message overlay (numbered list)
     lv_obj_t* nodes_view_   = nullptr; // NODES container (column header + table)
     lv_obj_t* nodes_table_  = nullptr;
-    lv_obj_t* node_detail_  = nullptr; // NODE DETAIL panel (full fields, recolour label)
+    lv_obj_t* node_detail_       = nullptr; // NODE DETAIL panel
+    lv_obj_t* settings_view_     = nullptr; // SETTINGS container
+    lv_obj_t* settings_table_    = nullptr; // 2-col lv_table (name | value)
+    lv_obj_t* settings_edit_row_ = nullptr; // text-edit compose row (shown while editing)
+    int       settings_sel_row_   = 0;       // cursor row for draw hook
+    bool      settings_was_editing_ = false; // edge detect to open/close editor
 
     lv_obj_t* tools_view_   = nullptr; // TOOLS container
     lv_obj_t* tools_list_   = nullptr; // item list (cursor row green band)

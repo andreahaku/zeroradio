@@ -6,7 +6,11 @@
 
 #include "meshtastic_viewmodel.h"
 
+#include "persisted_state.h"
 #include "ui_const.h"
+
+#include <fstream>
+#include <string>
 
 namespace meshtastic {
 namespace {
@@ -30,6 +34,7 @@ int nearest_ring_idx(double km) {
 MeshtasticViewModel::MeshtasticViewModel() {
     set_nav_provider(this);
     set_title("MESH");
+    load_settings();
 }
 
 int MeshtasticViewModel::page() const {
@@ -64,6 +69,147 @@ void MeshtasticViewModel::nodes_up() {
 void MeshtasticViewModel::nodes_down() {
     if (nodes_cursor_ + 1 < nodes_count_) ++nodes_cursor_;
 }
+
+// ---- Settings ----
+
+namespace {
+
+static const char* kRegions[] = {
+    "EU_868", "US", "ANZ", "JP", "CN", "KR", "IN", "SG", "TW", "RU", "NZ", "IL", "UA", "MY"
+};
+constexpr int kRegionCount = static_cast<int>(sizeof(kRegions) / sizeof(kRegions[0]));
+
+} // namespace
+
+int MeshtasticViewModel::settings_cursor() const { return settings_cursor_; }
+
+void MeshtasticViewModel::settings_up() {
+    if (settings_cursor_ > 0) --settings_cursor_;
+}
+void MeshtasticViewModel::settings_down() {
+    if (settings_cursor_ + 1 < kSettingCount) ++settings_cursor_;
+}
+
+bool MeshtasticViewModel::settings_activate() {
+    switch (settings_cursor_) {
+        case 0: set_dark_mode(!is_dark_mode()); save_settings(); return false; // Theme
+        case 1: // Long name — open text editor
+        case 2: // Short name — open text editor
+            settings_editor_open(settings_cursor_);
+            return true;
+        case 3: { // Region — cycle
+            int i = 0;
+            for (int k = 0; k < kRegionCount; ++k)
+                if (settings_region_ == kRegions[k]) { i = k; break; }
+            settings_region_ = kRegions[(i + 1) % kRegionCount];
+            save_settings();
+            return false;
+        }
+        case 4: return false; // Channel — read-only display (write via meshtasticd V2)
+        default: return false;
+    }
+}
+
+std::string MeshtasticViewModel::setting_name(int i) const {
+    switch (i) {
+        case 0: return "Theme";
+        case 1: return "Long name";
+        case 2: return "Short name";
+        case 3: return "Region";
+        case 4: return "Channel";
+        default: return "";
+    }
+}
+
+std::string MeshtasticViewModel::setting_value(int i) const {
+    switch (i) {
+        case 0: return is_dark_mode() ? "Dark" : "Light";
+        case 1: return settings_long_name_.empty() ? "(not set)" : settings_long_name_;
+        case 2: return settings_short_name_.empty() ? "(not set)" : settings_short_name_;
+        case 3: return settings_region_;
+        case 4: return settings_channel_.empty() ? "-" : settings_channel_;
+        default: return "";
+    }
+}
+
+bool MeshtasticViewModel::settings_editing() const { return settings_editing_; }
+
+void MeshtasticViewModel::settings_editor_open(int item) {
+    settings_editing_ = true;
+    settings_edit_item_ = item;
+    settings_edit_buf_ = (item == 1) ? settings_long_name_ : settings_short_name_;
+}
+
+void MeshtasticViewModel::settings_editor_char(char c) {
+    if (settings_edit_buf_.size() < 64) settings_edit_buf_.push_back(c);
+}
+
+void MeshtasticViewModel::settings_editor_backspace() {
+    if (!settings_edit_buf_.empty()) settings_edit_buf_.pop_back();
+}
+
+std::string MeshtasticViewModel::settings_editor_buf() const {
+    return settings_edit_buf_;
+}
+
+void MeshtasticViewModel::settings_editor_commit() {
+    if (settings_edit_item_ == 1) settings_long_name_  = settings_edit_buf_;
+    else                           settings_short_name_ = settings_edit_buf_;
+    settings_editing_ = false;
+    settings_edit_item_ = -1;
+    save_settings();
+}
+
+void MeshtasticViewModel::settings_editor_cancel() {
+    settings_editing_ = false;
+    settings_edit_item_ = -1;
+}
+
+const std::string& MeshtasticViewModel::setting_long_name()  const { return settings_long_name_; }
+const std::string& MeshtasticViewModel::setting_short_name() const { return settings_short_name_; }
+const std::string& MeshtasticViewModel::setting_region()     const { return settings_region_; }
+
+void MeshtasticViewModel::set_settings_channel(const std::string& name) {
+    settings_channel_ = name;
+}
+
+void MeshtasticViewModel::settings_exit() {
+    lv_subject_set_int(toolbar_page_subject(), static_cast<int>(Page::Chats));
+}
+
+void MeshtasticViewModel::load_settings() {
+    const auto path = toolkit::config_file("cardputer_radio/meshtastic", "settings");
+    if (path.empty()) return;
+    std::ifstream in(path);
+    if (!in) return;
+    int ver = 0;
+    if (!(in >> ver) || ver != 1) return;
+    int dark = 1;
+    std::string lng, sht, reg;
+    if (!(in >> dark)) return;
+    set_dark_mode(dark != 0);
+    if (in >> lng) settings_long_name_  = (lng == "-" ? "" : lng);
+    if (in >> sht) settings_short_name_ = (sht == "-" ? "" : sht);
+    if (in >> reg) {
+        for (int k = 0; k < kRegionCount; ++k)
+            if (reg == kRegions[k]) { settings_region_ = reg; break; }
+    }
+}
+
+void MeshtasticViewModel::save_settings() const {
+    const auto path = toolkit::config_file("cardputer_radio/meshtastic", "settings");
+    if (path.empty()) return;
+    if (!toolkit::ensure_parent_dir(path)) return;
+    std::ofstream out(path);
+    if (!out) return;
+    out << "1\n"
+        << (is_dark_mode() ? 1 : 0) << "\n"
+        << (settings_long_name_.empty()  ? "-" : settings_long_name_)  << "\n"
+        << (settings_short_name_.empty() ? "-" : settings_short_name_) << "\n"
+        << settings_region_ << "\n";
+}
+
+// ---- end Settings ----
 
 int  MeshtasticViewModel::tools_cursor() const { return tools_cursor_; }
 bool MeshtasticViewModel::tools_output_open() const { return tools_output_open_; }
@@ -215,10 +361,10 @@ void MeshtasticViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const 
             out[4] = {view::ICON_SIGN_OUT,    false, true};  // back / close output
             break;
         case Page::Settings:
-            out[1] = {view::ICON_CARET_UP, false, true};    // up
-            out[2] = {view::ICON_CARET_DOWN, false, true};  // down
-            out[3] = {view::ICON_CHECK, false, true};       // edit value
-            out[4] = {view::ICON_SIGN_OUT, false, true};    // exit
+            out[1] = {view::ICON_CARET_UP,   false, true};  // ▲
+            out[2] = {view::ICON_CARET_DOWN,  false, true};  // ▼
+            out[3] = {view::ICON_CHECK,       false, true};  // ✓ edit/cycle
+            out[4] = {view::ICON_SIGN_OUT,    false, true};  // ⎋ back to Chats
             break;
     }
 }
@@ -256,7 +402,10 @@ void MeshtasticViewModel::nav_activate(int page, int slot) {
             else if (slot == 4) tools_close_output();
             break;
         case Page::Settings:
-            if (slot == 4) request_quit(); // 8 = exit
+            if (slot == 1)      settings_up();
+            else if (slot == 2) settings_down();
+            else if (slot == 3) settings_activate(); // return value handled by screen
+            else if (slot == 4) settings_exit();     // back to Chats
             break;
         default:
             // Other views are still placeholders; ESC quits, key 4 cycles views.

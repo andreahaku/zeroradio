@@ -242,6 +242,44 @@ void MeshtasticScreen::build_content(lv_obj_t* content) {
     lv_label_set_text(node_detail_, "");
     lv_obj_add_flag(node_detail_, LV_OBJ_FLAG_HIDDEN);
 
+    // SETTINGS view: a 2-column lv_table (name | value) with a green cursor band,
+    // plus a compose-style text row for Long/Short name editing.
+    settings_view_ = lv_obj_create(content);
+    lv_obj_remove_style_all(settings_view_);
+    lv_obj_set_size(settings_view_, LV_PCT(100), LV_PCT(100));
+    lv_obj_clear_flag(settings_view_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(settings_view_, 0, 0);
+    lv_obj_add_flag(settings_view_, LV_OBJ_FLAG_HIDDEN);
+
+    settings_table_ = lv_table_create(settings_view_);
+    lv_obj_set_size(settings_table_, LV_PCT(100), LV_PCT(100));
+    lv_obj_align(settings_table_, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_table_set_column_count(settings_table_, 2);
+    lv_table_set_column_width(settings_table_, 0, 150);
+    lv_table_set_column_width(settings_table_, 1, 158);
+    lv_obj_set_style_pad_ver(settings_table_, 3, LV_PART_ITEMS);
+    lv_obj_set_style_pad_hor(settings_table_, 8, LV_PART_ITEMS);
+    lv_obj_set_style_border_width(settings_table_, 0, 0);
+    lv_obj_set_style_text_font(settings_table_, fs, LV_PART_ITEMS);
+    lv_obj_remove_flag(settings_table_, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(settings_table_, settings_draw_event_cb, LV_EVENT_DRAW_TASK_ADDED, this);
+    lv_obj_add_flag(settings_table_, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
+
+    // Text-edit row (shown only while editing a Long/Short name field).
+    settings_edit_row_ = lv_label_create(settings_view_);
+    lv_label_set_long_mode(settings_edit_row_, LV_LABEL_LONG_WRAP);
+    lv_label_set_text(settings_edit_row_, "> _");
+    lv_obj_set_width(settings_edit_row_, LV_PCT(100));
+    lv_obj_set_style_text_font(settings_edit_row_, fs, 0);
+    lv_obj_set_style_bg_color(settings_edit_row_, view::palette(vm_.is_dark_mode()).surface, 0);
+    lv_obj_set_style_bg_opa(settings_edit_row_, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(settings_edit_row_, view::palette(vm_.is_dark_mode()).primary, 0);
+    lv_obj_set_style_border_width(settings_edit_row_, 1, 0);
+    lv_obj_set_style_pad_all(settings_edit_row_, 3, 0);
+    reactive::bind_theme(settings_edit_row_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
+    lv_obj_align(settings_edit_row_, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+    lv_obj_add_flag(settings_edit_row_, LV_OBJ_FLAG_HIDDEN);
+
     // MAP view: a centred PPI canvas flanked by colour-coded short-name columns.
     map_view_ = lv_obj_create(content);
     lv_obj_remove_style_all(map_view_);
@@ -777,6 +815,84 @@ void MeshtasticScreen::update_map(const std::vector<toolkit::Entity>& snap) {
     lv_obj_invalidate(map_canvas_);
 }
 
+void MeshtasticScreen::settings_draw_event_cb(lv_event_t* event) {
+    auto* self = static_cast<MeshtasticScreen*>(lv_event_get_user_data(event));
+    auto* task = lv_event_get_draw_task(event);
+    if (!self || !task) return;
+    auto* base = static_cast<lv_draw_dsc_base_t*>(lv_draw_task_get_draw_dsc(task));
+    if (!base) return;
+    const bool is_sel = (static_cast<int>(base->id1) == self->settings_sel_row_);
+    const lv_draw_task_type_t type = lv_draw_task_get_type(task);
+    if (type == LV_DRAW_TASK_TYPE_FILL && is_sel && base->part == LV_PART_ITEMS) {
+        auto* fd = static_cast<lv_draw_fill_dsc_t*>(lv_draw_task_get_draw_dsc(task));
+        fd->color = view::palette(self->vm_.is_dark_mode()).primary;
+        fd->opa = LV_OPA_COVER;
+    } else if (type == LV_DRAW_TASK_TYPE_LABEL && is_sel) {
+        auto* ld = static_cast<lv_draw_label_dsc_t*>(lv_draw_task_get_draw_dsc(task));
+        ld->color = lv_color_black();
+    }
+}
+
+void MeshtasticScreen::update_settings(const std::vector<toolkit::Entity>& snap) {
+    if (!settings_table_) return;
+    // Feed the primary channel name for the Channel display row.
+    for (const auto& c : channels_.active()) {
+        if (c.role == 1) {
+            vm_.set_settings_channel(c.name.empty() ? "#Primary" : "#" + c.name);
+            break;
+        }
+    }
+    const int n = MeshtasticViewModel::kSettingCount;
+    lv_table_set_row_count(settings_table_, static_cast<uint32_t>(n));
+    for (int i = 0; i < n; ++i) {
+        lv_table_set_cell_value(settings_table_, static_cast<uint32_t>(i), 0,
+                                vm_.setting_name(i).c_str());
+        lv_table_set_cell_value(settings_table_, static_cast<uint32_t>(i), 1,
+                                vm_.setting_value(i).c_str());
+    }
+    settings_sel_row_ = vm_.settings_cursor();
+    lv_obj_invalidate(settings_table_);
+}
+
+void MeshtasticScreen::settings_edit_key_cb(uint32_t key, void* ctx) {
+    if (auto* self = static_cast<MeshtasticScreen*>(ctx)) self->on_settings_edit_key(key);
+}
+
+void MeshtasticScreen::on_settings_edit_key(uint32_t key) {
+    if (key == LV_KEY_ENTER) {
+        vm_.settings_editor_commit();
+        close_settings_editor();
+    } else if (key == LV_KEY_ESC) {
+        vm_.settings_editor_cancel();
+        close_settings_editor();
+    } else if (key == LV_KEY_BACKSPACE) {
+        vm_.settings_editor_backspace();
+        if (settings_edit_row_) {
+            const std::string s = "> " + vm_.settings_editor_buf() + "_";
+            lv_label_set_text(settings_edit_row_, s.c_str());
+        }
+    } else if (key >= 0x20 && key < 0x7f) {
+        vm_.settings_editor_char(static_cast<char>(key));
+        if (settings_edit_row_) {
+            const std::string s = "> " + vm_.settings_editor_buf() + "_";
+            lv_label_set_text(settings_edit_row_, s.c_str());
+        }
+    }
+}
+
+void MeshtasticScreen::open_settings_editor() {
+    if (!settings_edit_row_) return;
+    const std::string s = "> " + vm_.settings_editor_buf() + "_";
+    lv_label_set_text(settings_edit_row_, s.c_str());
+    lv_obj_remove_flag(settings_edit_row_, LV_OBJ_FLAG_HIDDEN);
+    platform::set_key_capture(settings_edit_key_cb, this);
+}
+
+void MeshtasticScreen::close_settings_editor() {
+    platform::set_key_capture(nullptr, nullptr);
+    if (settings_edit_row_) lv_obj_add_flag(settings_edit_row_, LV_OBJ_FLAG_HIDDEN);
+}
+
 void MeshtasticScreen::update_tools(const std::vector<toolkit::Entity>& snap) {
     if (!tools_list_) return;
 
@@ -989,10 +1105,18 @@ void MeshtasticScreen::tick() {
         (page == static_cast<int>(MeshtasticViewModel::Page::Map));
     const bool tools_page =
         (page == static_cast<int>(MeshtasticViewModel::Page::Tools));
-    const bool placeholder = !nodes_page && !chats_page && !map_page && !tools_page;
+    const bool settings_page =
+        (page == static_cast<int>(MeshtasticViewModel::Page::Settings));
+    const bool placeholder = !nodes_page && !chats_page && !map_page
+                           && !tools_page && !settings_page;
 
     // Auto-close tools output when leaving the page.
     if (!tools_page && vm_.tools_output_open()) vm_.tools_close_output();
+    // Settings editor: open/close on edge.
+    const bool editing = vm_.settings_editing();
+    if (settings_page && editing && !settings_was_editing_) open_settings_editor();
+    if (!editing && settings_was_editing_) close_settings_editor();
+    settings_was_editing_ = editing;
 
     // If the user cycled away from NODES, close the detail sub-screen.
     if (!nodes_page && vm_.nodes_detail_open()) vm_.close_node_detail();
@@ -1022,7 +1146,8 @@ void MeshtasticScreen::tick() {
     lv_obj_set_flag(node_detail_, LV_OBJ_FLAG_HIDDEN, !detail_open);
     lv_obj_set_flag(chats_label_, LV_OBJ_FLAG_HIDDEN, !chats_page);
     lv_obj_set_flag(map_view_,    LV_OBJ_FLAG_HIDDEN, !map_page);
-    lv_obj_set_flag(tools_view_,  LV_OBJ_FLAG_HIDDEN, !tools_page);
+    lv_obj_set_flag(settings_view_, LV_OBJ_FLAG_HIDDEN, !settings_page);
+    lv_obj_set_flag(tools_view_,    LV_OBJ_FLAG_HIDDEN, !tools_page);
     lv_obj_set_flag(view_label_,  LV_OBJ_FLAG_HIDDEN, !placeholder);
     lv_obj_set_flag(hint_label_,  LV_OBJ_FLAG_HIDDEN, !placeholder);
 
@@ -1036,6 +1161,8 @@ void MeshtasticScreen::tick() {
         update_map(snap);
     } else if (tools_page) {
         update_tools(snap);
+    } else if (settings_page) {
+        update_settings(snap);
     } else {
         lv_label_set_text(view_label_, vm_.page_name(page));
     }

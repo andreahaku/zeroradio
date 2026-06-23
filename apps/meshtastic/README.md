@@ -43,7 +43,15 @@ Working (verified on a `meshtasticd -s` bench / scripted peer, both presets host
   *Telemetry req* are greyed V2 entries. Packet counters are incremented on the reader thread in
   the client source (`cnt_text`, `cnt_nodeinfo`, `cnt_pos`, `cnt_total`).
 
-Placeholders / pending: reactions (V2), Traceroute (V2), Telemetry req (V2), Settings.
+- **Settings** — a 2-column lv_table (name | value) with the same green cursor band as ADS-B
+  settings. V1 items: Theme (Dark/Light cycle), Long name (text edit), Short name (text edit),
+  Region (picker through standard region codes), Channel (read-only display from ChannelTable).
+  Key `7` cycles pickers or opens a compose-style text editor (Enter commits, Esc cancels).
+  Key `8` returns to Chats. Values persisted to `~/.config/cardputer_radio/meshtastic/settings`
+  and restored on launch. Writing settings back to `meshtasticd` (AdminMessage) is V2.
+
+Placeholders / pending: reactions (V2), Traceroute (V2), Telemetry req (V2),
+settings → meshtasticd (AdminMessage, V2).
 See `radio-apps/09b` (build order) and `09c` (per-screen design).
 
 ## Screenshots
@@ -63,6 +71,10 @@ See `radio-apps/09b` (build order) and `09c` (per-screen design).
 | Tools — list | Tools — Mesh stats | Tools — Packet log |
 | --- | --- | --- |
 | ![tools list](docs/media/tools-list.png) | ![tools mesh stats](docs/media/tools-mesh.png) | ![tools packet log](docs/media/tools-pktlog.png) |
+
+| Settings — list | Settings — edit (Long name) | Settings — typing |
+| --- | --- | --- |
+| ![settings list](docs/media/settings-list.png) | ![settings edit](docs/media/settings-edit.png) | ![settings typing](docs/media/settings-typing.png) |
 
 Captured from the desktop SDL simulator at native 320×170, fed by the scripted Client-API peer (6
 positioned nodes around Rimini, two channels). Each peer's radar dot shares its colour with the

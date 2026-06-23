@@ -13,6 +13,7 @@
 #include "lvgl.h"
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace meshtastic {
@@ -40,6 +41,36 @@ public:
     void set_nodes_count(int n);
     void nodes_up();
     void nodes_down();
+
+    // SETTINGS: a 2-column list (name | value), same interaction as ADS-B settings.
+    // V1 items: Theme (dark/light), Long name (text edit), Short name (text edit),
+    // Region (picker), Channel (read-only display from ChannelTable).
+    static constexpr int kSettingCount = 5;
+    int         settings_cursor() const;
+    void        settings_up();
+    void        settings_down();
+    // Cycle a picker setting (Theme, Region) or open the text editor (Long, Short).
+    // Returns true if it opened a text editor (screen must start key-capture).
+    bool        settings_activate();
+    std::string setting_name(int i) const;
+    std::string setting_value(int i) const;
+    // Text-editor callbacks (Long name, Short name).
+    bool        settings_editing() const;
+    void        settings_editor_open(int item);
+    void        settings_editor_char(char c);
+    void        settings_editor_backspace();
+    std::string settings_editor_buf() const;
+    void        settings_editor_commit();
+    void        settings_editor_cancel();
+    // Accessors for the actual setting values (read by screen/compose).
+    const std::string& setting_long_name()  const;
+    const std::string& setting_short_name() const;
+    const std::string& setting_region()     const;
+    // Update channel display name each tick (from ChannelTable snapshot).
+    void set_settings_channel(const std::string& name);
+    void settings_exit(); // key 8: go to Chats
+    void load_settings();
+    void save_settings() const;
 
     // TOOLS view: a list of runnable items; key 7 opens/closes the output panel for
     // V1 items; V2 items are greyed. Page-cycle auto-closes the output.
@@ -111,6 +142,15 @@ private:
     double map_fit_km_   = 5.0; // last fitted-to-all-nodes distance (from the screen)
     int    map_cursor_   = -1;  // selected positioned node, -1 = none
     int    map_count_    = 0;   // positioned-node count (from the screen)
+
+    int  settings_cursor_   = 0;
+    bool settings_editing_  = false;
+    int  settings_edit_item_= -1;
+    std::string settings_edit_buf_;
+    std::string settings_long_name_;
+    std::string settings_short_name_;
+    std::string settings_region_   = "EU_868";
+    std::string settings_channel_;
 
     int  tools_cursor_      = 0;
     bool tools_output_open_ = false;
