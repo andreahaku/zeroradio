@@ -34,11 +34,19 @@ struct MapViewport {
     Projection projection = Projection::Mercator;
 };
 
-// Dark base-map palette (RGB565). Defaults are muted greys/teal that sit under
-// the bright entity dots without competing with them.
+// Pack an 8-8-8 colour into RGB565.
+constexpr uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b) {
+    return static_cast<uint16_t>(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3));
+}
+
+// Dark base-map palette (RGB565). Land is filled black over a barely-there
+// blue-grey sea, with a faint coastline tracing the boundary — chosen to read
+// as "land vs sea" with minimal contrast under the bright entity dots.
 struct MapStyle {
-    uint16_t coast_color = 0x3186;  // ~#303030-ish teal-grey
-    uint16_t border_color = 0x4208; // dim slate, dashed
+    uint16_t sea_color = rgb565(0x12, 0x1a, 0x22);   // faint blue-grey sea
+    uint16_t land_color = rgb565(0x00, 0x00, 0x00);  // black land
+    uint16_t coast_color = rgb565(0x3c, 0x4b, 0x5a); // faint grey-blue coastline
+    uint16_t border_color = rgb565(0x42, 0x42, 0x4a); // dim slate borders, dashed
     bool border_dashed = true;
 };
 

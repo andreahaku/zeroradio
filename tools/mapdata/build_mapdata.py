@@ -51,9 +51,16 @@ QMAX = 65535
 
 LAYER_COAST = 0
 LAYER_BORDER = 1
+LAYER_LAND = 4  # filled land polygons (closed rings), drawn as area fill
 
 NE_BASE = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson"
 SOURCES = {
+    "land": {
+        "10m": "ne_10m_land.geojson",
+        "50m": "ne_50m_land.geojson",
+        "layer": LAYER_LAND,
+        "polygon": True,
+    },
     "coast": {
         "10m": "ne_10m_coastline.geojson",
         "50m": "ne_50m_coastline.geojson",
@@ -104,6 +111,61 @@ def iter_linestrings(geojson: dict):
         elif gtype == "MultiLineString":
             for line in coords:
                 yield [(float(x), float(y)) for x, y in line]
+
+
+def iter_polygons(geojson: dict):
+    """Yield each polygon's outer ring as a list of (lon, lat) tuples (holes
+    dropped — lakes are negligible at this scale)."""
+    for feat in geojson.get("features", []):
+        geom = feat.get("geometry") or {}
+        gtype = geom.get("type")
+        coords = geom.get("coordinates") or []
+        if gtype == "Polygon" and coords:
+            yield [(float(x), float(y)) for x, y in coords[0]]
+        elif gtype == "MultiPolygon":
+            for poly in coords:
+                if poly:
+                    yield [(float(x), float(y)) for x, y in poly[0]]
+
+
+def clip_polygon(points, bbox):
+    """Sutherland-Hodgman clip of a closed ring against the bbox. Unlike the
+    polyline clip this keeps the ring closed (fillable) where it crosses an edge."""
+    xmin, ymin, xmax, ymax = bbox
+
+    def clip_edge(poly, inside, isect):
+        if not poly:
+            return []
+        out = []
+        prev = poly[-1]
+        prev_in = inside(prev)
+        for cur in poly:
+            cur_in = inside(cur)
+            if cur_in:
+                if not prev_in:
+                    out.append(isect(prev, cur))
+                out.append(cur)
+            elif prev_in:
+                out.append(isect(prev, cur))
+            prev, prev_in = cur, cur_in
+        return out
+
+    def ix(a, b, x):  # intersect segment a-b with vertical line X=x
+        (ax, ay), (bx, by) = a, b
+        t = (x - ax) / (bx - ax) if bx != ax else 0.0
+        return (x, ay + t * (by - ay))
+
+    def iy(a, b, y):  # intersect segment a-b with horizontal line Y=y
+        (ax, ay), (bx, by) = a, b
+        t = (y - ay) / (by - ay) if by != ay else 0.0
+        return (ax + t * (bx - ax), y)
+
+    poly = points
+    poly = clip_edge(poly, lambda p: p[0] >= xmin, lambda a, b: ix(a, b, xmin))
+    poly = clip_edge(poly, lambda p: p[0] <= xmax, lambda a, b: ix(a, b, xmax))
+    poly = clip_edge(poly, lambda p: p[1] >= ymin, lambda a, b: iy(a, b, ymin))
+    poly = clip_edge(poly, lambda p: p[1] <= ymax, lambda a, b: iy(a, b, ymax))
+    return poly
 
 
 # --- Liang-Barsky segment clip against an axis-aligned bbox ------------------
@@ -201,11 +263,19 @@ def build_layer(kind, scale, bbox, tol):
     src = SOURCES[kind]
     gj = fetch_geojson(src[scale])
     polylines = []
-    for line in iter_linestrings(gj):
-        for run in clip_polyline(line, bbox):
-            run = simplify(run, tol)
-            if len(run) >= 2:
-                polylines.append([quantize(lon, lat, bbox) for lon, lat in run])
+    if src.get("polygon"):
+        # Closed land rings, clipped (kept closed) so the renderer can area-fill.
+        for ring in iter_polygons(gj):
+            ring = clip_polygon(ring, bbox)
+            ring = simplify(ring, tol)
+            if len(ring) >= 3:
+                polylines.append([quantize(lon, lat, bbox) for lon, lat in ring])
+    else:
+        for line in iter_linestrings(gj):
+            for run in clip_polyline(line, bbox):
+                run = simplify(run, tol)
+                if len(run) >= 2:
+                    polylines.append([quantize(lon, lat, bbox) for lon, lat in run])
     return src["layer"], polylines
 
 
@@ -250,7 +320,7 @@ def main():
 
     print(f"bbox={bbox} scale={args.scale} tol={args.tol}", file=sys.stderr)
     layers = []
-    for kind in ("coast", "border"):
+    for kind in ("land", "coast", "border"):
         layer_id, polys = build_layer(kind, args.scale, bbox, args.tol)
         npts = sum(len(p) for p in polys)
         print(f"  {kind:6s}: {len(polys):4d} polylines, {npts:6d} points", file=sys.stderr)

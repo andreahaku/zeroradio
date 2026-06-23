@@ -6,7 +6,9 @@
 
 #include "map_renderer.h"
 
+#include <algorithm>
 #include <cmath>
+#include <vector>
 
 namespace toolkit::map {
 namespace {
@@ -88,12 +90,60 @@ void draw_layer(uint16_t* buf, const MapViewport& vp, const Layer& layer,
     }
 }
 
+// Even-odd scanline fill of a projected closed ring. Vertices may fall well off
+// canvas; we only scan rows inside [0,height) and clip spans to [0,width).
+void fill_polygon(uint16_t* buf, const MapViewport& vp, const VectorMap& map,
+                  const Polyline& ring, uint16_t color) {
+    const size_t n = ring.points.size();
+    if (n < 3) return;
+
+    std::vector<double> xs(n), ys(n);
+    double ymin_d = 1e18, ymax_d = -1e18;
+    for (size_t i = 0; i < n; ++i) {
+        project_point(vp, map.dequant(ring.points[i]), xs[i], ys[i]);
+        ymin_d = std::min(ymin_d, ys[i]);
+        ymax_d = std::max(ymax_d, ys[i]);
+    }
+    const int y0 = std::max(0, static_cast<int>(std::floor(ymin_d)));
+    const int y1 = std::min(vp.height - 1, static_cast<int>(std::ceil(ymax_d)));
+
+    std::vector<double> xints;
+    for (int y = y0; y <= y1; ++y) {
+        const double yc = y + 0.5;
+        xints.clear();
+        for (size_t i = 0, j = n - 1; i < n; j = i++) {
+            const double yi = ys[i], yj = ys[j];
+            if ((yi <= yc && yj > yc) || (yj <= yc && yi > yc)) {
+                xints.push_back(xs[i] + (yc - yi) / (yj - yi) * (xs[j] - xs[i]));
+            }
+        }
+        std::sort(xints.begin(), xints.end());
+        uint16_t* row = buf + static_cast<size_t>(y) * vp.width;
+        for (size_t k = 0; k + 1 < xints.size(); k += 2) {
+            const int xa = std::max(0, static_cast<int>(std::ceil(xints[k] - 0.5)));
+            const int xb = std::min(vp.width - 1, static_cast<int>(std::floor(xints[k + 1] - 0.5)));
+            for (int x = xa; x <= xb; ++x) row[x] = color;
+        }
+    }
+}
+
 } // namespace
 
 void draw_base(uint16_t* buf, const MapViewport& vp,
                const VectorMap& map, const MapStyle& style) {
     if (!buf || !map.valid() || vp.width <= 0 || vp.height <= 0 || vp.radius_px <= 0) {
         return;
+    }
+    // Map view: fill the whole canvas with the faint sea colour, then fill the
+    // land polygons black on top. Only for the (rectangular) Mercator view — the
+    // azimuthal radar keeps its black background and just gets the line layers.
+    if (vp.projection == Projection::Mercator) {
+        if (const Layer* land = map.layer(LayerId::Land)) {
+            std::fill(buf, buf + static_cast<size_t>(vp.width) * vp.height, style.sea_color);
+            for (const auto& ring : land->polylines) {
+                fill_polygon(buf, vp, map, ring, style.land_color);
+            }
+        }
     }
     // Coast first, borders on top so a border line wins where they overlap.
     if (const Layer* coast = map.layer(LayerId::Coast)) {

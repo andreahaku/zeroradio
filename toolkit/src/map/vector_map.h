@@ -20,6 +20,7 @@ enum class LayerId : uint8_t {
     Border  = 1,
     Water   = 2,
     Contour = 3,
+    Land    = 4, // closed polygons, area-filled (land over a sea background)
 };
 
 // A quantized point: 0..65535 across the dataset bounding box (x=lon, y=lat).

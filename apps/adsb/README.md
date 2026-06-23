@@ -30,8 +30,9 @@ Development happens on a desktop **SDL simulator** at the exact device resolutio
   lists. Rendered straight into an RGB565 canvas (`render_scope()`), shared by the Radar and Detail
   mini-radar so they look identical.
 - **Radar ↔ map toggle** — key `8` on the Radar screen (and a persisted "Map view" setting) switches the
-  scope between the azimuthal **radar** and a **Mercator map** that draws a vector coastline/border
-  background (Natural Earth, bundled as `assets/mapdata/*.rmap`) under the aircraft, both centred on the
+  scope between the azimuthal **radar** and a **Mercator map** that draws a filled vector map (black land
+  over a faint blue-grey sea, thin coastline + borders; Natural Earth, bundled as
+  `assets/mapdata/*.rmap`) under the aircraft, both centred on the
   configured home. In map mode the canvas runs **full-width** and the side callsign lists overlay it with
   a transparent background (left column left-aligned, right column right-aligned); the selected aircraft
   renders inverted (category colour fill, black text). Shares the `toolkit/src/map` renderer with the
