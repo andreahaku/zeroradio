@@ -5,6 +5,7 @@
  */
 
 #include "asset_manager.h"
+#include "entity_store.h"
 #include "meshtastic_client_source.h"
 #include "meshtastic_screen.h"
 #include "meshtastic_viewmodel.h"
@@ -33,11 +34,35 @@ int main() {
         if (v > 0 && v < 65536) port = static_cast<uint16_t>(v);
     }
 
+    // Nodes flow from the source's reader thread into the store; the screen
+    // snapshots it on the UI thread (the toolkit's cross-thread pattern).
+    toolkit::EntityStore store;
+
     meshtastic::MeshtasticClientSource source(
         host, port,
         meshtastic::MeshtasticClientSource::Callbacks{
             [](uint32_t num) { std::fprintf(stderr, "[meshtastic] self node: 0x%08x\n", num); },
             [](int nodes) { std::fprintf(stderr, "[meshtastic] nodedb synced: %d nodes\n", nodes); },
+            [&store](const meshtastic::NodeUpdate& u) {
+                store.upsert(u.id, [&u](toolkit::Entity& e) {
+                    if (u.has_long) e.fields["long"] = u.long_name;
+                    if (u.has_short) e.fields["short"] = u.short_name;
+                    if (u.has_snr) {
+                        char b[16];
+                        std::snprintf(b, sizeof(b), "%.1f", static_cast<double>(u.snr));
+                        e.fields["snr"] = b;
+                    }
+                    if (u.has_hops) e.fields["hops"] = std::to_string(u.hops);
+                    if (u.has_last_heard)
+                        e.fields["last_heard"] = std::to_string(u.last_heard);
+                    if (u.is_self) e.fields["self"] = "1";
+                    if (u.has_pos) {
+                        e.has_pos = true;
+                        e.pos.lat = u.lat;
+                        e.pos.lon = u.lon;
+                    }
+                });
+            },
         });
     source.start();
 
@@ -47,7 +72,7 @@ int main() {
 
     std::unique_ptr<meshtastic::MeshtasticScreen> screen;
     const int rc = toolkit::run_app(view_model, assets, [&]() -> lv_obj_t* {
-        screen = std::make_unique<meshtastic::MeshtasticScreen>(view_model, assets);
+        screen = std::make_unique<meshtastic::MeshtasticScreen>(view_model, assets, store);
         return screen->root();
     });
 

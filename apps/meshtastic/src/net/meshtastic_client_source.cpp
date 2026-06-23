@@ -145,9 +145,47 @@ struct MeshtasticClientSource::Impl {
                              my_node_num, scratch.my_info.nodedb_count);
                 if (cb.on_self) cb.on_self(my_node_num);
                 break;
-            case meshtastic_FromRadio_node_info_tag:
+            case meshtastic_FromRadio_node_info_tag: {
                 if (!synced) ++burst_nodes;
+                const meshtastic_NodeInfo& ni = scratch.node_info;
+                NodeUpdate u;
+                if (ni.has_user && ni.user.id[0] != '\0') {
+                    u.id = ni.user.id;
+                } else {
+                    char idbuf[16];
+                    std::snprintf(idbuf, sizeof(idbuf), "!%08x", ni.num);
+                    u.id = idbuf;
+                }
+                u.is_self = (ni.num == my_node_num);
+                if (ni.has_user) {
+                    if (ni.user.long_name[0] != '\0') {
+                        u.has_long = true;
+                        u.long_name = ni.user.long_name;
+                    }
+                    if (ni.user.short_name[0] != '\0') {
+                        u.has_short = true;
+                        u.short_name = ni.user.short_name;
+                    }
+                }
+                if (ni.has_position && ni.position.has_latitude_i &&
+                    ni.position.has_longitude_i) {
+                    u.has_pos = true;
+                    u.lat = ni.position.latitude_i * 1e-7;
+                    u.lon = ni.position.longitude_i * 1e-7;
+                }
+                u.has_snr = true;
+                u.snr = ni.snr;
+                if (ni.has_hops_away) {
+                    u.has_hops = true;
+                    u.hops = ni.hops_away;
+                }
+                if (ni.last_heard != 0) {
+                    u.has_last_heard = true;
+                    u.last_heard = ni.last_heard;
+                }
+                if (cb.on_node) cb.on_node(u);
                 break;
+            }
             case meshtastic_FromRadio_config_complete_id_tag:
                 if (scratch.config_complete_id == nonce && !synced) {
                     synced = true;

@@ -7,19 +7,23 @@
 #pragma once
 
 #include "base_screen.h"
+#include "entity_store.h"
 #include "meshtastic_viewmodel.h"
 
 #include "lvgl.h"
 
 namespace meshtastic {
 
-// Scaffold screen: a TitleBar ("MESH" + the current view name) and a solid NavBar
-// drive the five keys. The body is a placeholder that names the current view; a
-// light timer follows the toolbar page so cycling with key 4 updates it. The real
-// Chats / Nodes / Map / Tools / Settings content replaces the placeholder later.
+// Screen: a TitleBar ("MESH" + "<view> · N nodes") and a solid NavBar drive the
+// five keys. A UI-thread timer snapshots the EntityStore (filled by the client
+// source on its reader thread) so the NODES view shows the live node list and the
+// node count tracks the mesh. The other views are still placeholders (Chats / Map
+// / Tools / Settings land in later steps).
 class MeshtasticScreen : public screen::BaseScreen {
 public:
-    MeshtasticScreen(MeshtasticViewModel& vm, app::AssetManager& assets);
+    MeshtasticScreen(MeshtasticViewModel& vm,
+                     app::AssetManager& assets,
+                     toolkit::EntityStore& store);
     ~MeshtasticScreen() override;
 
 protected:
@@ -30,14 +34,15 @@ private:
     void tick();
 
     MeshtasticViewModel& vm_;
+    toolkit::EntityStore& store_;
 
-    lv_obj_t* view_label_ = nullptr; // big current-view name
-    lv_obj_t* hint_label_ = nullptr; // "press 4 to switch view"
+    lv_obj_t* view_label_  = nullptr; // big current-view name (non-NODES pages)
+    lv_obj_t* hint_label_  = nullptr; // "press 4 to switch view"
+    lv_obj_t* nodes_label_ = nullptr; // NODES list (multi-line)
 
     const lv_font_t* font_big_   = nullptr;
     const lv_font_t* font_small_ = nullptr;
 
-    int last_page_ = -1;
     lv_timer_t* timer_ = nullptr;
 };
 
