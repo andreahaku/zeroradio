@@ -65,6 +65,12 @@ void MeshtasticViewModel::nodes_down() {
     if (nodes_cursor_ + 1 < nodes_count_) ++nodes_cursor_;
 }
 
+bool MeshtasticViewModel::nodes_detail_open() const { return nodes_detail_open_; }
+void MeshtasticViewModel::open_node_detail() { nodes_detail_open_ = true; }
+void MeshtasticViewModel::close_node_detail() { nodes_detail_open_ = false; }
+void MeshtasticViewModel::set_selected_node(uint32_t num) { selected_node_ = num; }
+uint32_t MeshtasticViewModel::selected_node() const { return selected_node_; }
+
 lv_subject_t* MeshtasticViewModel::compose_req_subject() {
     return compose_req_.native();
 }
@@ -169,10 +175,17 @@ void MeshtasticViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const 
             out[4] = {view::ICON_KEYBOARD, false, true};     // write -> compose
             break;
         case Page::Nodes:
-            out[1] = {view::ICON_CHART_LINE, false, true};  // sort
-            out[2] = {view::ICON_CARET_UP, false, true};    // up
-            out[3] = {view::ICON_CARET_DOWN, false, true};  // down
-            out[4] = {view::ICON_CHECK, false, true};       // detail
+            if (nodes_detail_open_) {
+                out[1] = {view::ICON_KEYBOARD, false, true};  // DM (write to node)
+                out[2] = {view::ICON_PEAK, false, false};     // favorite (V2, greyed)
+                out[3] = {view::ICON_BROADCAST, false, false};// traceroute (V2, greyed)
+                out[4] = {view::ICON_SIGN_OUT, false, true};  // back to list
+            } else {
+                out[1] = {view::ICON_CHART_LINE, false, true};  // sort
+                out[2] = {view::ICON_CARET_UP, false, true};    // up
+                out[3] = {view::ICON_CARET_DOWN, false, true};  // down
+                out[4] = {view::ICON_CHECK, false, true};       // detail
+            }
             break;
         case Page::Map:
             out[1] = {view::ICON_MINUS, false, true};       // range -
@@ -204,9 +217,16 @@ void MeshtasticViewModel::nav_activate(int page, int slot) {
             else if (slot == 4) request_compose();
             break;
         case Page::Nodes:
-            // 5=sort (later), 6=up, 7=down, 8=detail (later).
-            if (slot == 2) nodes_up();
-            else if (slot == 3) nodes_down();
+            if (nodes_detail_open_) {
+                // Detail sub-screen: 5=DM, 6=fav (V2), 7=trace (V2), 8=back.
+                if (slot == 1) { open_dm(selected_node_); close_node_detail(); }
+                else if (slot == 4) close_node_detail();
+            } else {
+                // List: 5=sort (later), 6=up, 7=down, 8=open detail.
+                if (slot == 2) nodes_up();
+                else if (slot == 3) nodes_down();
+                else if (slot == 4) open_node_detail();
+            }
             break;
         case Page::Map:
             // 5=range-, 6=range+, 7=cycle selection, 8=detail (later).

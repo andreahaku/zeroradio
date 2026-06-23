@@ -25,6 +25,10 @@ struct NodeUpdate {
     bool has_snr = false;   float snr = 0.0f;
     bool has_hops = false;  int hops = 0;
     bool has_last_heard = false; uint32_t last_heard = 0; // epoch seconds
+    bool has_hw = false;    int hw_model = 0;             // HardwareModel enum
+    bool has_role = false;  int role = 0;                 // DeviceConfig.Role enum
+    bool has_battery = false; int battery = 0;            // percent (0..100; >100 = plugged)
+    bool has_voltage = false; float voltage = 0.0f;       // volts
 };
 
 // A channel slot decoded from a FromRadio.channel packet (config burst). The app

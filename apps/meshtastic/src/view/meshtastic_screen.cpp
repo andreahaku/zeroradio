@@ -8,6 +8,7 @@
 
 #include "asset_manager.h"
 #include "bindings.h"
+#include "geo.h"
 #include "linux_input.h"
 #include "theme.h"
 
@@ -226,6 +227,18 @@ void MeshtasticScreen::build_content(lv_obj_t* content) {
     lv_obj_remove_flag(nodes_table_, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(nodes_table_, nodes_draw_event_cb, LV_EVENT_DRAW_TASK_ADDED, this);
     lv_obj_add_flag(nodes_table_, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
+
+    // NODE DETAIL panel: a single recolour label that lists all fields of the
+    // selected node. Hidden by default; shown when detail sub-screen is open.
+    node_detail_ = lv_label_create(content);
+    lv_label_set_recolor(node_detail_, true);
+    lv_label_set_long_mode(node_detail_, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(node_detail_, LV_PCT(100));
+    lv_obj_set_style_text_font(node_detail_, fs, 0);
+    reactive::bind_theme(node_detail_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
+    lv_obj_align(node_detail_, LV_ALIGN_TOP_LEFT, 4, 2);
+    lv_label_set_text(node_detail_, "");
+    lv_obj_add_flag(node_detail_, LV_OBJ_FLAG_HIDDEN);
 
     // MAP view: a centred PPI canvas flanked by colour-coded short-name columns.
     map_view_ = lv_obj_create(content);
@@ -505,6 +518,15 @@ void MeshtasticScreen::update_nodes(const std::vector<toolkit::Entity>& snap) {
     if (cur >= static_cast<int>(n)) cur = n > 0 ? static_cast<int>(n) - 1 : 0;
     nodes_sel_row_ = (n > 0) ? cur : -1;
     if (n > 0) lv_table_set_selected_cell(nodes_table_, static_cast<uint16_t>(cur), 0);
+    // Report the cursor node-num to the VM so detail + DM know the target.
+    if (cur >= 0 && static_cast<size_t>(cur) < snap.size()) {
+        const std::string& id = snap[static_cast<size_t>(cur)].id;
+        if (id.size() > 1 && id[0] == '!') {
+            const uint32_t num =
+                static_cast<uint32_t>(std::strtoul(id.c_str() + 1, nullptr, 16));
+            vm_.set_selected_node(num);
+        }
+    }
 }
 
 void MeshtasticScreen::update_chats(const std::vector<toolkit::Entity>& snap) {
@@ -711,6 +733,129 @@ void MeshtasticScreen::update_map(const std::vector<toolkit::Entity>& snap) {
     lv_obj_invalidate(map_canvas_);
 }
 
+namespace {
+
+const char* hw_name(int hw) {
+    switch (hw) {
+        case 0:   return "UNSET";
+        case 3:   return "TLORA-V2";
+        case 4:   return "T-BEAM";
+        case 9:   return "RAK4631";
+        case 10:  return "HELTEC-V2";
+        case 37:  return "PORTDUINO";
+        case 43:  return "HELTEC-V3";
+        case 50:  return "T-DECK";
+        case 71:  return "T1000-E";
+        case 81:  return "XIAO-S3";
+        default:  return "HW?";
+    }
+}
+
+const char* role_name(int r) {
+    switch (r) {
+        case 0:  return "CLIENT";
+        case 1:  return "MUTE";
+        case 2:  return "ROUTER";
+        case 3:  return "RTR-CLI";
+        case 4:  return "REPEAT";
+        case 5:  return "TRACKER";
+        case 6:  return "SENSOR";
+        default: return "?";
+    }
+}
+
+} // namespace (detail helpers)
+
+void MeshtasticScreen::update_node_detail(const std::vector<toolkit::Entity>& snap) {
+    if (!node_detail_) return;
+    const uint32_t num = vm_.selected_node();
+    // Find the entity — id is "!<hex8>".
+    const toolkit::Entity* ent = nullptr;
+    for (const auto& e : snap) {
+        if (e.id.size() > 1 && e.id[0] == '!') {
+            if (std::strtoul(e.id.c_str() + 1, nullptr, 16) == num) {
+                ent = &e;
+                break;
+            }
+        }
+    }
+    if (!ent) {
+        lv_label_set_text(node_detail_, "#888888 (no node selected)#");
+        return;
+    }
+    const auto& e = *ent;
+    const bool is_self = !field_of(e, "self").empty();
+    const uint32_t accent = is_self ? 0x63e2b7u : 0x70c0e8u;
+    const std::string sh   = field_of(e, "short");
+    const std::string lng  = field_of(e, "long");
+    const std::string snr  = field_of(e, "snr");
+    const std::string hops = field_of(e, "hops");
+    const std::string lh   = field_of(e, "last_heard");
+    const std::string hw   = field_of(e, "hw");
+    const std::string role = field_of(e, "role");
+    const std::string batt = field_of(e, "batt");
+    const std::string volt = field_of(e, "volt");
+    char buf[512];
+    // Header line: short · long · id
+    std::snprintf(buf, sizeof(buf), "#%06x %s  %s  %s#\n",
+                  accent,
+                  sh.empty() ? "-" : sh.c_str(),
+                  lng.empty() ? "" : lng.c_str(),
+                  e.id.c_str());
+    std::string text = buf;
+    // HW / ROLE row
+    const char* hw_s   = hw.empty()   ? "-" : hw_name(std::atoi(hw.c_str()));
+    const char* role_s = role.empty() ? "-" : role_name(std::atoi(role.c_str()));
+    std::snprintf(buf, sizeof(buf), "#888888 HW#  %-10s  #888888 ROLE#  %s\n", hw_s, role_s);
+    text += buf;
+    // SNR / HOPS row
+    std::snprintf(buf, sizeof(buf), "#888888 SNR#  %-7s  #888888 HOPS#  %s\n",
+                  snr.empty() ? "-" : (snr + " dB").c_str(),
+                  hops.empty() ? "-" : hops.c_str());
+    text += buf;
+    // BATT / VOLT row
+    if (!batt.empty() || !volt.empty()) {
+        const int bv = batt.empty() ? -1 : std::atoi(batt.c_str());
+        const char* batt_s = batt.empty() ? "-" : (bv > 100 ? "USB" : (batt + "%").c_str());
+        std::snprintf(buf, sizeof(buf), "#888888 BATT#  %-7s  #888888 VOLT#  %sV\n",
+                      batt_s, volt.empty() ? "-" : volt.c_str());
+        text += buf;
+    }
+    // POS / DIST / BRG — compute from the self node.
+    if (e.has_pos) {
+        char pos_s[48];
+        std::snprintf(pos_s, sizeof(pos_s), "%.4f, %.4f", e.pos.lat, e.pos.lon);
+        std::snprintf(buf, sizeof(buf), "#888888 POS#  %s\n", pos_s);
+        text += buf;
+        for (const auto& s : snap) {
+            if (field_of(s, "self").empty() || !s.has_pos) continue;
+            const double dist_nm  = toolkit::geo::range_nm(s.pos, e.pos);
+            const double dist_km  = dist_nm * 1.852;
+            const double brg      = toolkit::geo::bearing_deg(s.pos, e.pos);
+            char dist_s[16];
+            if (dist_km < 1.0) std::snprintf(dist_s, sizeof(dist_s), "%.0fm", dist_km * 1000.0);
+            else                std::snprintf(dist_s, sizeof(dist_s), "%.1fkm", dist_km);
+            std::snprintf(buf, sizeof(buf), "#888888 DIST#  %-8s  #888888 BRG#  %.0f\xC2\xB0\n",
+                          dist_s, brg);
+            text += buf;
+            break;
+        }
+    }
+    // Last-heard
+    if (!lh.empty()) {
+        const long now = static_cast<long>(std::time(nullptr));
+        long age = now - std::atol(lh.c_str());
+        if (age < 0) age = 0;
+        char age_s[24];
+        if (age < 60)        std::snprintf(age_s, sizeof(age_s), "%lds", age);
+        else if (age < 3600) std::snprintf(age_s, sizeof(age_s), "%ldm", age / 60);
+        else                 std::snprintf(age_s, sizeof(age_s), "%ldh", age / 3600);
+        std::snprintf(buf, sizeof(buf), "#888888 HEARD#  %s ago\n", age_s);
+        text += buf;
+    }
+    lv_label_set_text(node_detail_, text.c_str());
+}
+
 void MeshtasticScreen::tick_cb(lv_timer_t* timer) {
     auto* self = static_cast<MeshtasticScreen*>(lv_timer_get_user_data(timer));
     if (self) self->tick();
@@ -728,6 +873,10 @@ void MeshtasticScreen::tick() {
     const bool map_page =
         (page == static_cast<int>(MeshtasticViewModel::Page::Map));
     const bool placeholder = !nodes_page && !chats_page && !map_page;
+
+    // If the user cycled away from NODES, close the detail sub-screen.
+    if (!nodes_page && vm_.nodes_detail_open()) vm_.close_node_detail();
+    const bool detail_open = nodes_page && vm_.nodes_detail_open();
 
     char sub[64];
     if (map_page) {
@@ -749,13 +898,16 @@ void MeshtasticScreen::tick() {
     }
     vm_.set_subtitle(sub);
 
-    lv_obj_set_flag(nodes_view_, LV_OBJ_FLAG_HIDDEN, !nodes_page);
+    lv_obj_set_flag(nodes_view_,  LV_OBJ_FLAG_HIDDEN, !nodes_page || detail_open);
+    lv_obj_set_flag(node_detail_, LV_OBJ_FLAG_HIDDEN, !detail_open);
     lv_obj_set_flag(chats_label_, LV_OBJ_FLAG_HIDDEN, !chats_page);
-    lv_obj_set_flag(map_view_, LV_OBJ_FLAG_HIDDEN, !map_page);
-    lv_obj_set_flag(view_label_, LV_OBJ_FLAG_HIDDEN, !placeholder);
-    lv_obj_set_flag(hint_label_, LV_OBJ_FLAG_HIDDEN, !placeholder);
+    lv_obj_set_flag(map_view_,    LV_OBJ_FLAG_HIDDEN, !map_page);
+    lv_obj_set_flag(view_label_,  LV_OBJ_FLAG_HIDDEN, !placeholder);
+    lv_obj_set_flag(hint_label_,  LV_OBJ_FLAG_HIDDEN, !placeholder);
 
-    if (nodes_page) {
+    if (nodes_page && detail_open) {
+        update_node_detail(snap);
+    } else if (nodes_page) {
         update_nodes(snap);
     } else if (chats_page) {
         update_chats(snap);

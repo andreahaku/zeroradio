@@ -46,6 +46,8 @@ private:
     // Per-row colouring (self = accent; cursor row = green band + black text).
     static void nodes_draw_event_cb(lv_event_t* event);
     void update_nodes(const std::vector<toolkit::Entity>& snap);
+    // NODE DETAIL sub-screen: full fields of the cursor-selected node.
+    void update_node_detail(const std::vector<toolkit::Entity>& snap);
     // CHATS feed: sender short name (resolved from the node store) + text.
     void update_chats(const std::vector<toolkit::Entity>& snap);
     // MAP: a north-up PPI canvas (rings + coloured node dots) plus colour-coded
@@ -83,8 +85,9 @@ private:
     lv_obj_t* chats_label_ = nullptr; // CHATS feed (multi-line, recolour)
     lv_obj_t* compose_row_ = nullptr; // CHATS compose input ("> text_")
     lv_obj_t* canned_box_  = nullptr; // CHATS canned-message overlay (numbered list)
-    lv_obj_t* nodes_view_  = nullptr; // NODES container (column header + table)
-    lv_obj_t* nodes_table_ = nullptr;
+    lv_obj_t* nodes_view_   = nullptr; // NODES container (column header + table)
+    lv_obj_t* nodes_table_  = nullptr;
+    lv_obj_t* node_detail_  = nullptr; // NODE DETAIL panel (full fields, recolour label)
 
     lv_obj_t* map_view_   = nullptr;  // MAP container (canvas + side columns)
     lv_obj_t* map_canvas_ = nullptr;

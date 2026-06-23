@@ -41,6 +41,15 @@ public:
     void nodes_up();
     void nodes_down();
 
+    // NODE DETAIL: a sub-screen of NODES (key 8 opens, key 8 closes; key 4 cycles
+    // away and closes it). Not in the page cycle. The screen reports the selected
+    // node's number each tick so DM (key 5) can target it.
+    bool     nodes_detail_open() const;
+    void     open_node_detail();
+    void     close_node_detail();
+    void     set_selected_node(uint32_t num);
+    uint32_t selected_node() const;
+
     // CHATS compose: the "write" key (slot 4) bumps this subject; the screen
     // observes it to enter compose mode (raw key capture).
     lv_subject_t* compose_req_subject();
@@ -84,6 +93,8 @@ public:
 private:
     int nodes_cursor_ = 0;
     int nodes_count_ = 0;
+    bool nodes_detail_open_ = false;
+    uint32_t selected_node_ = 0;
     reactive::IntSubject compose_req_{0};
 
     int    map_zoom_idx_ = -1;  // -1 == auto-fit; else index into the ring table

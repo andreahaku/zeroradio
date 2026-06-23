@@ -31,8 +31,14 @@ Working (verified on a `meshtasticd -s` bench / scripted peer, both presets host
   distinct colour shared by its radar dot and its **side-column** name — names live beside the scope, not
   on it, since the 320×170 screen is too small for on-canvas labels. Title shows the positioned count.
 
-Placeholders / pending: reactions (V2), DMs (entry from Node detail), Node detail (`8` from Map/Nodes),
-Tools, Settings. See `radio-apps/09b` (build order) and `09c` (per-screen design).
+- **Node detail** — key `8` from the NODES list opens a full-field sub-screen: `SHORT · LONG · id`,
+  `HW / ROLE`, `SNR / HOPS`, `BATT / VOLT`, `POS / DIST / BRG` (relative to the self node),
+  `HEARD`. Key `5` from the detail starts a DM (opens CHATS filtered to that peer). Key `8` goes back.
+  HW model and role decode from the NodeInfo `user.hw_model` / `user.role`; battery and voltage from
+  `device_metrics`.
+
+Placeholders / pending: reactions (V2), Tools, Settings.
+See `radio-apps/09b` (build order) and `09c` (per-screen design).
 
 ## Screenshots
 
@@ -43,6 +49,10 @@ Tools, Settings. See `radio-apps/09b` (build order) and `09c` (per-screen design
 | Chat — channel | Chat — switch (key 5) | Chat — canned (key 6) |
 | --- | --- | --- |
 | ![chat channel](docs/media/chat-channel.png) | ![chat switch](docs/media/chat-switch.png) | ![chat canned](docs/media/chat-canned.png) |
+
+| Node detail (key 8 from Nodes) |
+| --- |
+| ![node detail](docs/media/node-detail.png) |
 
 Captured from the desktop SDL simulator at native 320×170, fed by the scripted Client-API peer (6
 positioned nodes around Rimini, two channels). Each peer's radar dot shares its colour with the

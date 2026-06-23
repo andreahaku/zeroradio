@@ -60,6 +60,14 @@ int main() {
                     if (u.has_hops) e.fields["hops"] = std::to_string(u.hops);
                     if (u.has_last_heard)
                         e.fields["last_heard"] = std::to_string(u.last_heard);
+                    if (u.has_hw) e.fields["hw"] = std::to_string(u.hw_model);
+                    if (u.has_role) e.fields["role"] = std::to_string(u.role);
+                    if (u.has_battery) e.fields["batt"] = std::to_string(u.battery);
+                    if (u.has_voltage) {
+                        char vb[16];
+                        std::snprintf(vb, sizeof(vb), "%.2f", static_cast<double>(u.voltage));
+                        e.fields["volt"] = vb;
+                    }
                     if (u.is_self) e.fields["self"] = "1";
                     if (u.has_pos) {
                         e.has_pos = true;

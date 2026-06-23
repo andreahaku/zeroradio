@@ -226,6 +226,20 @@ struct MeshtasticClientSource::Impl {
                         u.has_short = true;
                         u.short_name = ni.user.short_name;
                     }
+                    u.has_hw = true;
+                    u.hw_model = static_cast<int>(ni.user.hw_model);
+                    u.has_role = true;
+                    u.role = static_cast<int>(ni.user.role);
+                }
+                if (ni.has_device_metrics) {
+                    if (ni.device_metrics.has_battery_level) {
+                        u.has_battery = true;
+                        u.battery = static_cast<int>(ni.device_metrics.battery_level);
+                    }
+                    if (ni.device_metrics.has_voltage) {
+                        u.has_voltage = true;
+                        u.voltage = ni.device_metrics.voltage;
+                    }
                 }
                 if (ni.has_position && ni.position.has_latitude_i &&
                     ni.position.has_longitude_i) {
