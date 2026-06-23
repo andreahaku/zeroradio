@@ -29,10 +29,22 @@ public:
     int page() const;
     const char* page_name(int page) const;
 
+    // NODES list cursor (highlighted row). The screen reports the row count each
+    // tick so up/down can clamp; the index is stable while the node set doesn't
+    // change (sorting is a later step).
+    int  nodes_cursor() const;
+    void set_nodes_count(int n);
+    void nodes_up();
+    void nodes_down();
+
     // --- NavProvider ---
     int nav_page_count() const override;
     void nav_fill(int page, NavProvider::NavSlot out[5]) const override;
     void nav_activate(int page, int slot) override;
+
+private:
+    int nodes_cursor_ = 0;
+    int nodes_count_ = 0;
 };
 
 } // namespace meshtastic

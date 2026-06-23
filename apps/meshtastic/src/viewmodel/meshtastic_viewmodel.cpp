@@ -31,6 +31,23 @@ const char* MeshtasticViewModel::page_name(int page) const {
     return "";
 }
 
+int MeshtasticViewModel::nodes_cursor() const {
+    return nodes_cursor_;
+}
+
+void MeshtasticViewModel::set_nodes_count(int n) {
+    nodes_count_ = n < 0 ? 0 : n;
+    if (nodes_cursor_ >= nodes_count_) nodes_cursor_ = nodes_count_ > 0 ? nodes_count_ - 1 : 0;
+}
+
+void MeshtasticViewModel::nodes_up() {
+    if (nodes_cursor_ > 0) --nodes_cursor_;
+}
+
+void MeshtasticViewModel::nodes_down() {
+    if (nodes_cursor_ + 1 < nodes_count_) ++nodes_cursor_;
+}
+
 int MeshtasticViewModel::nav_page_count() const {
     return kPageCount; // Chats / Nodes / Map / Tools / Settings
 }
@@ -72,11 +89,18 @@ void MeshtasticViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const 
 }
 
 void MeshtasticViewModel::nav_activate(int page, int slot) {
-    // Scaffold: the five views are placeholders, so the per-slot actions arrive
-    // with each view. For now only the Settings "exit" key (slot 4) is wired, so
-    // the app is fully drivable from the keys (key 4 cycles views, ESC also quits).
-    if (static_cast<Page>(page) == Page::Settings && slot == 4) {
-        request_quit();
+    switch (static_cast<Page>(page)) {
+        case Page::Nodes:
+            // 5=sort (later), 6=up, 7=down, 8=detail (later).
+            if (slot == 2) nodes_up();
+            else if (slot == 3) nodes_down();
+            break;
+        case Page::Settings:
+            if (slot == 4) request_quit(); // 8 = exit
+            break;
+        default:
+            // Other views are still placeholders; ESC quits, key 4 cycles views.
+            break;
     }
 }
 

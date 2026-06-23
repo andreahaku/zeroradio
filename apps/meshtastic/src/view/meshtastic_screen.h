@@ -12,13 +12,15 @@
 
 #include "lvgl.h"
 
+#include <vector>
+
 namespace meshtastic {
 
-// Screen: a TitleBar ("MESH" + "<view> · N nodes") and a solid NavBar drive the
+// Screen: a TitleBar ("MESH" + "<view> - N nodes") and a solid NavBar drive the
 // five keys. A UI-thread timer snapshots the EntityStore (filled by the client
-// source on its reader thread) so the NODES view shows the live node list and the
-// node count tracks the mesh. The other views are still placeholders (Chats / Map
-// / Tools / Settings land in later steps).
+// source on its reader thread) so the NODES view shows the live node list — a
+// themed lv_table (SHORT/SNR/HOP/AGE) with the chosen theme's accent: the cursor
+// row a solid green band, the self node green. Other views are placeholders.
 class MeshtasticScreen : public screen::BaseScreen {
 public:
     MeshtasticScreen(MeshtasticViewModel& vm,
@@ -32,13 +34,20 @@ protected:
 private:
     static void tick_cb(lv_timer_t* timer);
     void tick();
+    // Per-row colouring (self = accent; cursor row = green band + black text).
+    static void nodes_draw_event_cb(lv_event_t* event);
+    void update_nodes(const std::vector<toolkit::Entity>& snap);
 
     MeshtasticViewModel& vm_;
     toolkit::EntityStore& store_;
 
     lv_obj_t* view_label_  = nullptr; // big current-view name (non-NODES pages)
     lv_obj_t* hint_label_  = nullptr; // "press 4 to switch view"
-    lv_obj_t* nodes_label_ = nullptr; // NODES list (multi-line)
+    lv_obj_t* nodes_view_  = nullptr; // NODES container (column header + table)
+    lv_obj_t* nodes_table_ = nullptr;
+
+    std::vector<lv_color_t> nodes_row_colors_; // index = data row
+    int nodes_sel_row_ = -1;                   // cursor row, -1 = none
 
     const lv_font_t* font_big_   = nullptr;
     const lv_font_t* font_small_ = nullptr;
