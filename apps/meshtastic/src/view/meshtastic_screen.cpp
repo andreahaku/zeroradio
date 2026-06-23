@@ -11,6 +11,7 @@
 #include "linux_input.h"
 #include "theme.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -18,6 +19,7 @@
 #include <ctime>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace meshtastic {
 namespace {
@@ -33,6 +35,56 @@ constexpr int32_t kHeaderH = 15;
 std::string field_of(const toolkit::Entity& e, const char* key) {
     const auto it = e.fields.find(key);
     return it != e.fields.end() ? it->second : std::string{};
+}
+
+// MAP (PPI) geometry. Content area is 320x110 (title + nav bars take 30 each), so
+// a 106px square canvas fits with a hair of margin; the flanking side columns
+// carry the colour-coded node names.
+constexpr int kMapSize = 106;
+
+// Self node colour (theme accent green); each peer gets a distinct hue so its
+// radar dot and its side-list name share one colour — that's how you read which
+// dot is which without cramming labels onto the tiny scope.
+constexpr uint32_t kSelfColor = 0x63e2b7;
+constexpr uint32_t kNodeColors[] = {
+    0x4d9fff, // blue
+    0xffa53d, // orange
+    0xe24dff, // magenta
+    0xffe24d, // yellow
+    0xc77dff, // violet
+    0xff5d6e, // red
+    0x4de2e2, // cyan
+    0xff8fbf, // pink
+};
+constexpr int kNodeColorCount = static_cast<int>(sizeof(kNodeColors) / sizeof(kNodeColors[0]));
+
+// Fill a disc of radius r at (cx, cy).
+void plot_disc(uint16_t* buf, int w, int h, int cx, int cy, int r, uint16_t color) {
+    for (int dy = -r; dy <= r; ++dy) {
+        for (int dx = -r; dx <= r; ++dx) {
+            if (dx * dx + dy * dy > r * r) continue;
+            const int x = cx + dx, y = cy + dy;
+            if (x < 0 || x >= w || y < 0 || y >= h) continue;
+            buf[y * w + x] = color;
+        }
+    }
+}
+
+// Thin ring (midpoint circle) of radius r around (cx, cy).
+void plot_ring(uint16_t* buf, int w, int h, int cx, int cy, int r, uint16_t color) {
+    int x = r, y = 0, err = 1 - r;
+    const auto put = [&](int px, int py) {
+        if (px >= 0 && px < w && py >= 0 && py < h) buf[py * w + px] = color;
+    };
+    while (x >= y) {
+        put(cx + x, cy + y); put(cx - x, cy + y);
+        put(cx + x, cy - y); put(cx - x, cy - y);
+        put(cx + y, cy + x); put(cx - y, cy + x);
+        put(cx + y, cy - x); put(cx - y, cy - x);
+        ++y;
+        if (err < 0) { err += 2 * y + 1; }
+        else { --x; err += 2 * (y - x) + 1; }
+    }
 }
 
 } // namespace
@@ -142,6 +194,53 @@ void MeshtasticScreen::build_content(lv_obj_t* content) {
     lv_obj_remove_flag(nodes_table_, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(nodes_table_, nodes_draw_event_cb, LV_EVENT_DRAW_TASK_ADDED, this);
     lv_obj_add_flag(nodes_table_, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
+
+    // MAP view: a centred PPI canvas flanked by colour-coded short-name columns.
+    map_view_ = lv_obj_create(content);
+    lv_obj_remove_style_all(map_view_);
+    lv_obj_set_size(map_view_, LV_PCT(100), LV_PCT(100));
+    lv_obj_align(map_view_, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_obj_clear_flag(map_view_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(map_view_, 0, 0);
+    lv_obj_add_flag(map_view_, LV_OBJ_FLAG_HIDDEN);
+
+    map_buf_.assign(static_cast<size_t>(kMapSize) * kMapSize, 0u);
+    map_canvas_ = lv_canvas_create(map_view_);
+    lv_canvas_set_buffer(map_canvas_, map_buf_.data(), kMapSize, kMapSize,
+                         LV_COLOR_FORMAT_RGB565);
+    lv_obj_set_size(map_canvas_, kMapSize, kMapSize);
+    lv_canvas_fill_bg(map_canvas_, lv_color_black(), LV_OPA_COVER);
+    lv_obj_align(map_canvas_, LV_ALIGN_CENTER, 0, 0);
+
+    // Three range-ring scale labels (km) over the north axis.
+    map_ring_labels_.reserve(3);
+    for (int i = 0; i < 3; ++i) {
+        lv_obj_t* lbl = lv_label_create(map_view_);
+        lv_obj_set_style_text_font(lbl, fs, 0);
+        lv_obj_set_style_text_color(lbl, lv_color_hex(0x66aa66), 0);
+        lv_label_set_text(lbl, "");
+        map_ring_labels_.push_back(lbl);
+    }
+
+    // Side short-name columns (recolour per node, matching the radar dots).
+    const auto make_side = [&](lv_align_t al, int dx) {
+        lv_obj_t* l = lv_label_create(map_view_);
+        lv_label_set_recolor(l, true);
+        lv_obj_set_style_text_font(l, fs, 0);
+        lv_label_set_text(l, "");
+        lv_obj_align(l, al, dx, 2);
+        return l;
+    };
+    map_left_  = make_side(LV_ALIGN_TOP_LEFT, 2);
+    map_right_ = make_side(LV_ALIGN_TOP_RIGHT, -2);
+    lv_obj_set_style_text_align(map_right_, LV_TEXT_ALIGN_RIGHT, 0);
+
+    // Range / status hint, bottom-centre over the scope.
+    map_status_ = lv_label_create(map_view_);
+    lv_obj_set_style_text_font(map_status_, fs, 0);
+    lv_obj_set_style_text_color(map_status_, lv_color_hex(0x888888), 0);
+    lv_label_set_text(map_status_, "");
+    lv_obj_align(map_status_, LV_ALIGN_BOTTOM_MID, 0, -1);
 
     // The "write" key bumps compose_req; observe it to enter compose mode.
     last_compose_req_ = lv_subject_get_int(vm_.compose_req_subject());
@@ -337,6 +436,143 @@ void MeshtasticScreen::update_chats(const std::vector<toolkit::Entity>& snap) {
     lv_label_set_text(chats_label_, text.c_str());
 }
 
+void MeshtasticScreen::update_map(const std::vector<toolkit::Entity>& snap) {
+    if (!map_canvas_) return;
+    const int w = kMapSize, h = kMapSize;
+    const int cx = w / 2, cy = h / 2;
+    const int radius_px = (std::min(w, h) / 2) - 4;
+    uint16_t* buf = map_buf_.data();
+
+    std::fill(map_buf_.begin(), map_buf_.end(), lv_color_to_u16(lv_color_black()));
+
+    const uint16_t ring_col  = lv_color_to_u16(lv_color_hex(0x224422));
+    const uint16_t north_col = lv_color_to_u16(lv_color_hex(0x66aa66));
+    const uint16_t nofix_col = lv_color_to_u16(lv_color_hex(0x555555));
+    const uint16_t outline_col = lv_color_to_u16(lv_color_white());
+
+    // Rings + north tick (always drawn so it reads as a radar).
+    const int ring_px[3] = {radius_px / 3, (radius_px * 2) / 3, radius_px};
+    for (int rp : ring_px) plot_ring(buf, w, h, cx, cy, rp, ring_col);
+    for (int y = cy - radius_px; y < cy - radius_px + 6; ++y)
+        if (y >= 0 && y < h) buf[y * w + cx] = north_col;
+
+    // Positioned nodes (snapshot order = stable) + the self node (if present).
+    std::vector<const toolkit::Entity*> pos;
+    const toolkit::Entity* self = nullptr;
+    for (const auto& e : snap) {
+        if (!field_of(e, "self").empty()) self = &e;
+        if (e.has_pos) pos.push_back(&e);
+    }
+    vm_.set_map_count(static_cast<int>(pos.size()));
+    const int cursor = vm_.map_cursor();
+
+    // Per-node colour: self = accent green; peers cycle a distinct palette so a
+    // dot and its side-list name share one colour.
+    std::vector<uint32_t> colors(pos.size(), kSelfColor);
+    int peer_ord = 0;
+    for (size_t i = 0; i < pos.size(); ++i) {
+        if (pos[i] == self) colors[i] = kSelfColor;
+        else colors[i] = kNodeColors[(peer_ord++) % kNodeColorCount];
+    }
+
+    // Home point: the self node if it has a fix, else the centroid of all
+    // positioned nodes.
+    bool have_home = false;
+    bool home_is_self = false;
+    toolkit::geo::LatLon home{};
+    if (self && self->has_pos) {
+        home = self->pos;
+        have_home = true;
+        home_is_self = true;
+    } else if (!pos.empty()) {
+        double slat = 0.0, slon = 0.0;
+        for (auto* e : pos) { slat += e->pos.lat; slon += e->pos.lon; }
+        home.lat = slat / static_cast<double>(pos.size());
+        home.lon = slon / static_cast<double>(pos.size());
+        have_home = true;
+    }
+
+    if (!have_home) {
+        plot_disc(buf, w, h, cx, cy, 2, nofix_col);
+        for (auto* lbl : map_ring_labels_)
+            if (lbl) lv_obj_add_flag(lbl, LV_OBJ_FLAG_HIDDEN);
+        if (map_left_)  lv_label_set_text(map_left_, "");
+        if (map_right_) lv_label_set_text(map_right_, "");
+        if (map_status_) lv_label_set_text(map_status_, "no positioned nodes");
+        lv_obj_invalidate(map_canvas_);
+        return;
+    }
+
+    // Auto-fit the outer ring to the farthest node, fed back so the zoom keys can
+    // snap relative to it.
+    double fit_km = 0.0;
+    for (auto* e : pos) {
+        const double km = toolkit::geo::range_nm(home, e->pos) * 1.852;
+        if (km > fit_km) fit_km = km;
+    }
+    vm_.set_map_fit_km(fit_km);
+    const double range_km = vm_.map_range_km();
+    const double range_nm = range_km / 1.852;
+
+    // Range-ring scale labels (km), one per ring on the north axis.
+    for (size_t i = 0; i < map_ring_labels_.size(); ++i) {
+        lv_obj_t* lbl = map_ring_labels_[i];
+        if (!lbl) continue;
+        const double v = range_km * (static_cast<double>(i) + 1) / 3.0;
+        char t[16];
+        if (v < 1.0) std::snprintf(t, sizeof(t), "%.0fm", v * 1000.0);
+        else std::snprintf(t, sizeof(t), "%.0fkm", v);
+        lv_label_set_text(lbl, t);
+        lv_obj_remove_flag(lbl, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_align_to(lbl, map_canvas_, LV_ALIGN_CENTER, 6, -ring_px[i] + 6);
+    }
+
+    // Home dot at the centre (self green, or grey when it's a centroid).
+    const bool home_sel = (cursor >= 0 && static_cast<size_t>(cursor) < pos.size() &&
+                           pos[cursor] == self);
+    if (home_sel) plot_disc(buf, w, h, cx, cy, 6, outline_col);
+    plot_disc(buf, w, h, cx, cy, home_is_self ? 4 : 3,
+              lv_color_to_u16(lv_color_hex(home_is_self ? kSelfColor : 0x999999)));
+
+    // One dot per positioned peer; the selected node gets a white outline.
+    for (size_t i = 0; i < pos.size(); ++i) {
+        if (pos[i] == self) continue; // already the centre dot
+        int dx = 0, dy = 0;
+        if (!toolkit::geo::project(home, pos[i]->pos, range_nm, radius_px, dx, dy)) continue;
+        const bool is_sel = (static_cast<int>(i) == cursor);
+        if (is_sel) plot_disc(buf, w, h, cx + dx, cy + dy, 6, outline_col);
+        plot_disc(buf, w, h, cx + dx, cy + dy, is_sel ? 5 : 4,
+                  lv_color_to_u16(lv_color_hex(colors[i])));
+    }
+
+    // Side short-name columns, recoloured to match the dots; the selected node is
+    // marked with a leading caret.
+    constexpr size_t kPerSide = 7;
+    const size_t left_n = (pos.size() + 1) / 2;
+    std::string left, right;
+    for (size_t i = 0; i < pos.size(); ++i) {
+        std::string sh = field_of(*pos[i], "short");
+        if (sh.empty()) sh = pos[i]->id;
+        const char* mk = (static_cast<int>(i) == cursor) ? "\xE2\x80\xBA" : " "; // ›
+        char line[96];
+        std::snprintf(line, sizeof(line), "#%06x %s%s#\n", colors[i], mk, sh.c_str());
+        std::string& col = (i < left_n) ? left : right;
+        const size_t shown = (i < left_n) ? i : (i - left_n);
+        if (shown < kPerSide) col += line;
+    }
+    if (map_left_)  lv_label_set_text(map_left_, left.c_str());
+    if (map_right_) lv_label_set_text(map_right_, right.c_str());
+
+    if (map_status_) {
+        char s[40];
+        const char* mode = vm_.map_auto_range() ? "auto" : "rng";
+        if (range_km < 1.0) std::snprintf(s, sizeof(s), "%s %.0fm", mode, range_km * 1000.0);
+        else std::snprintf(s, sizeof(s), "%s %.0fkm", mode, range_km);
+        lv_label_set_text(map_status_, s);
+    }
+    lv_obj_invalidate(map_canvas_);
+}
+
 void MeshtasticScreen::tick_cb(lv_timer_t* timer) {
     auto* self = static_cast<MeshtasticScreen*>(lv_timer_get_user_data(timer));
     if (self) self->tick();
@@ -347,19 +583,29 @@ void MeshtasticScreen::tick() {
     const auto snap = store_.snapshot();
     const int page = vm_.page();
 
-    char sub[48];
-    std::snprintf(sub, sizeof(sub), "%s - %zu node%s", vm_.page_name(page),
-                  snap.size(), snap.size() == 1 ? "" : "s");
-    vm_.set_subtitle(sub);
-
     const bool nodes_page =
         (page == static_cast<int>(MeshtasticViewModel::Page::Nodes));
     const bool chats_page =
         (page == static_cast<int>(MeshtasticViewModel::Page::Chats));
-    const bool placeholder = !nodes_page && !chats_page;
+    const bool map_page =
+        (page == static_cast<int>(MeshtasticViewModel::Page::Map));
+    const bool placeholder = !nodes_page && !chats_page && !map_page;
+
+    char sub[48];
+    if (map_page) {
+        // The Map cares about how many nodes have a fix, not the total.
+        size_t with_pos = 0;
+        for (const auto& e : snap) if (e.has_pos) ++with_pos;
+        std::snprintf(sub, sizeof(sub), "MAP - %zu with pos", with_pos);
+    } else {
+        std::snprintf(sub, sizeof(sub), "%s - %zu node%s", vm_.page_name(page),
+                      snap.size(), snap.size() == 1 ? "" : "s");
+    }
+    vm_.set_subtitle(sub);
 
     lv_obj_set_flag(nodes_view_, LV_OBJ_FLAG_HIDDEN, !nodes_page);
     lv_obj_set_flag(chats_label_, LV_OBJ_FLAG_HIDDEN, !chats_page);
+    lv_obj_set_flag(map_view_, LV_OBJ_FLAG_HIDDEN, !map_page);
     lv_obj_set_flag(view_label_, LV_OBJ_FLAG_HIDDEN, !placeholder);
     lv_obj_set_flag(hint_label_, LV_OBJ_FLAG_HIDDEN, !placeholder);
 
@@ -367,6 +613,8 @@ void MeshtasticScreen::tick() {
         update_nodes(snap);
     } else if (chats_page) {
         update_chats(snap);
+    } else if (map_page) {
+        update_map(snap);
     } else {
         lv_label_set_text(view_label_, vm_.page_name(page));
     }

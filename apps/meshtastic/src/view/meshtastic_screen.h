@@ -45,6 +45,9 @@ private:
     void update_nodes(const std::vector<toolkit::Entity>& snap);
     // CHATS feed: sender short name (resolved from the node store) + text.
     void update_chats(const std::vector<toolkit::Entity>& snap);
+    // MAP: a north-up PPI canvas (rings + coloured node dots) plus colour-coded
+    // short-name side columns so each dot maps to a name without on-canvas labels.
+    void update_map(const std::vector<toolkit::Entity>& snap);
 
     // CHATS compose mode (raw key capture via platform::set_key_capture).
     static void compose_req_cb(lv_observer_t* observer, lv_subject_t* subject);
@@ -65,6 +68,14 @@ private:
     lv_obj_t* compose_row_ = nullptr; // CHATS compose input ("> text_")
     lv_obj_t* nodes_view_  = nullptr; // NODES container (column header + table)
     lv_obj_t* nodes_table_ = nullptr;
+
+    lv_obj_t* map_view_   = nullptr;  // MAP container (canvas + side columns)
+    lv_obj_t* map_canvas_ = nullptr;
+    lv_obj_t* map_left_   = nullptr;  // left short-name column (colour-coded)
+    lv_obj_t* map_right_  = nullptr;  // right short-name column (colour-coded)
+    lv_obj_t* map_status_ = nullptr;  // range / "no fix" hint
+    std::vector<lv_obj_t*> map_ring_labels_; // km scale labels on the north axis
+    std::vector<uint16_t> map_buf_;          // RGB565 canvas backing buffer
 
     bool compose_active_ = false;
     std::string compose_buf_;

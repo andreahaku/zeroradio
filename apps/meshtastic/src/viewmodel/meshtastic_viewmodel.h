@@ -43,6 +43,20 @@ public:
     lv_subject_t* compose_req_subject();
     void request_compose();
 
+    // MAP (PPI radar). Centred on the self node (or the mesh centroid when self
+    // has no fix). The range auto-fits all positioned nodes by default; keys 5/6
+    // switch to a manual zoom step. Key 7 cycles the selection (highlighted node);
+    // wrapping past the last node clears it back to the self-centred view.
+    double map_range_km() const;      // current outer-ring distance (km)
+    bool   map_auto_range() const;    // true while auto-fitting to all nodes
+    void   set_map_fit_km(double km); // screen feeds the fitted distance each tick
+    void   map_zoom_in();             // smaller ring (key 5)
+    void   map_zoom_out();            // larger ring (key 6)
+
+    int  map_cursor() const;          // -1 = none (self-centred), else positioned idx
+    void set_map_count(int n);        // screen reports the positioned-node count
+    void map_cycle_selection();       // key 7: -1 -> 0 -> ... -> n-1 -> -1
+
     // --- NavProvider ---
     int nav_page_count() const override;
     void nav_fill(int page, NavProvider::NavSlot out[5]) const override;
@@ -52,6 +66,11 @@ private:
     int nodes_cursor_ = 0;
     int nodes_count_ = 0;
     reactive::IntSubject compose_req_{0};
+
+    int    map_zoom_idx_ = -1;  // -1 == auto-fit; else index into the ring table
+    double map_fit_km_   = 5.0; // last fitted-to-all-nodes distance (from the screen)
+    int    map_cursor_   = -1;  // selected positioned node, -1 = none
+    int    map_count_    = 0;   // positioned-node count (from the screen)
 };
 
 } // namespace meshtastic
