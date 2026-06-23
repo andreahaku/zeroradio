@@ -56,10 +56,11 @@ constexpr int kCannedCount = static_cast<int>(sizeof(kCanned) / sizeof(kCanned[0
 // a 106px square canvas fits with a hair of margin; the flanking side columns
 // carry the colour-coded node names.
 constexpr int kMapSize = 106;
-// The Mercator map view isn't bound to a circle, so it spreads to twice the
-// width (same height) to use more of the 320px-wide screen; the flanking
-// short-name columns stay anchored to the screen edges either way.
-constexpr int kMapMercW = 212;
+// The Mercator map view isn't bound to a circle, so it spreads to the full
+// screen width (same height); the flanking short-name columns stay anchored to
+// the screen edges and overlay the map with a transparent background (the
+// selected node still renders inverted).
+constexpr int kMapMercW = 320;
 constexpr int kMapMercH = 106;
 
 // Self node colour (theme accent green); each peer gets a distinct hue so its

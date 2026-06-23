@@ -38,7 +38,7 @@ constexpr int32_t kPpiSize = 120;
 // (same height) to use more of the 320px-wide screen. Shown instead of the
 // square PPI when the Radar screen is in map mode (a separate fixed-size canvas
 // — resizing one at runtime crashes the SDL/Mesa flush).
-constexpr int32_t kPpiMercW = 240;
+constexpr int32_t kPpiMercW = 320; // full screen width; side labels overlay it
 constexpr int32_t kPpiMercH = 120;
 
 // Detail mini-radar: a square on the right of the split Detail view.
@@ -458,14 +458,15 @@ void AdsbScreen::show_view(int screen) {
     const bool settings = (screen == static_cast<int>(AdsbViewModel::Screen::Settings));
 
     // On the Radar screen, update_ppi swaps between the square radar and the wide
-    // Mercator canvas (and hides the side columns in map mode); here we just
-    // honour the current mode so there's no one-frame flash of the wrong canvas.
+    // Mercator canvas; here we just honour the current mode so there's no
+    // one-frame flash of the wrong canvas. The side callsign columns stay visible
+    // in both modes (in map mode they overlay the full-width map, transparent bg).
     const bool merc = vm_.map_mercator();
     if (list_view_)     lv_obj_set_flag(list_view_,     LV_OBJ_FLAG_HIDDEN, !list);
     if (ppi_canvas_)      lv_obj_set_flag(ppi_canvas_,      LV_OBJ_FLAG_HIDDEN, !ppi || merc);
     if (ppi_canvas_merc_) lv_obj_set_flag(ppi_canvas_merc_, LV_OBJ_FLAG_HIDDEN, !ppi || !merc);
-    if (radar_left_)    lv_obj_set_flag(radar_left_,    LV_OBJ_FLAG_HIDDEN, !ppi || merc);
-    if (radar_right_)   lv_obj_set_flag(radar_right_,   LV_OBJ_FLAG_HIDDEN, !ppi || merc);
+    if (radar_left_)    lv_obj_set_flag(radar_left_,    LV_OBJ_FLAG_HIDDEN, !ppi);
+    if (radar_right_)   lv_obj_set_flag(radar_right_,   LV_OBJ_FLAG_HIDDEN, !ppi);
     if (detail_box_)    lv_obj_set_flag(detail_box_,    LV_OBJ_FLAG_HIDDEN, !detail);
     if (settings_box_)  lv_obj_set_flag(settings_box_,  LV_OBJ_FLAG_HIDDEN, !settings);
 
@@ -846,15 +847,9 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     render_scope(buf, size, canvas, ppi_ring_labels_, rows, sel,
                  /*show_others=*/true, mercator);
 
-    // Side callsign columns overlap the wide map, and callsigns live on the List
-    // screen anyway — hide them in map mode.
-    if (mercator) {
-        if (radar_left_)  lv_obj_add_flag(radar_left_,  LV_OBJ_FLAG_HIDDEN);
-        if (radar_right_) lv_obj_add_flag(radar_right_, LV_OBJ_FLAG_HIDDEN);
-        return;
-    }
-    if (radar_left_)  lv_obj_remove_flag(radar_left_,  LV_OBJ_FLAG_HIDDEN);
-    if (radar_right_) lv_obj_remove_flag(radar_right_, LV_OBJ_FLAG_HIDDEN);
+    // Side callsign columns stay visible in both modes — in map mode the map runs
+    // full-width and the labels sit over it with a transparent background (left
+    // column left-aligned, right column right-aligned), so you get both at once.
 
     // Side callsign lists (all aircraft), colour-coded, with the selection (●) and
     // cursor (›) marked. First half on the left column, the rest on the right.

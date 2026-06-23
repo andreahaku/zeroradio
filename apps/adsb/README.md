@@ -32,8 +32,9 @@ Development happens on a desktop **SDL simulator** at the exact device resolutio
 - **Radar ↔ map toggle** — key `8` on the Radar screen (and a persisted "Map view" setting) switches the
   scope between the azimuthal **radar** and a **Mercator map** that draws a vector coastline/border
   background (Natural Earth, bundled as `assets/mapdata/*.rmap`) under the aircraft, both centred on the
-  configured home. The map canvas is twice as wide as the square radar; side callsign lists hide in map
-  mode. Shares the `toolkit/src/map` renderer with the Meshtastic app.
+  configured home. In map mode the canvas runs **full-width** and the side callsign lists overlay it with
+  a transparent background (left column left-aligned, right column right-aligned). Shares the
+  `toolkit/src/map` renderer with the Meshtastic app.
 - **Auto / manual range** — a range ladder (10/20/50/100/200 NM) plus an **AUTO** state that fits the
   outer ring to the farthest aircraft. Zoom in/out from the Radar or Detail page.
 - **Category colours** — light (green), small (cyan), large (blue), heavy (orange), rotorcraft

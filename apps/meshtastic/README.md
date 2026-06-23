@@ -28,7 +28,8 @@ Working (verified on a `meshtasticd -s` bench / scripted peer, both presets host
 - **Map** — a north-up scope centred on the self node (or the mesh centroid when self has no fix), with
   two modes toggled by key `8` (also a "Map view" settings row, persisted): a **radar** (azimuthal PPI,
   km rings) and a **Mercator map** that draws a vector coastline/border background (Natural Earth, bundled
-  as `assets/mapdata/*.rmap`) under the node dots — the map canvas is twice as wide as the square radar.
+  as `assets/mapdata/*.rmap`) under the node dots — in map mode the canvas runs full-width and the
+  short-name columns overlay it with a transparent background.
   Range auto-fits all positioned nodes with manual zoom on keys `5`/`6`; key `7` cycles the selection.
   Each peer gets a distinct colour shared by its dot and its **side-column** name; the selected node
   renders inverted (its colour as background, black text) and the self node bold. Title shows the count.
