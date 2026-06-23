@@ -8,6 +8,7 @@
 
 #include "base_screen.h"
 #include "entity_store.h"
+#include "message_log.h"
 #include "meshtastic_viewmodel.h"
 
 #include "lvgl.h"
@@ -25,7 +26,8 @@ class MeshtasticScreen : public screen::BaseScreen {
 public:
     MeshtasticScreen(MeshtasticViewModel& vm,
                      app::AssetManager& assets,
-                     toolkit::EntityStore& store);
+                     toolkit::EntityStore& store,
+                     MessageLog& messages);
     ~MeshtasticScreen() override;
 
 protected:
@@ -37,12 +39,16 @@ private:
     // Per-row colouring (self = accent; cursor row = green band + black text).
     static void nodes_draw_event_cb(lv_event_t* event);
     void update_nodes(const std::vector<toolkit::Entity>& snap);
+    // CHATS feed: sender short name (resolved from the node store) + text.
+    void update_chats(const std::vector<toolkit::Entity>& snap);
 
     MeshtasticViewModel& vm_;
     toolkit::EntityStore& store_;
+    MessageLog& messages_;
 
-    lv_obj_t* view_label_  = nullptr; // big current-view name (non-NODES pages)
+    lv_obj_t* view_label_  = nullptr; // big current-view name (placeholder pages)
     lv_obj_t* hint_label_  = nullptr; // "press 4 to switch view"
+    lv_obj_t* chats_label_ = nullptr; // CHATS feed (multi-line, recolour)
     lv_obj_t* nodes_view_  = nullptr; // NODES container (column header + table)
     lv_obj_t* nodes_table_ = nullptr;
 

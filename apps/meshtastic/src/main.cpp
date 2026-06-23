@@ -6,6 +6,7 @@
 
 #include "asset_manager.h"
 #include "entity_store.h"
+#include "message_log.h"
 #include "meshtastic_client_source.h"
 #include "meshtastic_screen.h"
 #include "meshtastic_viewmodel.h"
@@ -34,9 +35,11 @@ int main() {
         if (v > 0 && v < 65536) port = static_cast<uint16_t>(v);
     }
 
-    // Nodes flow from the source's reader thread into the store; the screen
-    // snapshots it on the UI thread (the toolkit's cross-thread pattern).
+    // Nodes flow from the source's reader thread into the store; messages into the
+    // log. The screen snapshots both on the UI thread (the toolkit's cross-thread
+    // pattern).
     toolkit::EntityStore store;
+    meshtastic::MessageLog messages;
 
     meshtastic::MeshtasticClientSource source(
         host, port,
@@ -63,6 +66,7 @@ int main() {
                     }
                 });
             },
+            [&messages](const meshtastic::MeshMessage& m) { messages.add(m); },
         });
     source.start();
 
@@ -72,7 +76,7 @@ int main() {
 
     std::unique_ptr<meshtastic::MeshtasticScreen> screen;
     const int rc = toolkit::run_app(view_model, assets, [&]() -> lv_obj_t* {
-        screen = std::make_unique<meshtastic::MeshtasticScreen>(view_model, assets, store);
+        screen = std::make_unique<meshtastic::MeshtasticScreen>(view_model, assets, store, messages);
         return screen->root();
     });
 

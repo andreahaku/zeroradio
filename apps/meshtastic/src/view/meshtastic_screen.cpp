@@ -10,11 +10,13 @@
 #include "bindings.h"
 #include "theme.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <string>
+#include <unordered_map>
 
 namespace meshtastic {
 namespace {
@@ -36,8 +38,9 @@ std::string field_of(const toolkit::Entity& e, const char* key) {
 
 MeshtasticScreen::MeshtasticScreen(MeshtasticViewModel& vm,
                                    app::AssetManager& assets,
-                                   toolkit::EntityStore& store)
-    : BaseScreen(vm, vm, assets), vm_(vm), store_(store) {
+                                   toolkit::EntityStore& store,
+                                   MessageLog& messages)
+    : BaseScreen(vm, vm, assets), vm_(vm), store_(store), messages_(messages) {
     init();
 }
 
@@ -69,6 +72,18 @@ void MeshtasticScreen::build_content(lv_obj_t* content) {
     lv_obj_set_style_text_font(hint_label_, fs, 0);
     lv_obj_set_style_text_color(hint_label_, lv_color_hex(0x888888), 0);
     lv_obj_align(hint_label_, LV_ALIGN_CENTER, 0, 16);
+
+    // CHATS feed: a recolour multi-line label (sender short name coloured, body in
+    // theme text). Hidden until the CHATS page. Self in accent green, peers info-blue.
+    chats_label_ = lv_label_create(content);
+    lv_label_set_recolor(chats_label_, true);
+    lv_label_set_long_mode(chats_label_, LV_LABEL_LONG_WRAP);
+    lv_label_set_text(chats_label_, "");
+    lv_obj_set_width(chats_label_, LV_PCT(100));
+    lv_obj_set_style_text_font(chats_label_, fs, 0);
+    reactive::bind_theme(chats_label_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
+    lv_obj_align(chats_label_, LV_ALIGN_TOP_LEFT, 6, 2);
+    lv_obj_add_flag(chats_label_, LV_OBJ_FLAG_HIDDEN);
 
     // NODES view: a fixed column header strip + a themed table. Hidden by default.
     nodes_view_ = lv_obj_create(content);
@@ -189,6 +204,48 @@ void MeshtasticScreen::update_nodes(const std::vector<toolkit::Entity>& snap) {
     if (n > 0) lv_table_set_selected_cell(nodes_table_, static_cast<uint16_t>(cur), 0);
 }
 
+void MeshtasticScreen::update_chats(const std::vector<toolkit::Entity>& snap) {
+    if (!chats_label_) return;
+
+    // Map node number -> short name (id is "!aabbccdd") to label senders.
+    std::unordered_map<uint32_t, std::string> names;
+    for (const auto& e : snap) {
+        if (e.id.size() > 1 && e.id[0] == '!') {
+            const uint32_t num =
+                static_cast<uint32_t>(std::strtoul(e.id.c_str() + 1, nullptr, 16));
+            const std::string sh = field_of(e, "short");
+            names[num] = sh.empty() ? e.id : sh;
+        }
+    }
+
+    const auto msgs = messages_.snapshot();
+    std::string text;
+    const size_t start = msgs.size() > 9 ? msgs.size() - 9 : 0;
+    for (size_t i = start; i < msgs.size(); ++i) {
+        const MeshMessage& m = msgs[i];
+        std::string sh;
+        const auto it = names.find(m.from);
+        if (it != names.end()) {
+            sh = it->second;
+        } else {
+            char b[16];
+            std::snprintf(b, sizeof(b), "!%08x", m.from);
+            sh = b;
+        }
+        // Sender name recoloured (self accent-green, peers info-blue); body default.
+        char hdr[48];
+        std::snprintf(hdr, sizeof(hdr), "#%06x %s:# ",
+                      m.is_self ? 0x63e2b7u : 0x70c0e8u, sh.c_str());
+        text += hdr;
+        text += m.text;
+        text += "\n";
+    }
+    if (msgs.empty()) {
+        text = "#888888 (no messages yet)#";
+    }
+    lv_label_set_text(chats_label_, text.c_str());
+}
+
 void MeshtasticScreen::tick_cb(lv_timer_t* timer) {
     auto* self = static_cast<MeshtasticScreen*>(lv_timer_get_user_data(timer));
     if (self) self->tick();
@@ -206,12 +263,19 @@ void MeshtasticScreen::tick() {
 
     const bool nodes_page =
         (page == static_cast<int>(MeshtasticViewModel::Page::Nodes));
-    lv_obj_set_flag(view_label_, LV_OBJ_FLAG_HIDDEN, nodes_page);
-    lv_obj_set_flag(hint_label_, LV_OBJ_FLAG_HIDDEN, nodes_page);
+    const bool chats_page =
+        (page == static_cast<int>(MeshtasticViewModel::Page::Chats));
+    const bool placeholder = !nodes_page && !chats_page;
+
     lv_obj_set_flag(nodes_view_, LV_OBJ_FLAG_HIDDEN, !nodes_page);
+    lv_obj_set_flag(chats_label_, LV_OBJ_FLAG_HIDDEN, !chats_page);
+    lv_obj_set_flag(view_label_, LV_OBJ_FLAG_HIDDEN, !placeholder);
+    lv_obj_set_flag(hint_label_, LV_OBJ_FLAG_HIDDEN, !placeholder);
 
     if (nodes_page) {
         update_nodes(snap);
+    } else if (chats_page) {
+        update_chats(snap);
     } else {
         lv_label_set_text(view_label_, vm_.page_name(page));
     }

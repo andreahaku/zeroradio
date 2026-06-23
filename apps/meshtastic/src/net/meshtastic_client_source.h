@@ -27,6 +27,16 @@ struct NodeUpdate {
     bool has_last_heard = false; uint32_t last_heard = 0; // epoch seconds
 };
 
+// A received text message (TEXT_MESSAGE_APP) decoded from a MeshPacket.
+struct MeshMessage {
+    uint32_t from = 0;       // sender node number
+    bool is_self = false;    // sent by our own node
+    uint8_t channel = 0;     // channel index
+    std::string text;        // UTF-8 body
+    uint32_t id = 0;         // packet id (for future ACK matching)
+    uint32_t rx_time = 0;    // epoch seconds (0 if unknown)
+};
+
 // TCP client of a local `meshtasticd` Client API (default 127.0.0.1:4403). A
 // background thread connects, performs the want_config_id handshake, and reads
 // the framed (0x94 0xC3 <len16>) protobuf `FromRadio` stream — mirroring the
@@ -47,6 +57,8 @@ public:
         // A node from a NodeInfo packet (handshake burst and live updates). Fired
         // on the reader thread; the app upserts it into the EntityStore.
         std::function<void(const NodeUpdate&)> on_node;
+        // A received text message (TEXT_MESSAGE_APP). Fired on the reader thread.
+        std::function<void(const MeshMessage&)> on_message;
     };
 
     MeshtasticClientSource(std::string host, uint16_t port, Callbacks cb);

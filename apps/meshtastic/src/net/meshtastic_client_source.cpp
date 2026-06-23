@@ -196,8 +196,25 @@ struct MeshtasticClientSource::Impl {
                     if (cb.on_config_complete) cb.on_config_complete(burst_nodes);
                 }
                 break;
+            case meshtastic_FromRadio_packet_tag: {
+                const meshtastic_MeshPacket& pkt = scratch.packet;
+                if (pkt.which_payload_variant == meshtastic_MeshPacket_decoded_tag &&
+                    pkt.decoded.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP) {
+                    MeshMessage m;
+                    m.from = pkt.from;
+                    m.is_self = (pkt.from == my_node_num);
+                    m.channel = pkt.channel;
+                    m.id = pkt.id;
+                    m.rx_time = pkt.rx_time;
+                    m.text.assign(
+                        reinterpret_cast<const char*>(pkt.decoded.payload.bytes),
+                        pkt.decoded.payload.size);
+                    if (cb.on_message) cb.on_message(m);
+                }
+                break;
+            }
             default:
-                break; // live packets / other variants: ignored in step 2
+                break; // other variants: ignored for now
         }
     }
 
