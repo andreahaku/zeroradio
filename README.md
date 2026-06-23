@@ -7,10 +7,11 @@ into the Cardputer, a mature decoder runs as a local process, and each app is a 
 mapping** over the common viewer toolkit. See [Planned apps](#planned-apps) for the wider suite.
 
 ```
-toolkit/   # reusable LVGL shell + radio widgets (PPI/list/detail), entity store, geo, net sources
+toolkit/        # reusable LVGL shell + radio widgets (PPI/list/detail), entity store, geo, net sources
 apps/
-  adsb/    # ADS-B 1090 MHz aircraft viewer (dump1090 aircraft.json)
-  sdr/     # SDR receiver: spectrum + waterfall, demod (WFM/FM/AM/USB/LSB/CW), rtl_tcp
+  adsb/         # ADS-B 1090 MHz aircraft viewer (dump1090 aircraft.json)
+  sdr/          # SDR receiver: spectrum + waterfall, demod (WFM/FM/AM/USB/LSB/CW), rtl_tcp
+  meshtastic/   # Meshtastic mesh client (Client API :4403 → local meshtasticd)
 ```
 
 ## Apps
@@ -21,6 +22,10 @@ apps/
 
 Both on the desktop SDL simulator at native 320×170; the SDR clip is a **live RTL-SDR Blog V4** WFM
 broadcast (the ADS-B clip uses a simulated feed). Per-screen shots are in each app's README.
+
+| Meshtastic: Map | Meshtastic: Chats | Meshtastic: Node detail |
+| --- | --- | --- |
+| ![Meshtastic map](apps/meshtastic/docs/media/map.png) | ![Meshtastic chats](apps/meshtastic/docs/media/chat-channel.png) | ![Meshtastic node detail](apps/meshtastic/docs/media/node-detail.png) |
 
 - **`radio_toolkit`** (static lib) — the shared foundation: generic app shell (`ShellViewModel` +
   `NavProvider` + `run_app`), a generalized 5-key NavBar and widgets, `geo` (haversine range/bearing + PPI
@@ -36,6 +41,13 @@ broadcast (the ADS-B clip uses a simulated feed). Per-screen shots are in each a
   waterfall, S-meter, freq/time grids, passband overlay, manual frequency entry, and audio demod
   (WFM/FM/AM/USB/LSB/CW). Live RTL-SDR via `rtl_tcp` (built with fftw3f + SDL2) or a synthetic mock drives
   the UI; full session state persists across runs. → [`apps/sdr/README.md`](apps/sdr/README.md)
+- **`meshtastic_app`** — Meshtastic mesh client. Connects to a local `meshtasticd` daemon via the Client
+  API (TCP :4403, framed protobuf). **Five views** on the 5-key NavBar cycle: **Chats** (channel/DM feed,
+  channel switcher, canned replies, compose, ACK color-outline), **Nodes** (sortable table + node detail
+  sub-screen with HW/SNR/BATT/POS/DIST, DM from detail), **Map** (north-up PPI radar, coloured node dots,
+  auto-fit + manual zoom, node selection), **Tools** (live Mesh stats + Packet log, vertical split layout),
+  **Settings** (Theme/Long name/Short name/Region/Channel, persisted). No LoRa hardware needed: runs fully
+  against a local `meshtasticd -s` simulation. → [`apps/meshtastic/README.md`](apps/meshtastic/README.md)
 
 ## Planned apps
 
@@ -61,8 +73,9 @@ output over loopback (a local file or `127.0.0.1`).
 ```bash
 cmake --preset linux-x86-64                 # configure (first run fetches LVGL 9.5 + nlohmann/json)
 cmake --build --preset linux-x86-64-dbg     # → build/linux-x86-64/apps/{adsb,sdr}/Debug/*_app
-./build/linux-x86-64/apps/adsb/Debug/adsb_app   # ADS-B viewer (mock data)
-./build/linux-x86-64/apps/sdr/Debug/sdr_app     # SDR receiver (mock source; SDR_SOURCE=mock to force)
+./build/linux-x86-64/apps/adsb/Debug/adsb_app          # ADS-B viewer (mock data)
+./build/linux-x86-64/apps/sdr/Debug/sdr_app            # SDR receiver (mock source; SDR_SOURCE=mock to force)
+./build/linux-x86-64/apps/meshtastic/Debug/meshtastic_app  # Meshtastic client (default: 127.0.0.1:4403)
 # live ADS-B: run `dump1090 --write-json <dir>` then ADSB_JSON=<dir>/aircraft.json ./.../adsb_app
 # centre the radar on you: ADSB_HOME_LAT=.. ADSB_HOME_LON=.. ./.../adsb_app  (default: Bologna, IT)
 # point SDR at a real receiver: SDR_RTLTCP=host:port ./.../sdr_app   (needs rtl_tcp running)
@@ -81,6 +94,7 @@ command); summary:
 | --- | --- | --- | --- |
 | **ADS-B** | `dump1090 --write-json <dir> --write-json-every 1` | `<dir>/aircraft.json` (via `ADSB_JSON`) | `dump1090` |
 | **SDR** | `rtl_tcp -a 127.0.0.1 -p 1234 -s 2400000` | raw IQ over TCP `127.0.0.1:1234` | `rtl-sdr` |
+| **Meshtastic** | `meshtasticd -s` (sim, no radio) or with a LoRa cap | Client API TCP `127.0.0.1:4403` (via `MESHTASTICD_HOST`/`MESHTASTICD_PORT`) | Docker: `meshtastic/meshtasticd` |
 
 Each app also runs with **no hardware** on bundled mock/synthetic data (ADS-B: the bundled
 `aircraft.json`; SDR: `SDR_SOURCE=mock`), so the whole UI works on the desktop simulator without a dongle.

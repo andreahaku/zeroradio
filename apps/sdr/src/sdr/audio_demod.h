@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cstdint>  // ensures __intmax_t is defined before <math.h>/mathcalls.h
 #include <complex>
 #include <cstddef>
 #include <memory>
