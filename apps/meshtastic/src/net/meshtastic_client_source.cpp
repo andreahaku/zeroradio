@@ -1,0 +1,248 @@
+/*
+ * SPDX-FileCopyrightText: 2026 M5Stack Technology CO LTD
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+#include "meshtastic_client_source.h"
+
+#include "meshtastic/mesh.pb.h"
+#include "pb_decode.h"
+#include "pb_encode.h"
+
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <poll.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
+#include <atomic>
+#include <cerrno>
+#include <chrono>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <thread>
+#include <vector>
+
+namespace meshtastic {
+namespace {
+
+// Meshtastic stream framing: 0x94 0xC3 then a big-endian 16-bit length, then that
+// many bytes of a serialized ToRadio/FromRadio. >512 is treated as corruption.
+constexpr uint8_t kStart1 = 0x94;
+constexpr uint8_t kStart2 = 0xC3;
+constexpr uint16_t kMaxFrame = 512;
+
+constexpr int kPollMs = 100;            // read poll quantum (fast stop)
+constexpr auto kHeartbeat = std::chrono::seconds(30);
+
+bool write_all(int fd, const uint8_t* p, size_t n) {
+    size_t off = 0;
+    while (off < n) {
+        const ssize_t w = ::send(fd, p + off, n - off, MSG_NOSIGNAL);
+        if (w < 0) {
+            if (errno == EINTR) continue;
+            return false;
+        }
+        off += static_cast<size_t>(w);
+    }
+    return true;
+}
+
+} // namespace
+
+struct MeshtasticClientSource::Impl {
+    std::string host;
+    uint16_t port;
+    Callbacks cb;
+
+    std::atomic<bool> running{false};
+    std::atomic<bool> ok{false};
+    std::atomic<int> node_count{0};
+    std::thread thread;
+
+    uint32_t nonce = 0x1000;
+    uint32_t my_node_num = 0;
+
+    // Reused across decodes: FromRadio is a big union, keep it off the stack.
+    meshtastic_FromRadio scratch{};
+
+    Impl(std::string h, uint16_t p, Callbacks c)
+        : host(std::move(h)), port(p), cb(std::move(c)) {}
+
+    int connect_once() {
+        const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
+        if (fd < 0) return -1;
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(port);
+        if (::inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) {
+            ::close(fd);
+            return -1;
+        }
+        if (::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
+            ::close(fd);
+            return -1;
+        }
+        return fd;
+    }
+
+    bool send_toradio(int fd, const meshtastic_ToRadio& msg) {
+        uint8_t payload[kMaxFrame];
+        pb_ostream_t os = pb_ostream_from_buffer(payload, sizeof(payload));
+        if (!pb_encode(&os, meshtastic_ToRadio_fields, &msg)) return false;
+        const size_t len = os.bytes_written;
+        const uint8_t hdr[4] = {kStart1, kStart2,
+                                static_cast<uint8_t>((len >> 8) & 0xff),
+                                static_cast<uint8_t>(len & 0xff)};
+        return write_all(fd, hdr, 4) && write_all(fd, payload, len);
+    }
+
+    bool send_want_config(int fd) {
+        meshtastic_ToRadio t = meshtastic_ToRadio_init_zero;
+        t.which_payload_variant = meshtastic_ToRadio_want_config_id_tag;
+        t.want_config_id = nonce;
+        return send_toradio(fd, t);
+    }
+
+    bool send_heartbeat(int fd) {
+        meshtastic_ToRadio t = meshtastic_ToRadio_init_zero;
+        t.which_payload_variant = meshtastic_ToRadio_heartbeat_tag;
+        t.heartbeat = meshtastic_Heartbeat_init_zero;
+        return send_toradio(fd, t);
+    }
+
+    enum class Frame { NeedMore, Skipped, Decoded };
+
+    // Pull one frame from `buf` (consuming it). Resyncs past noise, waits for a
+    // partial frame, drops an over-long (corrupt) length.
+    Frame next_frame(std::vector<uint8_t>& buf) {
+        // Resync to the start marker.
+        while (buf.size() >= 2 && !(buf[0] == kStart1 && buf[1] == kStart2)) {
+            buf.erase(buf.begin());
+        }
+        if (buf.size() < 4) return Frame::NeedMore;
+        const uint16_t len = static_cast<uint16_t>((buf[2] << 8) | buf[3]);
+        if (len > kMaxFrame) {
+            buf.erase(buf.begin()); // corrupt length: drop a byte and resync
+            return Frame::Skipped;
+        }
+        if (buf.size() < static_cast<size_t>(4) + len) return Frame::NeedMore;
+        scratch = meshtastic_FromRadio_init_zero;
+        pb_istream_t is = pb_istream_from_buffer(buf.data() + 4, len);
+        const bool decoded = pb_decode(&is, meshtastic_FromRadio_fields, &scratch);
+        buf.erase(buf.begin(), buf.begin() + 4 + len);
+        return decoded ? Frame::Decoded : Frame::Skipped;
+    }
+
+    void handle(bool& synced, int& burst_nodes) {
+        switch (scratch.which_payload_variant) {
+            case meshtastic_FromRadio_my_info_tag:
+                my_node_num = scratch.my_info.my_node_num;
+                std::fprintf(stderr,
+                             "[meshtastic] my_info: node_num=0x%08x nodedb=%u\n",
+                             my_node_num, scratch.my_info.nodedb_count);
+                if (cb.on_self) cb.on_self(my_node_num);
+                break;
+            case meshtastic_FromRadio_node_info_tag:
+                if (!synced) ++burst_nodes;
+                break;
+            case meshtastic_FromRadio_config_complete_id_tag:
+                if (scratch.config_complete_id == nonce && !synced) {
+                    synced = true;
+                    node_count.store(burst_nodes);
+                    ok.store(true);
+                    std::fprintf(stderr, "[meshtastic] config complete: %d nodes\n",
+                                 burst_nodes);
+                    if (cb.on_config_complete) cb.on_config_complete(burst_nodes);
+                }
+                break;
+            default:
+                break; // live packets / other variants: ignored in step 2
+        }
+    }
+
+    void backoff() {
+        // Up to ~2 s, observing stop in short steps.
+        for (int i = 0; i < 20 && running.load(); ++i) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
+
+    void run() {
+        std::vector<uint8_t> buf;
+        while (running.load()) {
+            const int fd = connect_once();
+            if (fd < 0) {
+                ok.store(false);
+                backoff();
+                continue;
+            }
+            std::fprintf(stderr, "[meshtastic] connected %s:%u\n", host.c_str(), port);
+            ++nonce; // fresh request nonce per connection
+            send_want_config(fd);
+
+            bool synced = false;
+            int burst_nodes = 0;
+            buf.clear();
+            auto last_hb = std::chrono::steady_clock::now();
+
+            while (running.load()) {
+                pollfd p{fd, POLLIN, 0};
+                const int pr = ::poll(&p, 1, kPollMs);
+                if (pr < 0) {
+                    if (errno == EINTR) continue;
+                    break;
+                }
+                if (pr > 0 && (p.revents & (POLLIN | POLLHUP | POLLERR))) {
+                    uint8_t tmp[1024];
+                    const ssize_t n = ::recv(fd, tmp, sizeof(tmp), 0);
+                    if (n <= 0) break; // peer closed / error
+                    buf.insert(buf.end(), tmp, tmp + n);
+                    for (;;) {
+                        const Frame r = next_frame(buf);
+                        if (r == Frame::NeedMore) break;
+                        if (r == Frame::Decoded) handle(synced, burst_nodes);
+                    }
+                }
+                const auto now = std::chrono::steady_clock::now();
+                if (synced && now - last_hb > kHeartbeat) {
+                    if (!send_heartbeat(fd)) break;
+                    last_hb = now;
+                }
+            }
+
+            ::close(fd);
+            ok.store(false);
+            if (running.load()) backoff();
+        }
+    }
+};
+
+MeshtasticClientSource::MeshtasticClientSource(std::string host, uint16_t port, Callbacks cb)
+    : impl_(std::make_unique<Impl>(std::move(host), port, std::move(cb))) {}
+
+MeshtasticClientSource::~MeshtasticClientSource() {
+    stop();
+}
+
+void MeshtasticClientSource::start() {
+    if (impl_->running.exchange(true)) return; // already running
+    impl_->thread = std::thread([this] { impl_->run(); });
+}
+
+void MeshtasticClientSource::stop() {
+    impl_->running.store(false);
+    if (impl_->thread.joinable()) impl_->thread.join();
+}
+
+bool MeshtasticClientSource::ok() const {
+    return impl_->ok.load();
+}
+
+int MeshtasticClientSource::node_count() const {
+    return impl_->node_count.load();
+}
+
+} // namespace meshtastic

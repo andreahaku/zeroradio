@@ -43,9 +43,12 @@ target_include_directories(meshtastic_app
         ${CMAKE_CURRENT_SOURCE_DIR}/src/net
 )
 
+find_package(Threads REQUIRED)
+
 target_link_libraries(meshtastic_app
     PRIVATE
         radio_toolkit
         lvgl
         meshtastic_proto
+        Threads::Threads
 )
