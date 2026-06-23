@@ -1,10 +1,10 @@
 # cardputer-radio
 
 A monorepo of **radio-viewer apps** for the **M5Stack CardputerZero** (Linux ARM64, 320×170 RGB565 display),
-built on a shared **LVGL toolkit** extracted from [`../SDRTerminal`](../SDRTerminal). Philosophy (see the
-design suite in [`../radio-apps`](../radio-apps)): **decode *and* visualize entirely on the device** — an
-SDR front-end (RTL-SDR/HackRF) plugs into the Cardputer, a mature decoder runs as a local process, and each
-app is a thin **parser + field mapping** over the common viewer toolkit.
+built on a shared **LVGL toolkit** extracted from [SDRTerminal](https://github.com/andreahaku/SDRTerminal).
+Philosophy: **decode *and* visualize entirely on the device** — an SDR front-end (RTL-SDR / HackRF) plugs
+into the Cardputer, a mature decoder runs as a local process, and each app is a thin **parser + field
+mapping** over the common viewer toolkit. See [Planned apps](#planned-apps) for the wider suite.
 
 ```
 toolkit/   # reusable LVGL shell + radio widgets (PPI/list/detail), entity store, geo, net sources
@@ -13,22 +13,49 @@ apps/
   sdr/     # SDR receiver: spectrum + waterfall, demod (WFM/FM/AM/USB/LSB/CW), rtl_tcp
 ```
 
-## What's here
-- **`radio_toolkit`** (static lib): generic app shell (`ShellViewModel` + `NavProvider` + `run_app`),
-  generalized 5-key NavBar / widgets, `geo` (haversine range/bearing + PPI projection), thread-safe
-  `EntityStore` (merge + TTL ageing), `FileJsonSource` (resilient background file poller).
-- **`adsb_app`**: dump1090 `aircraft.json` viewer with **four screens** cycled by one key — **List**
+## Apps
+
+| ADS-B (`apps/adsb`) | SDR (`apps/sdr`) |
+| --- | --- |
+| ![ADS-B radar with live traffic](apps/adsb/docs/media/demo.gif) | ![SDR spectrum + waterfall](apps/sdr/docs/media/demo.gif) |
+
+Both on the desktop SDL simulator at native 320×170; the SDR clip is a **live RTL-SDR Blog V4** WFM
+broadcast (the ADS-B clip uses a simulated feed). Per-screen shots are in each app's README.
+
+- **`radio_toolkit`** (static lib) — the shared foundation: generic app shell (`ShellViewModel` +
+  `NavProvider` + `run_app`), a generalized 5-key NavBar and widgets, `geo` (haversine range/bearing + PPI
+  projection), a thread-safe `EntityStore` (sparse merge + TTL ageing), and `FileJsonSource` (a resilient
+  background file poller). Architecture: [`docs/architecture.md`](docs/architecture.md).
+- **`adsb_app`** — dump1090 `aircraft.json` viewer with **four screens** cycled by one key: **List**
   (colour-coded sortable table), **Radar** (north-up scope: aircraft as heading arrows, range rings, side
-  callsign lists, position trails), **Detail** (selected aircraft fields + decoded ADS-B status + a
-  mini-radar with the same scope as Radar — rings, NM labels and all traffic, selected one highlighted),
-  and **Settings** (units, TTL, range, trails, filters, theme — persisted).
-  Hex-stable selection, auto-range, an RSSI signal bar, and a configurable home. Runs on a bundled mock
-  `aircraft.json` (no dongle) or a live dump1090 feed. See [`apps/adsb/README.md`](apps/adsb/README.md).
-- **`sdr_app`**: SDR receiver ported from `../SDRTerminal` onto the toolkit — FFT line chart + scrolling
-  RGB565 waterfall, S-meter, freq/time grids, passband overlay, manual frequency entry, and audio demod
-  (WFM/FM/AM/USB/LSB/CW). Live RTL-SDR via `rtl_tcp` when built with fftw3f + SDL2; otherwise a synthetic
-  mock source drives the UI (no dongle needed). State (VFO/mode/…) persists across runs.
-  See [`apps/sdr/README.md`](apps/sdr/README.md).
+  callsign lists, trails), **Detail** (selected-aircraft fields + decoded ADS-B status + a mini-radar that
+  shares the Radar scope), and **Settings** (persisted). Hex-stable selection, auto-range, an RSSI signal
+  bar, a configurable home; runs on a bundled mock `aircraft.json` (no dongle) or a live dump1090 feed.
+  → [`apps/adsb/README.md`](apps/adsb/README.md)
+- **`sdr_app`** — SDR receiver ported from SDRTerminal onto the toolkit: FFT line chart + scrolling RGB565
+  waterfall, S-meter, freq/time grids, passband overlay, manual frequency entry, and audio demod
+  (WFM/FM/AM/USB/LSB/CW). Live RTL-SDR via `rtl_tcp` (built with fftw3f + SDL2) or a synthetic mock drives
+  the UI; full session state persists across runs. → [`apps/sdr/README.md`](apps/sdr/README.md)
+
+## Planned apps
+
+The monorepo is a platform for a wider suite — each new app is mostly a **parser + a field mapping** over
+the shared toolkit (the radar/list/detail views, entity store, ageing and geo are reused). Planned, in
+rough order of work:
+
+| App | Decoder / source | Shape |
+| --- | --- | --- |
+| **AIS** (marine) | `AIS-catcher` (`ships.json`) | ship radar + list — next, mirrors ADS-B |
+| **POCSAG / FLEX** | `multimon-ng` | pager message feed |
+| **APRS** | `direwolf` (KISS / AX.25) | station map + message feed |
+| **ACARS** | `acarsdec` | aircraft message feed |
+| **NOAA APT** | weather-sat pass capture | decoded image gallery |
+| **RDS** | in-app DSP (SDR extension) | FM station name / radiotext |
+| **Ham digital modes** | ham rig + Hamlib CAT + audio / PTT | CW, FT8/FT4, JS8, PSK/RTTY, WSPR (RX + TX) — the flagship |
+
+The unifying constraint: **decode and visualize entirely on the device** — an SDR / HackRF / ham rig plugs
+into the Cardputer, a mature open-source decoder runs as a local process, and the LVGL app reads its
+output over loopback (a local file or `127.0.0.1`).
 
 ## Build & run (desktop SDL simulator)
 ```bash
