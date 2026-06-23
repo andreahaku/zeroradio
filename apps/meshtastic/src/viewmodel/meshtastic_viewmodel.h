@@ -41,6 +41,16 @@ public:
     void nodes_up();
     void nodes_down();
 
+    // TOOLS view: a list of runnable items; key 7 opens/closes the output panel for
+    // V1 items; V2 items are greyed. Page-cycle auto-closes the output.
+    static constexpr int kToolCount = 4; // Mesh stats, Packet log, Traceroute (V2), Telemetry (V2)
+    int  tools_cursor() const;
+    bool tools_output_open() const;
+    void tools_cursor_up();
+    void tools_cursor_down();
+    void tools_run_toggle();   // key 7: open/close output; no-op for greyed items
+    void tools_close_output(); // called when page cycles away
+
     // NODE DETAIL: a sub-screen of NODES (key 8 opens, key 8 closes; key 4 cycles
     // away and closes it). Not in the page cycle. The screen reports the selected
     // node's number each tick so DM (key 5) can target it.
@@ -101,6 +111,9 @@ private:
     double map_fit_km_   = 5.0; // last fitted-to-all-nodes distance (from the screen)
     int    map_cursor_   = -1;  // selected positioned node, -1 = none
     int    map_count_    = 0;   // positioned-node count (from the screen)
+
+    int  tools_cursor_      = 0;
+    bool tools_output_open_ = false;
 
     Conv             conv_kind_    = Conv::Channel;
     int              conv_channel_ = 0;

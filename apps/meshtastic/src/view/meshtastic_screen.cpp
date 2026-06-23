@@ -109,12 +109,14 @@ MeshtasticScreen::MeshtasticScreen(
     toolkit::EntityStore& store,
     MessageLog& messages,
     ChannelTable& channels,
+    const MeshtasticClientSource& source,
     std::function<uint32_t(const std::string&, uint32_t, uint8_t)> on_send)
     : BaseScreen(vm, vm, assets),
       vm_(vm),
       store_(store),
       messages_(messages),
       channels_(channels),
+      source_(source),
       on_send_(std::move(on_send)) {
     init();
 }
@@ -286,6 +288,42 @@ void MeshtasticScreen::build_content(lv_obj_t* content) {
     lv_obj_set_style_text_color(map_status_, lv_color_hex(0x888888), 0);
     lv_label_set_text(map_status_, "");
     lv_obj_align(map_status_, LV_ALIGN_BOTTOM_MID, 0, -1);
+
+    // TOOLS view: a list label (4 items) in the upper half + an output panel in
+    // the lower half. Both are children of the content directly (not in a flex
+    // container) so their heights are fixed and don't fight each other.
+    tools_view_ = lv_obj_create(content);
+    lv_obj_remove_style_all(tools_view_);
+    lv_obj_set_size(tools_view_, LV_PCT(100), LV_PCT(100));
+    lv_obj_clear_flag(tools_view_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(tools_view_, 0, 0);
+    lv_obj_add_flag(tools_view_, LV_OBJ_FLAG_HIDDEN);
+
+    // List in the top half (4 items ≈ 4 × 14px lines = 56px, fits well in 110px)
+    tools_list_ = lv_label_create(tools_view_);
+    lv_label_set_recolor(tools_list_, true);
+    lv_obj_set_style_text_font(tools_list_, fs, 0);
+    lv_obj_set_style_pad_all(tools_list_, 3, 0);
+    reactive::bind_theme(tools_list_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
+    lv_obj_set_width(tools_list_, LV_PCT(100));
+    lv_obj_align(tools_list_, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_label_set_text(tools_list_, "");
+
+    // Output panel in the lower ~half; hidden until the tool is "running".
+    tools_output_ = lv_label_create(tools_view_);
+    lv_label_set_recolor(tools_output_, true);
+    lv_label_set_long_mode(tools_output_, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_font(tools_output_, fs, 0);
+    lv_obj_set_style_pad_all(tools_output_, 4, 0);
+    lv_obj_set_style_bg_color(tools_output_, view::palette(vm_.is_dark_mode()).surface, 0);
+    lv_obj_set_style_bg_opa(tools_output_, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(tools_output_, view::palette(vm_.is_dark_mode()).border, 0);
+    lv_obj_set_style_border_width(tools_output_, 1, 0);
+    lv_obj_set_size(tools_output_, LV_PCT(100), 54); // bottom 54px of the 110px content
+    lv_obj_align(tools_output_, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+    reactive::bind_theme(tools_output_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
+    lv_label_set_text(tools_output_, "");
+    lv_obj_add_flag(tools_output_, LV_OBJ_FLAG_HIDDEN);
 
     // The "write" key bumps compose_req; observe it to enter compose mode.
     last_compose_req_ = lv_subject_get_int(vm_.compose_req_subject());
@@ -733,6 +771,77 @@ void MeshtasticScreen::update_map(const std::vector<toolkit::Entity>& snap) {
     lv_obj_invalidate(map_canvas_);
 }
 
+void MeshtasticScreen::update_tools(const std::vector<toolkit::Entity>& snap) {
+    if (!tools_list_) return;
+
+    const int cur = vm_.tools_cursor();
+    const bool out_open = vm_.tools_output_open();
+    const auto pal = view::palette(vm_.is_dark_mode());
+
+    // Tool list: 4 items; cursor row = green band text, V2 items = dim grey.
+    struct ToolItem { const char* label; bool v2; };
+    static constexpr ToolItem kItems[] = {
+        {"Mesh stats",     false},
+        {"Packet log",     false},
+        {"Traceroute...",  true},
+        {"Telemetry req...", true},
+    };
+    std::string list;
+    for (int i = 0; i < 4; ++i) {
+        const bool is_cur = (i == cur);
+        // Cursor row: accent green + › marker. V2 items: dim grey. Others: normal.
+        const uint32_t col = kItems[i].v2 ? 0x616161u
+                             : is_cur      ? 0x63e2b7u  // accent green
+                                           : 0xe6e6e6u;
+        char line[96];
+        std::snprintf(line, sizeof(line), "#%06x %s %s#\n",
+                      col, is_cur ? "\xE2\x80\xBA" : " ", kItems[i].label);
+        list += line;
+    }
+    lv_label_set_text(tools_list_, list.c_str());
+
+    // Output panel (visible when the selected tool is "running").
+    if (!out_open) {
+        lv_obj_add_flag(tools_output_, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    lv_obj_remove_flag(tools_output_, LV_OBJ_FLAG_HIDDEN);
+
+    const PacketCounts pc = source_.packet_counts();
+    const bool connected  = source_.ok();
+    const int  nodes_n    = static_cast<int>(snap.size());
+
+    if (cur == 0) {
+        // Mesh stats: link state, node count, pkts/s.
+        const long now_s = static_cast<long>(std::time(nullptr));
+        float rate = 0.0f;
+        if (tools_last_tick_ > 0 && now_s > tools_last_tick_) {
+            const int delta = pc.total - tools_last_total_;
+            rate = static_cast<float>(delta) / static_cast<float>(now_s - tools_last_tick_);
+        }
+        tools_last_total_ = pc.total;
+        tools_last_tick_  = now_s;
+        char buf[160];
+        std::snprintf(buf, sizeof(buf),
+                      "#888888 LINK#  %s\n"
+                      "#888888 NODES# %d\n"
+                      "#888888 PKTS#  %.1f/s  (#888888 total# %d)\n",
+                      connected ? "#63e2b7 CONN#" : "#e88080 DISC#",
+                      nodes_n, static_cast<double>(rate), pc.total);
+        lv_label_set_text(tools_output_, buf);
+    } else if (cur == 1) {
+        // Packet log: per-type counters.
+        char buf[160];
+        std::snprintf(buf, sizeof(buf),
+                      "#888888 TEXT#     %d\n"
+                      "#888888 NODEINFO# %d\n"
+                      "#888888 POS#      %d\n"
+                      "#888888 TOTAL#    %d\n",
+                      pc.text, pc.nodeinfo, pc.pos, pc.total);
+        lv_label_set_text(tools_output_, buf);
+    }
+}
+
 namespace {
 
 const char* hw_name(int hw) {
@@ -872,7 +981,12 @@ void MeshtasticScreen::tick() {
         (page == static_cast<int>(MeshtasticViewModel::Page::Chats));
     const bool map_page =
         (page == static_cast<int>(MeshtasticViewModel::Page::Map));
-    const bool placeholder = !nodes_page && !chats_page && !map_page;
+    const bool tools_page =
+        (page == static_cast<int>(MeshtasticViewModel::Page::Tools));
+    const bool placeholder = !nodes_page && !chats_page && !map_page && !tools_page;
+
+    // Auto-close tools output when leaving the page.
+    if (!tools_page && vm_.tools_output_open()) vm_.tools_close_output();
 
     // If the user cycled away from NODES, close the detail sub-screen.
     if (!nodes_page && vm_.nodes_detail_open()) vm_.close_node_detail();
@@ -902,6 +1016,7 @@ void MeshtasticScreen::tick() {
     lv_obj_set_flag(node_detail_, LV_OBJ_FLAG_HIDDEN, !detail_open);
     lv_obj_set_flag(chats_label_, LV_OBJ_FLAG_HIDDEN, !chats_page);
     lv_obj_set_flag(map_view_,    LV_OBJ_FLAG_HIDDEN, !map_page);
+    lv_obj_set_flag(tools_view_,  LV_OBJ_FLAG_HIDDEN, !tools_page);
     lv_obj_set_flag(view_label_,  LV_OBJ_FLAG_HIDDEN, !placeholder);
     lv_obj_set_flag(hint_label_,  LV_OBJ_FLAG_HIDDEN, !placeholder);
 
@@ -913,6 +1028,8 @@ void MeshtasticScreen::tick() {
         update_chats(snap);
     } else if (map_page) {
         update_map(snap);
+    } else if (tools_page) {
+        update_tools(snap);
     } else {
         lv_label_set_text(view_label_, vm_.page_name(page));
     }

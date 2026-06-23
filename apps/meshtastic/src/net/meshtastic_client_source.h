@@ -59,6 +59,15 @@ struct MeshMessage {
     AckState ack = AckState::None;
 };
 
+// Cumulative packet counters (incremented on the reader thread; safe to read
+// from any thread). Snapshot via MeshtasticClientSource::packet_counts().
+struct PacketCounts {
+    int text     = 0; // TEXT_MESSAGE_APP frames
+    int nodeinfo = 0; // NodeInfo frames
+    int pos      = 0; // NodeInfo frames that carried a position fix
+    int total    = 0; // every successfully decoded FromRadio frame
+};
+
 // TCP client of a local `meshtasticd` Client API (default 127.0.0.1:4403). A
 // background thread connects, performs the want_config_id handshake, and reads
 // the framed (0x94 0xC3 <len16>) protobuf `FromRadio` stream — mirroring the
@@ -96,8 +105,9 @@ public:
     void start();
     void stop();
 
-    bool ok() const;         // connected AND handshake complete
-    int  node_count() const; // nodes seen in the last completed config burst
+    bool ok() const;               // connected AND handshake complete
+    int  node_count() const;       // nodes seen in the last completed config burst
+    PacketCounts packet_counts() const; // snapshot of cumulative counters
 
     // Queue a text message for transmission (TEXT_MESSAGE_APP). Thread-safe: the
     // frame is enqueued and the reader loop writes it. Echoes the message back

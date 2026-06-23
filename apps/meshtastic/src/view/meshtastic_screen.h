@@ -9,6 +9,7 @@
 #include "base_screen.h"
 #include "channel_table.h"
 #include "entity_store.h"
+#include "meshtastic_client_source.h"
 #include "message_log.h"
 #include "meshtastic_viewmodel.h"
 
@@ -33,6 +34,7 @@ public:
                      toolkit::EntityStore& store,
                      MessageLog& messages,
                      ChannelTable& channels,
+                     const MeshtasticClientSource& source,
                      std::function<uint32_t(const std::string&, uint32_t to, uint8_t channel)>
                          on_send);
     ~MeshtasticScreen() override;
@@ -50,6 +52,9 @@ private:
     void update_node_detail(const std::vector<toolkit::Entity>& snap);
     // CHATS feed: sender short name (resolved from the node store) + text.
     void update_chats(const std::vector<toolkit::Entity>& snap);
+    // TOOLS: a list (4 items) with an inline output panel below.
+    void update_tools(const std::vector<toolkit::Entity>& snap);
+
     // MAP: a north-up PPI canvas (rings + coloured node dots) plus colour-coded
     // short-name side columns so each dot maps to a name without on-canvas labels.
     void update_map(const std::vector<toolkit::Entity>& snap);
@@ -78,6 +83,7 @@ private:
     toolkit::EntityStore& store_;
     MessageLog& messages_;
     ChannelTable& channels_;
+    const MeshtasticClientSource& source_;
     std::function<uint32_t(const std::string&, uint32_t to, uint8_t channel)> on_send_;
 
     lv_obj_t* view_label_  = nullptr; // big current-view name (placeholder pages)
@@ -88,6 +94,13 @@ private:
     lv_obj_t* nodes_view_   = nullptr; // NODES container (column header + table)
     lv_obj_t* nodes_table_  = nullptr;
     lv_obj_t* node_detail_  = nullptr; // NODE DETAIL panel (full fields, recolour label)
+
+    lv_obj_t* tools_view_   = nullptr; // TOOLS container
+    lv_obj_t* tools_list_   = nullptr; // item list (cursor row green band)
+    lv_obj_t* tools_output_ = nullptr; // output panel below (recolour label)
+    // Rate tracking for pkts/s (computed from successive total counts).
+    int  tools_last_total_ = 0;
+    long tools_last_tick_  = 0;
 
     lv_obj_t* map_view_   = nullptr;  // MAP container (canvas + side columns)
     lv_obj_t* map_canvas_ = nullptr;

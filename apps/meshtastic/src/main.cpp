@@ -91,7 +91,7 @@ int main() {
     std::unique_ptr<meshtastic::MeshtasticScreen> screen;
     const int rc = toolkit::run_app(view_model, assets, [&]() -> lv_obj_t* {
         screen = std::make_unique<meshtastic::MeshtasticScreen>(
-            view_model, assets, store, messages, channels,
+            view_model, assets, store, messages, channels, source,
             [&source](const std::string& t, uint32_t to, uint8_t ch) {
                 return source.send_text(t, to, ch);
             });

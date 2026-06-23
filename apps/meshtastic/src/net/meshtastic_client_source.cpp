@@ -62,6 +62,10 @@ struct MeshtasticClientSource::Impl {
     std::atomic<bool> running{false};
     std::atomic<bool> ok{false};
     std::atomic<int> node_count{0};
+    std::atomic<int> cnt_text{0};
+    std::atomic<int> cnt_nodeinfo{0};
+    std::atomic<int> cnt_pos{0};
+    std::atomic<int> cnt_total{0};
     std::thread thread;
 
     uint32_t nonce = 0x1000;
@@ -197,6 +201,7 @@ struct MeshtasticClientSource::Impl {
     }
 
     void handle(bool& synced, int& burst_nodes) {
+        ++cnt_total; // every successfully decoded frame
         switch (scratch.which_payload_variant) {
             case meshtastic_FromRadio_my_info_tag:
                 my_node_num.store(scratch.my_info.my_node_num);
@@ -217,6 +222,9 @@ struct MeshtasticClientSource::Impl {
                     u.id = idbuf;
                 }
                 u.is_self = (ni.num == my_node_num.load());
+                ++cnt_nodeinfo;
+                if (ni.has_position && ni.position.has_latitude_i &&
+                    ni.position.has_longitude_i) ++cnt_pos;
                 if (ni.has_user) {
                     if (ni.user.long_name[0] != '\0') {
                         u.has_long = true;
@@ -288,6 +296,7 @@ struct MeshtasticClientSource::Impl {
                 }
                 const meshtastic_Data& d = pkt.decoded;
                 if (d.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP) {
+                    ++cnt_text;
                     MeshMessage m;
                     m.from = pkt.from;
                     m.to = pkt.to;
@@ -421,6 +430,15 @@ int MeshtasticClientSource::node_count() const {
 uint32_t MeshtasticClientSource::send_text(const std::string& text, uint32_t to,
                                            uint8_t channel, bool want_ack) {
     return impl_->enqueue_text(text, to, channel, want_ack);
+}
+
+PacketCounts MeshtasticClientSource::packet_counts() const {
+    PacketCounts c;
+    c.text     = impl_->cnt_text.load();
+    c.nodeinfo = impl_->cnt_nodeinfo.load();
+    c.pos      = impl_->cnt_pos.load();
+    c.total    = impl_->cnt_total.load();
+    return c;
 }
 
 } // namespace meshtastic

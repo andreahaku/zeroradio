@@ -37,7 +37,13 @@ Working (verified on a `meshtasticd -s` bench / scripted peer, both presets host
   HW model and role decode from the NodeInfo `user.hw_model` / `user.role`; battery and voltage from
   `device_metrics`.
 
-Placeholders / pending: reactions (V2), Tools, Settings.
+- **Tools** — a 4-item list (cursor `›` in green; V2 items greyed). Key `7` runs the selected tool
+  inline (toggle output panel); key `8` closes it. V1 tools: *Mesh stats* (link state, node count,
+  packets/sec + total) and *Packet log* (TEXT / NODEINFO / POS counters). *Traceroute* and
+  *Telemetry req* are greyed V2 entries. Packet counters are incremented on the reader thread in
+  the client source (`cnt_text`, `cnt_nodeinfo`, `cnt_pos`, `cnt_total`).
+
+Placeholders / pending: reactions (V2), Traceroute (V2), Telemetry req (V2), Settings.
 See `radio-apps/09b` (build order) and `09c` (per-screen design).
 
 ## Screenshots
@@ -53,6 +59,10 @@ See `radio-apps/09b` (build order) and `09c` (per-screen design).
 | Node detail (key 8 from Nodes) |
 | --- |
 | ![node detail](docs/media/node-detail.png) |
+
+| Tools — list | Tools — Mesh stats | Tools — Packet log |
+| --- | --- | --- |
+| ![tools list](docs/media/tools-list.png) | ![tools mesh stats](docs/media/tools-mesh.png) | ![tools packet log](docs/media/tools-pktlog.png) |
 
 Captured from the desktop SDL simulator at native 320×170, fed by the scripted Client-API peer (6
 positioned nodes around Rimini, two channels). Each peer's radar dot shares its colour with the

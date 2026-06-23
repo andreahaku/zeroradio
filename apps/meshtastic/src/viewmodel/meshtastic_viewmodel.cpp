@@ -65,6 +65,21 @@ void MeshtasticViewModel::nodes_down() {
     if (nodes_cursor_ + 1 < nodes_count_) ++nodes_cursor_;
 }
 
+int  MeshtasticViewModel::tools_cursor() const { return tools_cursor_; }
+bool MeshtasticViewModel::tools_output_open() const { return tools_output_open_; }
+
+void MeshtasticViewModel::tools_cursor_up() {
+    if (tools_cursor_ > 0) { --tools_cursor_; tools_output_open_ = false; }
+}
+void MeshtasticViewModel::tools_cursor_down() {
+    if (tools_cursor_ + 1 < kToolCount) { ++tools_cursor_; tools_output_open_ = false; }
+}
+void MeshtasticViewModel::tools_run_toggle() {
+    if (tools_cursor_ >= 2) return; // V2 items greyed
+    tools_output_open_ = !tools_output_open_;
+}
+void MeshtasticViewModel::tools_close_output() { tools_output_open_ = false; }
+
 bool MeshtasticViewModel::nodes_detail_open() const { return nodes_detail_open_; }
 void MeshtasticViewModel::open_node_detail() { nodes_detail_open_ = true; }
 void MeshtasticViewModel::close_node_detail() { nodes_detail_open_ = false; }
@@ -194,10 +209,10 @@ void MeshtasticViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const 
             out[4] = {view::ICON_CHECK, false, true};       // detail
             break;
         case Page::Tools:
-            out[1] = {view::ICON_CARET_UP, false, true};    // up
-            out[2] = {view::ICON_CARET_DOWN, false, true};  // down
-            out[3] = {view::ICON_CHECK, false, true};       // run
-            out[4] = {view::ICON_SIGN_OUT, false, true};    // back
+            out[1] = {view::ICON_CARET_UP,   false, true};  // up
+            out[2] = {view::ICON_CARET_DOWN,  false, true};  // down
+            out[3] = {view::ICON_BROADCAST,   false, tools_cursor_ < 2}; // run (greyed for V2)
+            out[4] = {view::ICON_SIGN_OUT,    false, true};  // back / close output
             break;
         case Page::Settings:
             out[1] = {view::ICON_CARET_UP, false, true};    // up
@@ -233,6 +248,12 @@ void MeshtasticViewModel::nav_activate(int page, int slot) {
             if (slot == 1) map_zoom_in();
             else if (slot == 2) map_zoom_out();
             else if (slot == 3) map_cycle_selection();
+            break;
+        case Page::Tools:
+            if (slot == 1)      tools_cursor_up();
+            else if (slot == 2) tools_cursor_down();
+            else if (slot == 3) tools_run_toggle();
+            else if (slot == 4) tools_close_output();
             break;
         case Page::Settings:
             if (slot == 4) request_quit(); // 8 = exit
