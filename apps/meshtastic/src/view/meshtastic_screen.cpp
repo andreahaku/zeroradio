@@ -37,6 +37,19 @@ std::string field_of(const toolkit::Entity& e, const char* key) {
     return it != e.fields.end() ? it->second : std::string{};
 }
 
+// Canned quick-reply presets (CHATS key 6). Kept short for the mesh; the picker
+// sends the chosen one on the current conversation by its list number.
+const char* const kCanned[] = {
+    "QRV (ready)",
+    "On my way",
+    "Roger",
+    "Standby",
+    "At the meeting point",
+    "Need help",
+    "73",
+};
+constexpr int kCannedCount = static_cast<int>(sizeof(kCanned) / sizeof(kCanned[0]));
+
 // MAP (PPI) geometry. Content area is 320x110 (title + nav bars take 30 each), so
 // a 106px square canvas fits with a hair of margin; the flanking side columns
 // carry the colour-coded node names.
@@ -89,15 +102,18 @@ void plot_ring(uint16_t* buf, int w, int h, int cx, int cy, int r, uint16_t colo
 
 } // namespace
 
-MeshtasticScreen::MeshtasticScreen(MeshtasticViewModel& vm,
-                                   app::AssetManager& assets,
-                                   toolkit::EntityStore& store,
-                                   MessageLog& messages,
-                                   std::function<uint32_t(const std::string&)> on_send)
+MeshtasticScreen::MeshtasticScreen(
+    MeshtasticViewModel& vm,
+    app::AssetManager& assets,
+    toolkit::EntityStore& store,
+    MessageLog& messages,
+    ChannelTable& channels,
+    std::function<uint32_t(const std::string&, uint32_t, uint8_t)> on_send)
     : BaseScreen(vm, vm, assets),
       vm_(vm),
       store_(store),
       messages_(messages),
+      channels_(channels),
       on_send_(std::move(on_send)) {
     init();
 }
@@ -157,6 +173,22 @@ void MeshtasticScreen::build_content(lv_obj_t* content) {
     reactive::bind_theme(compose_row_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
     lv_obj_align(compose_row_, LV_ALIGN_BOTTOM_LEFT, 0, 0);
     lv_obj_add_flag(compose_row_, LV_OBJ_FLAG_HIDDEN);
+
+    // CHATS canned-message overlay: a numbered list; pressing a digit sends that
+    // preset. Centred card, shown only while the picker is open.
+    canned_box_ = lv_label_create(content);
+    lv_label_set_recolor(canned_box_, true);
+    lv_label_set_text(canned_box_, "");
+    lv_obj_set_style_text_font(canned_box_, fs, 0);
+    lv_obj_set_style_bg_color(canned_box_, view::palette(vm_.is_dark_mode()).surface, 0);
+    lv_obj_set_style_bg_opa(canned_box_, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(canned_box_, view::palette(vm_.is_dark_mode()).primary, 0);
+    lv_obj_set_style_border_width(canned_box_, 1, 0);
+    lv_obj_set_style_radius(canned_box_, 4, 0);
+    lv_obj_set_style_pad_all(canned_box_, 5, 0);
+    reactive::bind_theme(canned_box_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
+    lv_obj_align(canned_box_, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_add_flag(canned_box_, LV_OBJ_FLAG_HIDDEN);
 
     // NODES view: a fixed column header strip + a themed table. Hidden by default.
     nodes_view_ = lv_obj_create(content);
@@ -246,6 +278,10 @@ void MeshtasticScreen::build_content(lv_obj_t* content) {
     last_compose_req_ = lv_subject_get_int(vm_.compose_req_subject());
     lv_subject_add_observer(vm_.compose_req_subject(), compose_req_cb, this);
 
+    // The "canned" key bumps canned_req; observe it to open the picker overlay.
+    last_canned_req_ = lv_subject_get_int(vm_.canned_req_subject());
+    lv_subject_add_observer(vm_.canned_req_subject(), canned_req_cb, this);
+
     timer_ = lv_timer_create(tick_cb, kTickPeriodMs, this);
     tick(); // initial paint
 }
@@ -268,6 +304,7 @@ void MeshtasticScreen::compose_key_cb(uint32_t key, void* ctx) {
 
 void MeshtasticScreen::enter_compose() {
     if (compose_active_) return;
+    if (canned_active_) exit_canned();
     compose_active_ = true;
     compose_buf_.clear();
     update_compose_row();
@@ -284,7 +321,7 @@ void MeshtasticScreen::exit_compose() {
 
 void MeshtasticScreen::on_compose_key(uint32_t key) {
     if (key == LV_KEY_ENTER) {
-        if (!compose_buf_.empty() && on_send_) on_send_(compose_buf_);
+        if (!compose_buf_.empty()) send_current(compose_buf_);
         exit_compose(); // modal per-message: send and return to BROWSE
     } else if (key == LV_KEY_ESC) {
         exit_compose(); // cancel
@@ -305,6 +342,91 @@ void MeshtasticScreen::update_compose_row() {
     if (!compose_row_) return;
     std::string s = "> " + compose_buf_ + "_";
     lv_label_set_text(compose_row_, s.c_str());
+}
+
+void MeshtasticScreen::canned_req_cb(lv_observer_t* observer, lv_subject_t* subject) {
+    auto* self = static_cast<MeshtasticScreen*>(lv_observer_get_user_data(observer));
+    if (!self) return;
+    const int v = lv_subject_get_int(subject);
+    if (v == self->last_canned_req_) return; // ignore the initial notification
+    self->last_canned_req_ = v;
+    if (self->vm_.page() == static_cast<int>(MeshtasticViewModel::Page::Chats)) {
+        self->enter_canned();
+    }
+}
+
+void MeshtasticScreen::canned_key_cb(uint32_t key, void* ctx) {
+    if (auto* self = static_cast<MeshtasticScreen*>(ctx)) self->on_canned_key(key);
+}
+
+void MeshtasticScreen::enter_canned() {
+    if (canned_active_) return;
+    if (compose_active_) exit_compose();
+    canned_active_ = true;
+    std::string list = "#888888 Canned - pick 1-";
+    list += std::to_string(kCannedCount);
+    list += ", Esc#\n";
+    for (int i = 0; i < kCannedCount; ++i) {
+        char line[96];
+        std::snprintf(line, sizeof(line), "#63e2b7 %d#  %s\n", i + 1, kCanned[i]);
+        list += line;
+    }
+    lv_label_set_text(canned_box_, list.c_str());
+    lv_obj_remove_flag(canned_box_, LV_OBJ_FLAG_HIDDEN);
+    platform::set_key_capture(canned_key_cb, this);
+}
+
+void MeshtasticScreen::exit_canned() {
+    platform::set_key_capture(nullptr, nullptr);
+    canned_active_ = false;
+    if (canned_box_) lv_obj_add_flag(canned_box_, LV_OBJ_FLAG_HIDDEN);
+}
+
+void MeshtasticScreen::on_canned_key(uint32_t key) {
+    if (key == LV_KEY_ESC) {
+        exit_canned();
+    } else if (key >= '1' && key <= '9') {
+        const int idx = static_cast<int>(key - '1');
+        if (idx < kCannedCount) send_current(kCanned[idx]);
+        exit_canned(); // modal: pick + send + return to BROWSE
+    }
+}
+
+uint32_t MeshtasticScreen::send_current(const std::string& text) {
+    if (!on_send_) return 0;
+    if (vm_.conv_kind() == MeshtasticViewModel::Conv::Dm) {
+        return on_send_(text, vm_.conv_dm_peer(), 0);
+    }
+    return on_send_(text, 0xFFFFFFFFu, static_cast<uint8_t>(vm_.conv_channel()));
+}
+
+std::string MeshtasticScreen::conv_title(const std::vector<toolkit::Entity>& snap) const {
+    if (vm_.conv_kind() == MeshtasticViewModel::Conv::Dm) {
+        const uint32_t peer = vm_.conv_dm_peer();
+        for (const auto& e : snap) {
+            if (e.id.size() > 1 && e.id[0] == '!') {
+                const uint32_t num =
+                    static_cast<uint32_t>(std::strtoul(e.id.c_str() + 1, nullptr, 16));
+                if (num == peer) {
+                    const std::string sh = field_of(e, "short");
+                    return "@" + (sh.empty() ? e.id : sh);
+                }
+            }
+        }
+        char b[16];
+        std::snprintf(b, sizeof(b), "@!%08x", peer);
+        return b;
+    }
+    // Channel: resolve the name from the ChannelTable.
+    const int idx = vm_.conv_channel();
+    for (const auto& c : channels_.active()) {
+        if (c.index == idx) {
+            if (!c.name.empty()) return "#" + c.name;
+            return c.role == 1 ? std::string("#Primary")
+                               : ("#Ch" + std::to_string(idx));
+        }
+    }
+    return "#Ch" + std::to_string(idx);
 }
 
 void MeshtasticScreen::nodes_draw_event_cb(lv_event_t* event) {
@@ -399,11 +521,27 @@ void MeshtasticScreen::update_chats(const std::vector<toolkit::Entity>& snap) {
         }
     }
 
+    // Filter the feed to the current conversation (channel slot or DM peer).
+    constexpr uint32_t kBroadcast = 0xFFFFFFFFu;
+    const bool dm = (vm_.conv_kind() == MeshtasticViewModel::Conv::Dm);
+    const uint32_t peer = vm_.conv_dm_peer();
+    const auto chan = static_cast<uint8_t>(vm_.conv_channel());
+    const auto in_conv = [&](const MeshMessage& m) {
+        if (dm) {
+            return (m.is_self && m.to == peer) ||
+                   (!m.is_self && m.from == peer && m.to != kBroadcast);
+        }
+        return m.channel == chan;
+    };
+
     const auto msgs = messages_.snapshot();
+    std::vector<const MeshMessage*> shown;
+    for (const auto& m : msgs) if (in_conv(m)) shown.push_back(&m);
+    const size_t start = shown.size() > 9 ? shown.size() - 9 : 0;
+
     std::string text;
-    const size_t start = msgs.size() > 9 ? msgs.size() - 9 : 0;
-    for (size_t i = start; i < msgs.size(); ++i) {
-        const MeshMessage& m = msgs[i];
+    for (size_t i = start; i < shown.size(); ++i) {
+        const MeshMessage& m = *shown[i];
         std::string sh;
         const auto it = names.find(m.from);
         if (it != names.end()) {
@@ -430,8 +568,8 @@ void MeshtasticScreen::update_chats(const std::vector<toolkit::Entity>& snap) {
         }
         text += "\n";
     }
-    if (msgs.empty()) {
-        text = "#888888 (no messages yet)#";
+    if (shown.empty()) {
+        text = "#888888 (no messages here yet)#";
     }
     lv_label_set_text(chats_label_, text.c_str());
 }
@@ -591,12 +729,20 @@ void MeshtasticScreen::tick() {
         (page == static_cast<int>(MeshtasticViewModel::Page::Map));
     const bool placeholder = !nodes_page && !chats_page && !map_page;
 
-    char sub[48];
+    char sub[64];
     if (map_page) {
         // The Map cares about how many nodes have a fix, not the total.
         size_t with_pos = 0;
         for (const auto& e : snap) if (e.has_pos) ++with_pos;
         std::snprintf(sub, sizeof(sub), "MAP - %zu with pos", with_pos);
+    } else if (chats_page) {
+        // Feed the active channel indices to the VM (for the key-5 switcher), and
+        // show the current conversation name + node count.
+        std::vector<int> idxs;
+        for (const auto& c : channels_.active()) idxs.push_back(c.index);
+        vm_.set_channels(idxs);
+        std::snprintf(sub, sizeof(sub), "%s - %zu node%s", conv_title(snap).c_str(),
+                      snap.size(), snap.size() == 1 ? "" : "s");
     } else {
         std::snprintf(sub, sizeof(sub), "%s - %zu node%s", vm_.page_name(page),
                       snap.size(), snap.size() == 1 ? "" : "s");

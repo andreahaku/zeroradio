@@ -7,6 +7,7 @@
 #pragma once
 
 #include "base_screen.h"
+#include "channel_table.h"
 #include "entity_store.h"
 #include "message_log.h"
 #include "meshtastic_viewmodel.h"
@@ -31,7 +32,9 @@ public:
                      app::AssetManager& assets,
                      toolkit::EntityStore& store,
                      MessageLog& messages,
-                     std::function<uint32_t(const std::string&)> on_send);
+                     ChannelTable& channels,
+                     std::function<uint32_t(const std::string&, uint32_t to, uint8_t channel)>
+                         on_send);
     ~MeshtasticScreen() override;
 
 protected:
@@ -57,15 +60,29 @@ private:
     void on_compose_key(uint32_t key);
     void update_compose_row();
 
+    // CHATS canned-message picker (overlay numbered list; digit picks + sends).
+    static void canned_req_cb(lv_observer_t* observer, lv_subject_t* subject);
+    static void canned_key_cb(uint32_t key, void* ctx);
+    void enter_canned();
+    void exit_canned();
+    void on_canned_key(uint32_t key);
+
+    // Send `text` on the current conversation (channel broadcast or DM peer).
+    uint32_t send_current(const std::string& text);
+    // Display name of the current conversation ("#LongFast" / "@BRVO").
+    std::string conv_title(const std::vector<toolkit::Entity>& snap) const;
+
     MeshtasticViewModel& vm_;
     toolkit::EntityStore& store_;
     MessageLog& messages_;
-    std::function<uint32_t(const std::string&)> on_send_;
+    ChannelTable& channels_;
+    std::function<uint32_t(const std::string&, uint32_t to, uint8_t channel)> on_send_;
 
     lv_obj_t* view_label_  = nullptr; // big current-view name (placeholder pages)
     lv_obj_t* hint_label_  = nullptr; // "press 4 to switch view"
     lv_obj_t* chats_label_ = nullptr; // CHATS feed (multi-line, recolour)
     lv_obj_t* compose_row_ = nullptr; // CHATS compose input ("> text_")
+    lv_obj_t* canned_box_  = nullptr; // CHATS canned-message overlay (numbered list)
     lv_obj_t* nodes_view_  = nullptr; // NODES container (column header + table)
     lv_obj_t* nodes_table_ = nullptr;
 
@@ -80,6 +97,9 @@ private:
     bool compose_active_ = false;
     std::string compose_buf_;
     int last_compose_req_ = 0;
+
+    bool canned_active_ = false;
+    int last_canned_req_ = 0;
 
     std::vector<lv_color_t> nodes_row_colors_; // index = data row
     int nodes_sel_row_ = -1;                   // cursor row, -1 = none

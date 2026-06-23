@@ -14,19 +14,24 @@ Working (verified on a `meshtasticd -s` bench / scripted peer, both presets host
 - **Nodes** — `NodeInfo` → `EntityStore`; the NODES view is a themed `lv_table` (SHORT/SNR/HOP/AGE) with
   a green cursor band (keys ▲/▼) and the self node in accent green. Title shows the live node count.
 - **Chat receive** — `TEXT_MESSAGE_APP` → `MessageLog`; the CHATS view shows the feed (sender short name
-  recoloured: self green, peers info-blue).
+  recoloured: self green, peers info-blue), filtered to the current conversation.
 - **Chat send + compose** — the `8` (write) key enters a compose row (raw key capture via
-  `platform::set_key_capture`); type, **`Enter` sends and returns**, `Esc` cancels. `send_text` queues a
-  `ToRadio` `MeshPacket` (the reader loop writes it) and echoes the message to our own feed.
+  `platform::set_key_capture`); type, **`Enter` sends and returns**, `Esc` cancels. Sends route to the
+  current conversation (channel broadcast or DM peer) and echo to our own feed.
 - **ACK color-outline** — `ROUTING_APP` matched by `request_id` updates a sent message's state; the feed
   shows a delivery dot: amber (pending) → green (delivered) / red (failed).
+- **Channel switch** — `FromRadio.channel` → `ChannelTable`; the feed/compose target is a *conversation*
+  (a channel slot or a DM peer). Key `5` cycles the active channels by name (e.g. `#LongFast` → `#Private`)
+  and the title shows the current one. The DM entry point (from a node) lands with Node detail.
+- **Canned messages** — key `6` opens a numbered overlay of quick replies; pressing a digit sends that
+  preset on the current conversation, `Esc` cancels. Reactions (`7`) are greyed (V2).
 - **Map (PPI)** — a north-up radar centred on the self node (or the mesh centroid when self has no fix),
   reusing the ADS-B scope pattern. Range auto-fits all positioned nodes (km rings) with manual zoom on
   keys `5`/`6`; key `7` cycles the selection (white-outlined dot + `›` in the list). Each peer gets a
   distinct colour shared by its radar dot and its **side-column** name — names live beside the scope, not
   on it, since the 320×170 screen is too small for on-canvas labels. Title shows the positioned count.
 
-Placeholders / pending: channel switch / canned / reactions / DMs, Node detail (`8` from Map/Nodes),
+Placeholders / pending: reactions (V2), DMs (entry from Node detail), Node detail (`8` from Map/Nodes),
 Tools, Settings. See `radio-apps/09b` (build order) and `09c` (per-screen design).
 
 ## Screenshots
@@ -35,9 +40,14 @@ Tools, Settings. See `radio-apps/09b` (build order) and `09c` (per-screen design
 | --- | --- | --- |
 | ![map auto-fit](docs/media/map.png) | ![map selection](docs/media/map-select.png) | ![map zoom](docs/media/map-zoom.png) |
 
+| Chat — channel | Chat — switch (key 5) | Chat — canned (key 6) |
+| --- | --- | --- |
+| ![chat channel](docs/media/chat-channel.png) | ![chat switch](docs/media/chat-switch.png) | ![chat canned](docs/media/chat-canned.png) |
+
 Captured from the desktop SDL simulator at native 320×170, fed by the scripted Client-API peer (6
-positioned nodes around Rimini). Each peer's radar dot shares its colour with the side-column name; key
-`7` selects a node (white outline + `›`), keys `5`/`6` zoom from the auto-fit range.
+positioned nodes around Rimini, two channels). Each peer's radar dot shares its colour with the
+side-column name; key `7` selects a node, keys `5`/`6` zoom. In CHATS, key `5` switches channel
+(`#LongFast` → `#Private`) and key `6` opens the canned-reply picker.
 
 ## Architecture
 
@@ -45,8 +55,9 @@ positioned nodes around Rimini). Each peer's radar dot shares its colour with th
 meshtasticd :4403  ──Client API (framed protobuf)──▶  MeshtasticClientSource (reader thread)
                                                           │  on_node → EntityStore.upsert
                                                           │  on_message → MessageLog.add
+                                                          │  on_channel → ChannelTable.upsert
                                                           ▼
-                                       MeshtasticScreen (UI timer snapshots both) ─▶ Nodes / Chats / Map
+                                       MeshtasticScreen (UI timer snapshots all) ─▶ Nodes / Chats / Map
 ```
 
 Protobufs are pre-generated nanopb under `proto/` (vendored; see `proto/PIN.md`) — the build compiles

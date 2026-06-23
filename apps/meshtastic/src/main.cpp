@@ -5,6 +5,7 @@
  */
 
 #include "asset_manager.h"
+#include "channel_table.h"
 #include "entity_store.h"
 #include "message_log.h"
 #include "meshtastic_client_source.h"
@@ -40,6 +41,7 @@ int main() {
     // pattern).
     toolkit::EntityStore store;
     meshtastic::MessageLog messages;
+    meshtastic::ChannelTable channels;
 
     meshtastic::MeshtasticClientSource source(
         host, port,
@@ -68,6 +70,9 @@ int main() {
             },
             [&messages](const meshtastic::MeshMessage& m) { messages.add(m); },
             [&messages](uint32_t id, meshtastic::AckState st) { messages.update_ack(id, st); },
+            [&channels](const meshtastic::ChannelUpdate& u) {
+                channels.upsert(meshtastic::ChannelInfo{u.index, u.name, u.role});
+            },
         });
     source.start();
 
@@ -78,8 +83,10 @@ int main() {
     std::unique_ptr<meshtastic::MeshtasticScreen> screen;
     const int rc = toolkit::run_app(view_model, assets, [&]() -> lv_obj_t* {
         screen = std::make_unique<meshtastic::MeshtasticScreen>(
-            view_model, assets, store, messages,
-            [&source](const std::string& t) { return source.send_text(t); });
+            view_model, assets, store, messages, channels,
+            [&source](const std::string& t, uint32_t to, uint8_t ch) {
+                return source.send_text(t, to, ch);
+            });
         return screen->root();
     });
 

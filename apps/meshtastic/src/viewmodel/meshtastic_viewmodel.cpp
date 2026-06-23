@@ -116,6 +116,45 @@ void MeshtasticViewModel::map_cycle_selection() {
     if (map_cursor_ >= map_count_) map_cursor_ = -1;
 }
 
+MeshtasticViewModel::Conv MeshtasticViewModel::conv_kind() const { return conv_kind_; }
+int MeshtasticViewModel::conv_channel() const { return conv_channel_; }
+uint32_t MeshtasticViewModel::conv_dm_peer() const { return conv_dm_peer_; }
+
+void MeshtasticViewModel::set_channels(const std::vector<int>& active_indices) {
+    channels_ = active_indices;
+    if (conv_kind_ == Conv::Channel && !channels_.empty()) {
+        bool found = false;
+        for (int c : channels_) if (c == conv_channel_) { found = true; break; }
+        if (!found) conv_channel_ = channels_.front();
+    }
+}
+
+void MeshtasticViewModel::chat_cycle() {
+    // From a DM, the first press returns to the channel view (the channel we left).
+    if (conv_kind_ == Conv::Dm) { conv_kind_ = Conv::Channel; return; }
+    if (channels_.empty()) return;
+    size_t pos = 0;
+    bool found = false;
+    for (size_t i = 0; i < channels_.size(); ++i)
+        if (channels_[i] == conv_channel_) { pos = i; found = true; break; }
+    conv_channel_ = found ? channels_[(pos + 1) % channels_.size()] : channels_.front();
+}
+
+void MeshtasticViewModel::open_dm(uint32_t peer) {
+    conv_kind_ = Conv::Dm;
+    conv_dm_peer_ = peer;
+    lv_subject_set_int(toolbar_page_subject(), static_cast<int>(Page::Chats));
+}
+
+lv_subject_t* MeshtasticViewModel::canned_req_subject() {
+    return canned_req_.native();
+}
+
+void MeshtasticViewModel::request_canned() {
+    lv_subject_t* s = canned_req_.native();
+    lv_subject_set_int(s, lv_subject_get_int(s) + 1);
+}
+
 int MeshtasticViewModel::nav_page_count() const {
     return kPageCount; // Chats / Nodes / Map / Tools / Settings
 }
@@ -124,10 +163,10 @@ void MeshtasticViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const 
     out[0] = {"#", true, true}; // page number (text overridden by the NavBar)
     switch (static_cast<Page>(page)) {
         case Page::Chats:
-            out[1] = {view::ICON_CARET_RIGHT, false, true}; // switch channel / DM
-            out[2] = {view::ICON_INFO, false, true};        // canned messages
-            out[3] = {view::ICON_BROADCAST, false, true};   // react (V2)
-            out[4] = {view::ICON_KEYBOARD, false, true};    // write -> compose
+            out[1] = {view::ICON_CARET_RIGHT, false, true};  // switch channel / DM
+            out[2] = {view::ICON_INFO, false, true};         // canned messages
+            out[3] = {view::ICON_BROADCAST, false, false};   // react (V2, greyed)
+            out[4] = {view::ICON_KEYBOARD, false, true};     // write -> compose
             break;
         case Page::Nodes:
             out[1] = {view::ICON_CHART_LINE, false, true};  // sort
@@ -159,8 +198,10 @@ void MeshtasticViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const 
 void MeshtasticViewModel::nav_activate(int page, int slot) {
     switch (static_cast<Page>(page)) {
         case Page::Chats:
-            // 5=channel (later), 6=canned (later), 7=react (later), 8=write.
-            if (slot == 4) request_compose();
+            // 5=switch channel, 6=canned picker, 7=react (V2, greyed), 8=write.
+            if (slot == 1) chat_cycle();
+            else if (slot == 2) request_canned();
+            else if (slot == 4) request_compose();
             break;
         case Page::Nodes:
             // 5=sort (later), 6=up, 7=down, 8=detail (later).

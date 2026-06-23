@@ -162,6 +162,7 @@ struct MeshtasticClientSource::Impl {
         if (cb.on_message) {
             MeshMessage m;
             m.from = my_node_num.load();
+            m.to = to;
             m.is_self = true;
             m.channel = channel;
             m.text.assign(text.data(), n);
@@ -245,6 +246,17 @@ struct MeshtasticClientSource::Impl {
                 if (cb.on_node) cb.on_node(u);
                 break;
             }
+            case meshtastic_FromRadio_channel_tag: {
+                const meshtastic_Channel& ch = scratch.channel;
+                if (cb.on_channel) {
+                    ChannelUpdate u;
+                    u.index = ch.index;
+                    u.role = static_cast<int>(ch.role);
+                    if (ch.has_settings && ch.settings.name[0] != '\0') u.name = ch.settings.name;
+                    cb.on_channel(u);
+                }
+                break;
+            }
             case meshtastic_FromRadio_config_complete_id_tag:
                 if (scratch.config_complete_id == nonce && !synced) {
                     synced = true;
@@ -264,6 +276,7 @@ struct MeshtasticClientSource::Impl {
                 if (d.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP) {
                     MeshMessage m;
                     m.from = pkt.from;
+                    m.to = pkt.to;
                     m.is_self = (pkt.from == my_node_num.load());
                     m.channel = pkt.channel;
                     m.id = pkt.id;

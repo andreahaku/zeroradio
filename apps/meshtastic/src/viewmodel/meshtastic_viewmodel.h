@@ -12,6 +12,9 @@
 
 #include "lvgl.h"
 
+#include <cstdint>
+#include <vector>
+
 namespace meshtastic {
 
 // Meshtastic app state. Derives from the toolkit shell and implements NavProvider.
@@ -57,6 +60,22 @@ public:
     void set_map_count(int n);        // screen reports the positioned-node count
     void map_cycle_selection();       // key 7: -1 -> 0 -> ... -> n-1 -> -1
 
+    // CHATS conversation: the feed/compose target is either a channel slot or a DM
+    // peer. Key 5 cycles the active channels; the DM entry point is set by Node
+    // detail (open_dm), which also switches the view back to Chats.
+    enum class Conv : int { Channel = 0, Dm = 1 };
+    Conv     conv_kind() const;
+    int      conv_channel() const;    // current channel index
+    uint32_t conv_dm_peer() const;    // current DM peer node-num
+    void     set_channels(const std::vector<int>& active_indices); // sorted, from screen
+    void     chat_cycle();            // key 5: next active channel
+    void     open_dm(uint32_t peer);  // Node-detail entry: DM + switch to Chats
+
+    // CHATS canned-message picker: key 6 bumps this subject; the screen opens the
+    // overlay (raw key capture, like compose).
+    lv_subject_t* canned_req_subject();
+    void request_canned();
+
     // --- NavProvider ---
     int nav_page_count() const override;
     void nav_fill(int page, NavProvider::NavSlot out[5]) const override;
@@ -71,6 +90,12 @@ private:
     double map_fit_km_   = 5.0; // last fitted-to-all-nodes distance (from the screen)
     int    map_cursor_   = -1;  // selected positioned node, -1 = none
     int    map_count_    = 0;   // positioned-node count (from the screen)
+
+    Conv             conv_kind_    = Conv::Channel;
+    int              conv_channel_ = 0;
+    uint32_t         conv_dm_peer_ = 0;
+    std::vector<int> channels_;          // active channel indices (from the screen)
+    reactive::IntSubject canned_req_{0};
 };
 
 } // namespace meshtastic

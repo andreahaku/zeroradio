@@ -27,6 +27,14 @@ struct NodeUpdate {
     bool has_last_heard = false; uint32_t last_heard = 0; // epoch seconds
 };
 
+// A channel slot decoded from a FromRadio.channel packet (config burst). The app
+// maps it into a ChannelTable for the CHATS channel switcher.
+struct ChannelUpdate {
+    int index = 0;          // 0..7 (0 = primary)
+    std::string name;       // settings.name ("" for the default primary)
+    int role = 0;           // 0 disabled, 1 primary, 2 secondary
+};
+
 // Delivery state of one of our own sent messages (color-outline in the feed).
 enum class AckState : uint8_t {
     None = 0,   // not applicable (received message)
@@ -38,6 +46,7 @@ enum class AckState : uint8_t {
 // A text message (TEXT_MESSAGE_APP) decoded from a MeshPacket.
 struct MeshMessage {
     uint32_t from = 0;       // sender node number
+    uint32_t to = 0;         // destination node number (0xFFFFFFFF = broadcast)
     bool is_self = false;    // sent by our own node
     uint8_t channel = 0;     // channel index
     std::string text;        // UTF-8 body
@@ -70,6 +79,8 @@ public:
         std::function<void(const MeshMessage&)> on_message;
         // ACK/failure for one of our sent messages (ROUTING_APP, matched by id).
         std::function<void(uint32_t req_id, AckState)> on_ack;
+        // A channel slot from a FromRadio.channel packet. Fired on the reader thread.
+        std::function<void(const ChannelUpdate&)> on_channel;
     };
 
     MeshtasticClientSource(std::string host, uint16_t port, Callbacks cb);
