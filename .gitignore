@@ -6,3 +6,6 @@ compile_commands.json
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# Natural Earth GeoJSON download cache for build_mapdata.py
+tools/mapdata/cache/

@@ -222,7 +222,7 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     // Base map for the Mercator radar mode (coastline + borders). Loaded once; if
     // the asset is missing the map degrades to an empty background (invalid).
     base_map_ = toolkit::map::VectorMap::load(
-        assets().resolve("mapdata/adriatic.rmap").string());
+        assets().resolve("mapdata/world.rmap").string());
 
     // --- Header row: title | "N trk" | conn dot ---
     header_ = lv_obj_create(content);

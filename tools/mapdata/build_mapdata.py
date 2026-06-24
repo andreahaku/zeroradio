@@ -9,8 +9,8 @@ Douglas-Peucker, quantizes coordinates to uint16, and writes the `RMAP` binary
 format consumed by toolkit::geo::VectorMap.
 
 Run from anywhere:
-    python3 tools/mapdata/build_mapdata.py            # default: Adriatic/Italy
-    python3 tools/mapdata/build_mapdata.py --bbox 6.5,39,19.5,47 --out assets/mapdata/adriatic.rmap
+    python3 tools/mapdata/build_mapdata.py            # default: whole world (50m)
+    python3 tools/mapdata/build_mapdata.py --bbox 6.5,39,19.5,47 --scale 10m --out assets/mapdata/adriatic.rmap
 
 Natural Earth is public domain. Source data is cached under a scratch dir so
 re-runs are offline after the first fetch. This tool never runs on-device.
@@ -304,11 +304,11 @@ def write_rmap(path, bbox, layers):
 
 def main():
     ap = argparse.ArgumentParser(description="Build a compact .rmap vector-map asset.")
-    ap.add_argument("--bbox", default="6.5,39.0,19.5,47.0",
-                    help="lon_min,lat_min,lon_max,lat_max (default: Italy/Adriatic)")
-    ap.add_argument("--scale", choices=["10m", "50m"], default="10m")
-    ap.add_argument("--tol", type=float, default=0.004,
-                    help="Douglas-Peucker tolerance in degrees (default 0.004 ~ 400m)")
+    ap.add_argument("--bbox", default="-180,-90,180,90",
+                    help="lon_min,lat_min,lon_max,lat_max (default: whole world)")
+    ap.add_argument("--scale", choices=["10m", "50m"], default="50m")
+    ap.add_argument("--tol", type=float, default=0.02,
+                    help="Douglas-Peucker tolerance in degrees (default 0.02 ~ 2km, world overview)")
     ap.add_argument("--out", default=None, help="output .rmap path")
     args = ap.parse_args()
 
@@ -316,7 +316,7 @@ def main():
     bbox = (lon_min, lat_min, lon_max, lat_max)
 
     repo = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    out = args.out or os.path.join(repo, "assets", "mapdata", "adriatic.rmap")
+    out = args.out or os.path.join(repo, "assets", "mapdata", "world.rmap")
 
     print(f"bbox={bbox} scale={args.scale} tol={args.tol}", file=sys.stderr)
     layers = []
