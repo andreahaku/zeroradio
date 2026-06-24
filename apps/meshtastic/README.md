@@ -5,6 +5,12 @@ A Meshtastic LoRa-mesh client for the CardputerZero, built on the shared `radio_
 the radio — see the design docs in [`../../../radio-apps/`](../../../radio-apps/) (`09`, `09a`, `09b`,
 `09c`). UI follows the chosen dark theme (`09c`).
 
+![Meshtastic world map with live nodes](docs/media/demo.gif)
+
+> The full-width **Mercator map** at native 320×170: mesh nodes over a worldwide coastline +
+> national-border base map, with transparent short-name columns overlaid (self bold, selected inverted).
+> Key `8` toggles between this map and the azimuthal PPI radar. (Scripted peer around the home location.)
+
 ## Status
 
 Working (verified on a `meshtasticd -s` bench / scripted peer, both presets host + cp0 aarch64):

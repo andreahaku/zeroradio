@@ -18,10 +18,12 @@ apps/
 
 | ADS-B (`apps/adsb`) | SDR (`apps/sdr`) |
 | --- | --- |
-| ![ADS-B radar with live traffic](apps/adsb/docs/media/demo.gif) | ![SDR spectrum + waterfall](apps/sdr/docs/media/demo.gif) |
+| ![ADS-B world map with live traffic](apps/adsb/docs/media/demo.gif) | ![SDR spectrum + waterfall](apps/sdr/docs/media/demo.gif) |
 
 Both on the desktop SDL simulator at native 320×170; the SDR clip is a **live RTL-SDR Blog V4** WFM
-broadcast (the ADS-B clip uses a simulated feed). Per-screen shots are in each app's README.
+broadcast (the ADS-B clip uses a simulated feed). ADS-B and Meshtastic share a full-width Mercator map
+over a **worldwide** coastline + national-border base map (`assets/mapdata/world.rmap`). Per-screen shots
+are in each app's README.
 
 | Meshtastic: Map | Meshtastic: Chats | Meshtastic: Node detail |
 | --- | --- | --- |

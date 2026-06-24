@@ -14,10 +14,12 @@ Development happens on a desktop **SDL simulator** at the exact device resolutio
 > Status (2026-06-21): building green on the desktop SDL simulator. Verified end-to-end on hardware
 > with a real **RTL-SDR Blog V4** feeding `dump1090 --write-json`: live traffic on the list and radar.
 
-![ADS-B radar with live traffic](docs/media/demo.gif)
+![ADS-B world map with live traffic](docs/media/demo.gif)
 
-> The Radar screen on the SDL simulator at native 320×170: aircraft as heading arrows, concentric range
-> rings with NM labels, position trails, zoom in/out. (Simulated feed around the home location.)
+> The full-width **Mercator map** on the SDL simulator at native 320×170: aircraft as heading arrows over
+> a worldwide coastline + national-border base map, with position trails and transparent callsign columns
+> overlaid (selected aircraft inverted). Key `8` toggles between this map and the azimuthal PPI radar.
+> (Simulated feed around the home location.)
 
 ## Features
 
@@ -79,13 +81,14 @@ change it and restored next launch.
 
 ## Screenshots
 
-| List | Radar | Detail | Settings |
-| --- | --- | --- | --- |
-| ![list](docs/media/list.png) | ![radar](docs/media/radar.png) | ![detail](docs/media/detail.png) | ![settings](docs/media/settings.png) |
+| List | Radar | Map | Detail | Settings |
+| --- | --- | --- | --- | --- |
+| ![list](docs/media/list.png) | ![radar](docs/media/radar.png) | ![map](docs/media/map.png) | ![detail](docs/media/detail.png) | ![settings](docs/media/settings.png) |
 
 Native 320×170 (the device resolution). List is colour-coded by category (emergency red); Radar is a
-north-up scope with range rings; Detail pairs the selected-aircraft fields with a mini-radar; Settings
-is a navigable name/value list.
+north-up scope with range rings; Map is the full-width Mercator view over the worldwide base map (key `8`
+toggles Radar↔Map); Detail pairs the selected-aircraft fields with a mini-radar; Settings is a navigable
+name/value list.
 
 ## Quick start (desktop, with a real RTL-SDR + dump1090)
 
