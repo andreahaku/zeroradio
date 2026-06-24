@@ -733,12 +733,12 @@ void AdsbScreen::record_trails(const std::vector<Row>& rows) {
     }
 }
 
-void AdsbScreen::render_scope(uint16_t* buf, int size, lv_obj_t* canvas,
+void AdsbScreen::render_scope(uint16_t* buf, int width, int height, lv_obj_t* canvas,
                              std::vector<lv_obj_t*>& ring_labels,
                              const std::vector<Row>& rows, int sel, bool show_others,
                              bool mercator) {
     if (!canvas) return;
-    const int w = size, h = size;
+    const int w = width, h = height;
     std::fill(buf, buf + static_cast<size_t>(w) * h, lv_color_to_u16(lv_color_black()));
 
     const int cx = w / 2, cy = h / 2;
@@ -859,11 +859,15 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
     // Swap which fixed-size canvas is visible (square radar vs wide Mercator map).
     lv_obj_t* canvas = mercator ? ppi_canvas_merc_ : ppi_canvas_;
     uint16_t* buf = mercator ? ppi_buf_merc_.data() : ppi_buf_.data();
-    const int size = mercator ? kPpiMercW : kPpiSize;
+    // Mercator map is a wide 320x120 canvas; the PPI radar is square. Pass the
+    // real width/height so render_scope's fill/centre never assume a square (a
+    // square h here overran the 320x120 mercator buffer -> heap corruption).
+    const int cw = mercator ? kPpiMercW : kPpiSize;
+    const int ch = mercator ? kPpiMercH : kPpiSize;
     if (ppi_canvas_)      lv_obj_set_flag(ppi_canvas_,      LV_OBJ_FLAG_HIDDEN, mercator);
     if (ppi_canvas_merc_) lv_obj_set_flag(ppi_canvas_merc_, LV_OBJ_FLAG_HIDDEN, !mercator);
 
-    render_scope(buf, size, canvas, ppi_ring_labels_, rows, sel,
+    render_scope(buf, cw, ch, canvas, ppi_ring_labels_, rows, sel,
                  /*show_others=*/true, mercator);
 
     // Side callsign columns stay visible in both modes — in map mode the map runs
@@ -918,7 +922,7 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
         if (detail_values_)   lv_label_set_text(detail_values_, "-\n-\n-\n-\n-\n-");
         if (detail_values_b_) lv_label_set_text(detail_values_b_, "-\n-\n-\n-\n-");
         if (detail_msg_)      lv_label_set_text(detail_msg_, "(no aircraft selected)");
-        render_scope(detail_buf_.data(), kDetailRadarSize, detail_canvas_,
+        render_scope(detail_buf_.data(), kDetailRadarSize, kDetailRadarSize, detail_canvas_,
                      detail_ring_labels_, rows, sel, vm_.detail_show_others());
         return;
     }
@@ -966,7 +970,7 @@ void AdsbScreen::update_detail(const std::vector<Row>& rows) {
 
     // ----- Right column: the radar scope. Same look as the Radar screen; the
     // Detail page's "show others" toggle picks all traffic vs the selected only.
-    render_scope(detail_buf_.data(), kDetailRadarSize, detail_canvas_,
+    render_scope(detail_buf_.data(), kDetailRadarSize, kDetailRadarSize, detail_canvas_,
                  detail_ring_labels_, rows, sel, vm_.detail_show_others());
 }
 

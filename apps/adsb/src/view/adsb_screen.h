@@ -83,7 +83,7 @@ private:
     // Draw the shared radar scope (rings + NM labels + north + home + trails +
     // every aircraft, selected one highlighted) onto `canvas`'s RGB565 `buf`.
     // Used by both the PPI (Radar) and the Detail mini-radar so they look alike.
-    void render_scope(uint16_t* buf, int size, lv_obj_t* canvas,
+    void render_scope(uint16_t* buf, int width, int height, lv_obj_t* canvas,
                       std::vector<lv_obj_t*>& ring_labels,
                       const std::vector<Row>& rows, int sel, bool show_others,
                       bool mercator = false);
