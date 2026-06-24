@@ -63,7 +63,7 @@ lv_display_t* init_display() {
         return nullptr;
     }
 
-    lv_sdl_window_set_title(display, "Cardputer Radio");
+    lv_sdl_window_set_title(display, "CardputerZero Radio");
     lv_sdl_window_set_resizeable(display, false);
     lv_sdl_mouse_create();
     lv_sdl_mousewheel_create();

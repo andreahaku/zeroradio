@@ -15,7 +15,7 @@ the network, before the physical SPI display arrives.
 
 The app renders with no physical screen and streams each flushed region over TCP;
 the viewer blits it and sends keys back, so the remote app is fully drivable from
-the X1 keyboard (the Cardputer's 5 keys: `4 5 6 7 8`, plus `Esc`, digits, `.`).
+the X1 keyboard (the CardputerZero's 5 keys: `4 5 6 7 8`, plus `Esc`, digits, `.`).
 
 ## Files
 
@@ -83,7 +83,7 @@ ADSB_JSON=/tmp/dump1090/aircraft.json REMOTE_FB_PORT=5800 ./tools/remote-fb/demo
 - Both ends are little-endian; `HELLO` carries a magic+version to catch mismatches.
 - Keys are LVGL key codes (`'4'`-`'8'`, `LV_KEY_ESC`, digits, `.`, enter, backspace),
   fed into a keypad indev on the device via the same `attach_key_router()` path the
-  physical Cardputer keys use.
+  physical CardputerZero keys use.
 
 ## Future work (tracked)
 

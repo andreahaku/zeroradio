@@ -155,7 +155,7 @@ void NavBar::update_icon_buttons() {
         }
 
         // Every key keeps a visible button so the 5 slots stay aligned with the
-        // Cardputer's physical keys; empty slots show a disabled placeholder.
+        // CardputerZero's physical keys; empty slots show a disabled placeholder.
         const bool placeholder = (text == nullptr || text[0] == '\0');
         button->set_font((use_text_font || placeholder) ? text_font_ : icon_font_);
         button->set_text(placeholder ? "\xC2\xB7" : text); // middot placeholder

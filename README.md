@@ -3,7 +3,7 @@
 A monorepo of **radio-viewer apps** for the **M5Stack CardputerZero** (Linux ARM64, 320×170 RGB565 display),
 built on a shared **LVGL toolkit** extracted from [SDRTerminal](https://github.com/andreahaku/SDRTerminal).
 Philosophy: **decode *and* visualize entirely on the device** — an SDR front-end (RTL-SDR / HackRF) plugs
-into the Cardputer, a mature decoder runs as a local process, and each app is a thin **parser + field
+into the CardputerZero, a mature decoder runs as a local process, and each app is a thin **parser + field
 mapping** over the common viewer toolkit. See [Planned apps](#planned-apps) for the wider suite.
 
 ```
@@ -66,7 +66,7 @@ rough order of work:
 | **Ham digital modes** | ham rig + Hamlib CAT + audio / PTT | CW, FT8/FT4, JS8, PSK/RTTY, WSPR (RX + TX) — the flagship |
 
 The unifying constraint: **decode and visualize entirely on the device** — an SDR / HackRF / ham rig plugs
-into the Cardputer, a mature open-source decoder runs as a local process, and the LVGL app reads its
+into the CardputerZero, a mature open-source decoder runs as a local process, and the LVGL app reads its
 output over loopback (a local file or `127.0.0.1`).
 
 ## Build & run (desktop SDL simulator)
