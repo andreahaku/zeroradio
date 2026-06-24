@@ -16,18 +16,19 @@ apps/
 
 ## Apps
 
-| ADS-B (`apps/adsb`) | SDR (`apps/sdr`) |
-| --- | --- |
-| ![ADS-B world map with live traffic](apps/adsb/docs/media/demo.gif) | ![SDR spectrum + waterfall](apps/sdr/docs/media/demo.gif) |
-
-Both on the desktop SDL simulator at native 320×170; the SDR clip is a **live RTL-SDR Blog V4** WFM
-broadcast (the ADS-B clip uses a simulated feed). ADS-B and Meshtastic share a full-width Mercator map
-over a **worldwide** coastline + national-border base map (`assets/mapdata/world.rmap`). Per-screen shots
-are in each app's README.
-
-| Meshtastic: Map | Meshtastic: Chats | Meshtastic: Node detail |
+| ADS-B (`apps/adsb`) | SDR (`apps/sdr`) | Meshtastic (`apps/meshtastic`) |
 | --- | --- | --- |
-| ![Meshtastic map](apps/meshtastic/docs/media/map.png) | ![Meshtastic chats](apps/meshtastic/docs/media/chat-channel.png) | ![Meshtastic node detail](apps/meshtastic/docs/media/node-detail.png) |
+| ![ADS-B world map with live traffic](apps/adsb/docs/media/demo.gif) | ![SDR spectrum + waterfall](apps/sdr/docs/media/demo.gif) | ![Meshtastic world map with live nodes](apps/meshtastic/docs/media/demo.gif) |
+
+All on the desktop SDL simulator at native 320×170; the SDR clip is a **live RTL-SDR Blog V4** WFM
+broadcast (the ADS-B / Meshtastic clips use simulated feeds). ADS-B and Meshtastic share a full-width
+Mercator map over a **worldwide** coastline + national-border base map (`assets/mapdata/world.rmap`) —
+key `8` toggles it against the azimuthal PPI radar. Source videos: [ADS-B](apps/adsb/docs/media/demo.mp4),
+[Meshtastic](apps/meshtastic/docs/media/demo.mp4). Per-screen shots are in each app's README.
+
+| Meshtastic: Chats | Meshtastic: Node detail | Meshtastic: Tools |
+| --- | --- | --- |
+| ![Meshtastic chats](apps/meshtastic/docs/media/chat-channel.png) | ![Meshtastic node detail](apps/meshtastic/docs/media/node-detail.png) | ![Meshtastic tools](apps/meshtastic/docs/media/tools-mesh.png) |
 
 - **`radio_toolkit`** (static lib) — the shared foundation: generic app shell (`ShellViewModel` +
   `NavProvider` + `run_app`), a generalized 5-key NavBar and widgets, `geo` (haversine range/bearing + PPI
@@ -35,7 +36,8 @@ are in each app's README.
   background file poller). Architecture: [`docs/architecture.md`](docs/architecture.md).
 - **`adsb_app`** — dump1090 `aircraft.json` viewer with **four screens** cycled by one key: **List**
   (colour-coded sortable table), **Radar** (north-up scope: aircraft as heading arrows, range rings, side
-  callsign lists, trails), **Detail** (selected-aircraft fields + decoded ADS-B status + a mini-radar that
+  callsign lists, trails — or a full-width **Mercator world map**, key `8` toggles), **Detail**
+  (selected-aircraft fields + decoded ADS-B status + a mini-radar that
   shares the Radar scope), and **Settings** (persisted). Hex-stable selection, auto-range, an RSSI signal
   bar, a configurable home; runs on a bundled mock `aircraft.json` (no dongle) or a live dump1090 feed.
   → [`apps/adsb/README.md`](apps/adsb/README.md)
@@ -46,8 +48,9 @@ are in each app's README.
 - **`meshtastic_app`** — Meshtastic mesh client. Connects to a local `meshtasticd` daemon via the Client
   API (TCP :4403, framed protobuf). **Five views** on the 5-key NavBar cycle: **Chats** (channel/DM feed,
   channel switcher, canned replies, compose, ACK color-outline), **Nodes** (sortable table + node detail
-  sub-screen with HW/SNR/BATT/POS/DIST, DM from detail), **Map** (north-up PPI radar, coloured node dots,
-  auto-fit + manual zoom, node selection), **Tools** (live Mesh stats + Packet log, vertical split layout),
+  sub-screen with HW/SNR/BATT/POS/DIST, DM from detail), **Map** (north-up PPI radar **or** a full-width
+  Mercator world map — key `8` toggles; coloured node dots, auto-fit + manual zoom, node selection),
+  **Tools** (live Mesh stats + Packet log, vertical split layout),
   **Settings** (Theme/Long name/Short name/Region/Channel, persisted). No LoRa hardware needed: runs fully
   against a local `meshtasticd -s` simulation. → [`apps/meshtastic/README.md`](apps/meshtastic/README.md)
 

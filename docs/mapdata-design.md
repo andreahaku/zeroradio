@@ -6,8 +6,10 @@ Scope: shared background map layer for the geo-radar used by ADS-B, Meshtastic a
 ## Phase 1 — what shipped
 
 - Compact `.rmap` binary format + `tools/mapdata/build_mapdata.py` (Natural Earth
-  coast + national borders, clipped to Italy/Adriatic, Douglas-Peucker, quantized
-  to uint16 → `assets/mapdata/adriatic.rmap`, ~15 KB).
+  land + coast + national borders, Douglas-Peucker, quantized to uint16). Now ships
+  a **worldwide** dataset (`assets/mapdata/world.rmap`, 50m, ~323 KB) so the map
+  works anywhere — both apps load it; regenerate a high-detail regional cut with
+  `--bbox <lon,lat,lon,lat> --scale 10m`. (Was Italy/Adriatic-only, ~26 KB.)
 - `toolkit::geo::project_mercator()` + `clip_segment()`.
 - `toolkit/src/map/`: `VectorMap` loader + shared `map_renderer` base layer.
 - Meshtastic Map view: radar (azimuthal PPI) ↔ Mercator map toggle (key 8 +
