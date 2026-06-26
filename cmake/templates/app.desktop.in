@@ -2,8 +2,10 @@
 Type=Application
 Name=@APP_DISPLAY_NAME@
 Comment=@APP_PACKAGE_DESCRIPTION@
-Exec=/usr/bin/@PROJECT_NAME@
-Icon=share/images/template.png
+# APPLauncher installs app binaries under /usr/share/APPLaunch/bin/ and resolves
+# Exec from there (see the shipped AppStore .desktop), not /usr/bin.
+Exec=/usr/share/APPLaunch/bin/@PROJECT_NAME@
+Icon=share/images/@PROJECT_NAME@.png
 Terminal=false
 Categories=Utility;
 StartupNotify=false

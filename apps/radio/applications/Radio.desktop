@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Radio
+Comment=SDR, ADS-B and Meshtastic radio apps
+Exec=/usr/share/APPLaunch/bin/radio_app
+Icon=share/images/radio.png
+Terminal=false
+Type=Application

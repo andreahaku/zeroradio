@@ -230,4 +230,38 @@ lv_display_t* remote_fb_create(int width, int height, int port) {
     return disp;
 }
 
+void remote_fb_destroy() {
+    if (!g_running.exchange(false) && !g_server_thread.joinable() && !g_draw_buf) {
+        return; // never started (or already torn down)
+    }
+
+    // Unblock the server thread: it may be parked in accept() on the listening
+    // socket or in recv() on a connected client. shutdown() forces both to
+    // return so the loop observes g_running == false and exits.
+    const int client = g_client.exchange(-1);
+    if (client >= 0) {
+        ::shutdown(client, SHUT_RDWR);
+        ::close(client);
+    }
+    if (g_srv >= 0) {
+        ::shutdown(g_srv, SHUT_RDWR);
+    }
+
+    if (g_server_thread.joinable()) {
+        g_server_thread.join();
+    }
+    g_srv = -1;
+
+    std::free(g_draw_buf);
+    g_draw_buf = nullptr;
+    g_disp = nullptr;
+
+    {
+        std::lock_guard<std::mutex> lock(g_key_mutex);
+        g_key_queue.clear();
+        g_last_key = 0;
+    }
+    g_need_refresh.store(false);
+}
+
 } // namespace platform

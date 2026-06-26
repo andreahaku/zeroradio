@@ -105,6 +105,13 @@ struct EvdevKeypad {
 uint32_t map_evdev_key(uint16_t code) {
     switch (code) {
         case KEY_ESC:        return LV_KEY_ESC;
+        // Arrow keys + enter drive list navigation (the Radio hub menu and the
+        // aircraft/node/ship lists): a portable selection scheme alongside the
+        // 4-8 nav bar. Ignored by screens that don't consume them.
+        case KEY_UP:         return LV_KEY_UP;
+        case KEY_DOWN:       return LV_KEY_DOWN;
+        case KEY_LEFT:       return LV_KEY_LEFT;
+        case KEY_RIGHT:      return LV_KEY_RIGHT;
         // Digits, dot, backspace and enter feed the frequency dialog (and the
         // nav routing for 4-8). The rest are ignored outside the dialog.
         case KEY_0:          return '0';

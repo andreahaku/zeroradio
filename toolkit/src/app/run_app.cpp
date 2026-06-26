@@ -107,7 +107,8 @@ void quit_handler_trampoline(void* ctx) {
 
 int run_app(ShellViewModel& shell,
             app::AssetManager& assets,
-            const std::function<lv_obj_t*()>& build_root) {
+            const std::function<lv_obj_t*()>& build_root,
+            const std::function<void()>& on_teardown) {
     logger::Logger::init();
     logger::Logger::set_tag("cardputer-radio");
 
@@ -161,6 +162,26 @@ int run_app(ShellViewModel& shell,
     // shell / screen (matters if run_app() is ever re-entered, e.g. as a plugin).
     platform::set_quit_handler(nullptr, nullptr);
     platform::set_key_capture(nullptr, nullptr);
+
+    // Re-entrant teardown (the Radio hub): give the display back so a spawned
+    // child can claim the single framebuffer/port. The caller deletes its screen
+    // graph in on_teardown() — while the display is still alive — then we drop
+    // every indev, stop the remote-fb server (no-op if unused) and delete the
+    // display. lv_deinit() is intentionally left to the host (after its
+    // AssetManager has freed its freetype fonts).
+    if (on_teardown) {
+        on_teardown();
+
+        lv_indev_t* indev = lv_indev_get_next(nullptr);
+        while (indev) {
+            lv_indev_t* next = lv_indev_get_next(indev);
+            lv_indev_delete(indev);
+            indev = next;
+        }
+
+        platform::remote_fb_destroy();
+        lv_display_delete(display);
+    }
 
     return 0;
 }
