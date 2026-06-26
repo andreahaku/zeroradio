@@ -439,7 +439,11 @@ target_link_libraries(radio_toolkit
 # ====================================================
 # apps
 # ====================================================
+# Host-side unit tests (e.g. the AIS decoder parity test) register with CTest.
+enable_testing()
+
 add_subdirectory(apps/adsb)
 add_subdirectory(apps/sdr)
 add_subdirectory(apps/meshtastic)
 add_subdirectory(apps/radio)
+add_subdirectory(apps/ais)
