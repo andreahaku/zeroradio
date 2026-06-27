@@ -71,10 +71,13 @@ void HubScreen::build() {
     lv_obj_set_scroll_dir(list, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(list, LV_SCROLLBAR_MODE_OFF);
     lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(list, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
+    // Top-anchored (not centred) on the main axis: centring fights scroll_to_view
+    // when the list overflows, leaving the last row off-screen yet selectable.
+    lv_obj_set_flex_align(list, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
                           LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_row(list, 4, 0);
     lv_obj_set_style_pad_hor(list, 8, 0);
+    lv_obj_set_style_pad_ver(list, 4, 0);
 
     auto* icon_font = assets_.load_font("Phosphor-Fill.ttf", 22);
     auto* name_font = assets_.load_font("inter-semibold.ttf", 16);
