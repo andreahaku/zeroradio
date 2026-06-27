@@ -7,39 +7,133 @@
 #pragma once
 
 #include "ais_viewmodel.h"
+#include "app_config.h"
 #include "base_screen.h"
 #include "entity_store.h"
+#include "map_renderer.h"
+#include "vector_map.h"
 
 #include "lvgl.h"
 
+#include <cstdint>
+#include <deque>
 #include <functional>
+#include <map>
+#include <string>
+#include <vector>
 
 namespace ais {
 
-// First-cut AIS viewer: a TitleBar + a scrolling table of vessels (MMSI,
-// position, SOG, COG) snapshotted from the EntityStore on a ~500 ms timer. The
-// radar/Mercator map view (reusing apps/adsb's render_scope) is a follow-up.
+// The AIS viewer screen — a port of AdsbScreen. A header row (app name + count +
+// conn dot) and a body that switches between List / PPI radar / Mercator map /
+// Detail / Settings, all driven by a ~300 ms snapshot of the EntityStore. The
+// rendering machinery (range rings, projection, trails, side lists, mini-radar)
+// is shared with ADS-B; only the per-contact data are vessel fields.
 class AisScreen : public screen::BaseScreen {
 public:
     AisScreen(AisViewModel& vm,
               app::AssetManager& assets,
               toolkit::EntityStore& store,
+              const toolkit::Config& config,
               std::function<bool()> conn_state);
     ~AisScreen() override;
 
 protected:
     void build_content(lv_obj_t* content) override;
-    bool show_title_bar() const override { return true; }
+    bool show_title_bar() const override { return false; }
+    bool overlay_nav_bar() const override { return false; }
 
 private:
     static void tick_cb(lv_timer_t* timer);
     void tick();
+    static void list_draw_event_cb(lv_event_t* event);
+
+    // A compact, sorted view row built from the store snapshot each tick.
+    struct Row {
+        std::string id;          // MMSI
+        std::string name;        // AIS type 5/24 name (absent for 1/2/3 -> "")
+        bool has_pos{false};
+        toolkit::geo::LatLon pos{};
+        bool has_sog{false};
+        double sog{0.0};         // knots
+        bool has_cog{false};
+        double cog{0.0};         // degrees
+        bool has_hdg{false};
+        long hdg{0};             // degrees
+        int  nav_status{-1};     // -1 absent, else 0-15
+        bool has_seen{false};
+        long seen{0};
+        double range_nm{0.0};
+        double bearing_deg{0.0};
+    };
+
+    std::vector<Row> build_all_rows();
+    void apply_sort(std::vector<Row>& rows);
+    int row_of(const std::vector<Row>& rows, const std::string& id) const;
+    void update_header();
+    void update_list(const std::vector<Row>& rows);
+    void record_trails(const std::vector<Row>& rows);
+    void render_scope(uint16_t* buf, int width, int height, lv_obj_t* canvas,
+                      std::vector<lv_obj_t*>& ring_labels,
+                      const std::vector<Row>& rows, int sel, bool show_others,
+                      bool mercator = false);
+    void update_ppi(const std::vector<Row>& rows);
+    void update_detail(const std::vector<Row>& rows);
+    void update_settings();
+    void show_view(int screen);
 
     AisViewModel& vm_;
     toolkit::EntityStore& store_;
+    toolkit::Config config_;
     std::function<bool()> conn_state_;
-    lv_obj_t* table_{nullptr};
-    lv_timer_t* timer_{nullptr};
+
+    // Header.
+    lv_obj_t* header_       = nullptr;
+    lv_obj_t* header_title_ = nullptr;
+    lv_obj_t* header_count_ = nullptr;
+    lv_obj_t* conn_dot_     = nullptr;
+
+    // Body containers (one shown at a time).
+    lv_obj_t* body_            = nullptr;
+    lv_obj_t* list_view_       = nullptr;
+    lv_obj_t* list_table_      = nullptr;
+    lv_obj_t* ppi_canvas_      = nullptr;
+    lv_obj_t* ppi_canvas_merc_ = nullptr;
+    lv_obj_t* radar_left_      = nullptr;
+    lv_obj_t* radar_right_     = nullptr;
+    std::vector<lv_obj_t*> radar_left_rows_;
+    std::vector<lv_obj_t*> radar_right_rows_;
+    lv_obj_t* detail_box_     = nullptr;
+    lv_obj_t* detail_label_   = nullptr;
+    lv_obj_t* detail_values_  = nullptr;
+    lv_obj_t* detail_names_b_ = nullptr;
+    lv_obj_t* detail_values_b_ = nullptr;
+    lv_obj_t* detail_msg_     = nullptr;
+    lv_obj_t* detail_canvas_  = nullptr;
+    lv_obj_t* settings_box_   = nullptr;
+    lv_obj_t* settings_table_ = nullptr;
+    int       settings_sel_row_ = -1;
+    static void settings_draw_event_cb(lv_event_t* event);
+
+    std::vector<lv_obj_t*> ppi_ring_labels_;
+    std::vector<lv_obj_t*> detail_ring_labels_;
+    std::vector<lv_color_t> list_row_colors_;
+    int list_sel_row_ = -1;
+
+    std::map<std::string, std::deque<toolkit::geo::LatLon>> trails_;
+
+    std::vector<uint16_t> ppi_buf_;
+    std::vector<uint16_t> ppi_buf_merc_;
+    std::vector<uint16_t> detail_buf_;
+    toolkit::map::VectorMap base_map_;
+
+    const lv_font_t* font_small_ = nullptr;
+    const lv_font_t* font_mono_  = nullptr;
+    const lv_font_t* font_bold_  = nullptr;
+    const lv_font_t* font_tiny_  = nullptr;
+
+    int last_view_ = -1;
+    lv_timer_t* timer_ = nullptr;
 };
 
 } // namespace ais

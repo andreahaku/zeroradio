@@ -5,9 +5,11 @@ decoding **AIS** (Automatic Identification System) position reports the way `app
 aircraft. It is a **port of the ADS-B app**: same shared toolkit (reactive MVVM shell, `EntityStore`,
 SDL simulator / device backends), a different decoder and field mapping.
 
-> Status (2026-06-26): the AIVDM decoder (message types 1/2/3) is implemented and **unit-tested against
-> a two-source oracle** (gpsd's `gpsdecode` + `pyais`); the app builds green and lists decoded vessels.
-> The radar/Mercator-map view (reusing `apps/adsb`'s `render_scope`) is the next step — see Follow-ups.
+> Status (2026-06-27): the AIVDM decoder (message types 1/2/3) is implemented and **unit-tested against
+> a two-source oracle** (gpsd's `gpsdecode` + `pyais`). The full viewer is a port of ADS-B — the same
+> **List / Radar (PPI) / Mercator map / Detail / Settings** screens — render-proven on the SDL
+> simulator with vessels plotted, the per-contact data being vessel fields. A no-fix vessel (sentinel
+> position) is correctly listed with `-` and never plotted. Name/ship-type (AIS type 5) is the next step.
 
 ## The thesis: decode on a host, view on the device
 
@@ -30,7 +32,7 @@ RTL-SDR --> rtl_ais (host: GMSK/HDLC/CRC/armor) --> !AIVDM lines --> [ais_app] p
 | **Decoder** | `src/decoder/ais_decoder.{h,cpp}` | `parse_aivdm()` + `Vessel`. Pure (std-only), no LVGL/toolkit, so the unit test links it standalone. The new code vs ADS-B's `parse_aircraft_json`. |
 | Model map | `src/model/vessel_store.{h,cpp}` | `parse_nmea_lines()` + `apply_to_store()` — mirrors ADS-B's `apply_to_store` (sparse field bag keyed by MMSI). |
 | Source | reuses `toolkit::FileJsonSource` | polls the NMEA file; the callback splits lines and decodes each. `AIS_NMEA` overrides the bundled mock. |
-| ViewModel / View | `src/viewmodel/ais_viewmodel.*`, `src/view/ais_screen.*` | first cut: a vessel list (MMSI / position / SOG / COG) on the shared `BaseScreen`. |
+| ViewModel / View | `src/viewmodel/ais_viewmodel.*`, `src/view/ais_screen.*` | a port of `AdsbViewModel`/`AdsbScreen`: List / Radar (PPI) / Mercator map / Detail / Settings, the same 5-key nav, range/trails/map-toggle/cursor/selection machinery and persisted settings. Vessels are coloured by **navigation status**, the marker points along **COG**, and the Detail decodes the nav-status text. `AIS_HOME_LAT/LON` / `AIS_TTL` re-centre/age the radar. |
 
 ## The decoder (message types 1/2/3)
 
@@ -83,8 +85,11 @@ app polls (or extend `nmea` ingestion to a TCP/UDP line source — see Follow-up
 
 ## Follow-ups
 
-- **Radar / Mercator map view** — reuse `apps/adsb`'s `render_scope` + `toolkit::map::VectorMap` to
-  draw vessels on the PPI and the world map (the list is the first cut).
-- **More message types** — static/voyage data (type 5: name, callsign, dimensions), type 24, etc.
-- **Live line source** — a TCP/UDP NMEA reader (rtl_ais can stream), instead of polling a file.
-- **Hub entry** — add AIS to the `apps/radio` launcher catalog once the view is fleshed out.
+- **Vessel name + ship type (AIS type 5)** — the static/voyage report carries the name, callsign,
+  ship type and dimensions, but it is a **multi-fragment** message (and type 24 part A/B) not yet
+  decoded. Until then the Detail shows MMSI + dynamics only (no NAME field, by design — it would
+  otherwise sit empty waiting for data that types 1/2/3 never carry). Adding it means a multipart
+  AIVDM reassembler keyed on the sequential message id.
+- **Live line source** — a TCP/UDP NMEA reader (rtl_ais / AIS-catcher can stream), instead of polling
+  a file.
+- **Done:** the Radar/Mercator-map/Detail/Settings views (ADS-B parity) and the `apps/radio` hub entry.

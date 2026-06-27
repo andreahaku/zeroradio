@@ -31,6 +31,7 @@ inline const std::vector<AppEntry>& app_catalog() {
     static const std::vector<AppEntry> kCatalog = {
         {"sdr", "SDR", "Spectrum & demod", view::ICON_BROADCAST, "sdr_app", "sdr"},
         {"adsb", "ADS-B", "Aircraft radar & map", view::ICON_MAP_TOGGLE, "adsb_app", "adsb"},
+        {"ais", "AIS", "Marine vessel radar & map", view::ICON_MODE, "ais_app", "ais"},
         {"meshtastic", "Meshtastic", "Mesh nodes & messages", view::ICON_BAND, "meshtastic_app", "meshtastic"},
     };
     return kCatalog;

@@ -66,7 +66,10 @@ void HubScreen::build() {
     lv_obj_set_size(list, view::kScreenWidth,
                     view::kScreenHeight - view::kTitleBarHeight - kFooterHeight);
     lv_obj_align(list, LV_ALIGN_TOP_MID, 0, view::kTitleBarHeight);
-    lv_obj_clear_flag(list, LV_OBJ_FLAG_SCROLLABLE);
+    // Vertically scrollable so the menu holds more apps than fit at once (the
+    // selected row is scrolled into view in apply_highlight); scrollbar hidden.
+    lv_obj_set_scroll_dir(list, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(list, LV_SCROLLBAR_MODE_OFF);
     lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(list, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
                           LV_FLEX_ALIGN_CENTER);
@@ -146,6 +149,11 @@ void HubScreen::apply_highlight() {
             lv_obj_set_style_bg_opa(row, LV_OPA_30, 0);
             lv_obj_set_style_text_color(row, pal.text, 0);
         }
+    }
+
+    // Keep the highlighted row visible when the menu has more apps than fit.
+    if (selected >= 0 && selected < static_cast<int>(rows_.size())) {
+        lv_obj_scroll_to_view(rows_[static_cast<size_t>(selected)], LV_ANIM_OFF);
     }
 }
 
