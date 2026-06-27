@@ -76,20 +76,23 @@ ctest --test-dir build/linux-x86-64 -C Debug --output-on-failure   # ais_decoder
 ## Run
 
 ```bash
-./build/linux-x86-64/apps/ais/Debug/ais_app           # SDL window, bundled mock NMEA
-AIS_NMEA=/path/to/stream.nmea ./build/.../ais_app      # live: point at rtl_ais output
+./build/linux-x86-64/apps/ais/Debug/ais_app             # SDL window, bundled mock NMEA
+AIS_NMEA=/path/to/stream.nmea ./build/.../ais_app        # poll a file of !AIVDM lines
+AIS_UDP=10110 ./build/.../ais_app                        # live: bind a UDP port (rtl_ais default)
+AIS_TCP=127.0.0.1:4001 ./build/.../ais_app               # live: connect TCP (AIS-catcher / aggregator)
 ```
 
-To feed it live: run `rtl_ais` (or AIS-catcher) on the host and tee its `!AIVDM` output to a file the
-app polls (or extend `nmea` ingestion to a TCP/UDP line source — see Follow-ups).
+To feed it live: run `rtl_ais` (UDP, e.g. `-n` to `127.0.0.1:10110`) or AIS-catcher (UDP/TCP) on the
+host; `NmeaNetSource` (in the toolkit) receives the `!AIVDM` lines, reassembling multi-fragment
+sentences split across datagrams. `AIS_HOME_LAT/LON` re-centre the radar on your receiver.
 
 ## Follow-ups
 
-- **Vessel name + ship type (AIS type 5)** — the static/voyage report carries the name, callsign,
-  ship type and dimensions, but it is a **multi-fragment** message (and type 24 part A/B) not yet
-  decoded. Until then the Detail shows MMSI + dynamics only (no NAME field, by design — it would
-  otherwise sit empty waiting for data that types 1/2/3 never carry). Adding it means a multipart
-  AIVDM reassembler keyed on the sequential message id.
-- **Live line source** — a TCP/UDP NMEA reader (rtl_ais / AIS-catcher can stream), instead of polling
-  a file.
-- **Done:** the Radar/Mercator-map/Detail/Settings views (ADS-B parity) and the `apps/radio` hub entry.
+- **Type 24 (Class B static)** — name/type for Class B transponders (small craft) arrive in type 24
+  part A/B rather than type 5; decoding them would name those vessels too. Dimensions/ETA/draught
+  from type 5 are also still unused.
+- **AIS-specific niceties** — CPA/TCPA, MMSI-flag (country) lookup, a richer Detail page now that
+  static data is available.
+- **Done:** the AIVDM decoder (types 1/2/3 + type 5 with multipart reassembly: name / callsign /
+  ship type / destination), the Radar/Mercator-map/Detail/Settings views (ADS-B parity), the live
+  UDP/TCP NMEA source (`AIS_UDP` / `AIS_TCP`), and the `apps/radio` hub entry.

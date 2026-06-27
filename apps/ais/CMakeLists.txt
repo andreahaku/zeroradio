@@ -23,6 +23,11 @@ if(USE_DESKTOP)
     add_executable(ais_decoder_test ${CMAKE_CURRENT_SOURCE_DIR}/test/ais_decoder_test.cpp)
     target_link_libraries(ais_decoder_test PRIVATE ais_decoder)
     add_test(NAME ais_decoder_test COMMAND ais_decoder_test)
+
+    # Loopback test for the live UDP NMEA source (lives in radio_toolkit).
+    add_executable(nmea_net_test ${CMAKE_CURRENT_SOURCE_DIR}/test/nmea_net_test.cpp)
+    target_link_libraries(nmea_net_test PRIVATE ais_decoder radio_toolkit lvgl)
+    add_test(NAME nmea_net_test COMMAND nmea_net_test)
 endif()
 
 # ====================================================

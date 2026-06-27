@@ -10,10 +10,13 @@
 #include "asset_manager.h"
 #include "entity_store.h"
 #include "file_json_source.h"
+#include "nmea_net_source.h"
 #include "run_app.h"
 #include "vessel_store.h"
 
+#include <cstdint>
 #include <cstdlib>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -52,32 +55,59 @@ int main() {
         }
     }
 
-    std::string nmea_path = APP_MOCK_NMEA_PATH;
-    if (const char* env = std::getenv("AIS_NMEA"); env && env[0] != '\0') {
-        nmea_path = env;
+    // One reassembler per source: type 5 (name/type) spans two fragments, which
+    // must be joined before decoding. Read on the source thread only.
+    ais::AivdmReassembler reassembler;
+    auto on_nmea = [&store, &reassembler](const std::string& nmea) {
+        ais::apply_nmea(reassembler, store, nmea);
+    };
+
+    // Source selection (live feed from rtl_ais / AIS-catcher, else the mock file):
+    //   AIS_UDP=<port>          -> bind a UDP port (rtl_ais default: 10110)
+    //   AIS_TCP=<host>:<port>   -> connect TCP (AIS-catcher / aggregators)
+    //   AIS_NMEA=<file> / unset -> poll a file of !AIVDM lines (bundled mock)
+    std::unique_ptr<toolkit::NmeaNetSource> net_source;
+    std::unique_ptr<toolkit::FileJsonSource> file_source;
+    std::function<bool()> conn_state;
+
+    if (const char* udp = std::getenv("AIS_UDP"); udp && udp[0] != '\0') {
+        const auto port = static_cast<uint16_t>(std::atoi(udp));
+        net_source = std::make_unique<toolkit::NmeaNetSource>(
+            toolkit::NmeaNetSource::Protocol::Udp, "", port, on_nmea);
+    } else if (const char* tcp = std::getenv("AIS_TCP"); tcp && tcp[0] != '\0') {
+        std::string spec = tcp; // host:port
+        std::string host = "127.0.0.1";
+        uint16_t port = 0;
+        if (const auto colon = spec.find(':'); colon != std::string::npos) {
+            host = spec.substr(0, colon);
+            port = static_cast<uint16_t>(std::atoi(spec.c_str() + colon + 1));
+        } else {
+            port = static_cast<uint16_t>(std::atoi(spec.c_str()));
+        }
+        net_source = std::make_unique<toolkit::NmeaNetSource>(
+            toolkit::NmeaNetSource::Protocol::Tcp, host, port, on_nmea);
     }
 
-    // One reassembler per source: type 5 (name/type) spans two fragments, which
-    // must be joined before decoding. Read on the poller thread only.
-    ais::AivdmReassembler reassembler;
-
-    // Reuse the toolkit's file poller (same lifecycle as ADS-B's): it reads the
-    // whole NMEA file each tick; we split it into sentences and decode each.
-    toolkit::FileJsonSource source(
-        nmea_path,
-        [&store, &reassembler](const std::string& nmea) {
-            ais::apply_nmea(reassembler, store, nmea);
-        },
-        2000);
-    source.start();
+    if (net_source) {
+        net_source->start();
+        conn_state = [src = net_source.get()]() { return src->ok(); };
+    } else {
+        std::string nmea_path = APP_MOCK_NMEA_PATH;
+        if (const char* env = std::getenv("AIS_NMEA"); env && env[0] != '\0') {
+            nmea_path = env;
+        }
+        file_source = std::make_unique<toolkit::FileJsonSource>(nmea_path, on_nmea, 2000);
+        file_source->start();
+        conn_state = [src = file_source.get()]() { return src->ok(); };
+    }
 
     std::unique_ptr<ais::AisScreen> screen;
     const int rc = toolkit::run_app(view_model, assets, [&]() -> lv_obj_t* {
-        screen = std::make_unique<ais::AisScreen>(
-            view_model, assets, store, config, [&source]() { return source.ok(); });
+        screen = std::make_unique<ais::AisScreen>(view_model, assets, store, config, conn_state);
         return screen->root();
     });
 
-    source.stop();
+    if (net_source) net_source->stop();
+    if (file_source) file_source->stop();
     return rc;
 }
