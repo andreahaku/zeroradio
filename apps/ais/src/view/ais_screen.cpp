@@ -6,6 +6,7 @@
 
 #include "ais_screen.h"
 
+#include "ais_decoder.h"
 #include "asset_manager.h"
 #include "bindings.h"
 #include "geo.h"
@@ -396,7 +397,9 @@ void AisScreen::build_content(lv_obj_t* content) {
     detail_values_   = mk(38,  0, fr, 74);
     detail_names_b_  = mk(116, 0, fb, 0);
     detail_values_b_ = mk(150, 0, fr, 46);
-    detail_msg_      = mk(0, 104, fb, 190);
+    // Smaller font + wrap for the identity line: it can run long (callsign · ship
+    // type · destination · nav status) and must fit the width left of the radar.
+    detail_msg_      = mk(0, 102, font_tiny_ ? font_tiny_ : fr, 192);
     lv_label_set_long_mode(detail_msg_, LV_LABEL_LONG_WRAP);
     // No NAME row: the vessel name comes from AIS type 5 (static/voyage, a
     // multipart message not yet decoded) — see apps/ais/README.md. The MMSI is
@@ -482,6 +485,12 @@ std::vector<AisScreen::Row> AisScreen::build_all_rows() {
         Row r;
         r.id = e.id;
         r.name = field_str(e, "name");
+        r.callsign = field_str(e, "callsign");
+        r.destination = field_str(e, "destination");
+        {
+            bool has_type = false;
+            r.ship_type = static_cast<int>(field_long(e, "shiptype", has_type));
+        }
         r.has_pos = e.has_pos;
         r.pos = e.pos;
         r.sog = field_double(e, "sog", r.has_sog);
@@ -823,8 +832,25 @@ void AisScreen::update_detail(const std::vector<Row>& rows) {
     const std::string seen_s = r.has_seen ? (std::to_string(r.seen) + "s") : std::string("-");
     const std::string stat_s = r.nav_status >= 0 ? std::to_string(r.nav_status) : std::string("-");
 
+    // The wide bottom line carries the type-5 identity (callsign / ship type /
+    // destination) plus the nav-status text — the long strings that don't fit the
+    // two-column grid. The vessel name is already the header title, so it is not
+    // repeated here. Built from whatever is known; " · "-separated.
+    std::string msg;
+    const auto add = [&msg](const std::string& part) {
+        if (part.empty()) return;
+        if (!msg.empty()) msg += " \xC2\xB7 "; // · separator
+        msg += part;
+    };
+    if (!r.callsign.empty()) add("(" + r.callsign + ")");
+    if (r.ship_type != 0) {
+        const char* tl = ais::ship_type_label(r.ship_type);
+        add((tl && tl[0]) ? std::string(tl) : ("type " + std::to_string(r.ship_type)));
+    }
+    if (!r.destination.empty()) add("\xE2\x86\x92" + r.destination); // →DEST
     const char* nav_txt = nav_status_text(r.nav_status);
-    std::string msg = (nav_txt && nav_txt[0]) ? nav_txt : "nominal";
+    if (nav_txt && nav_txt[0]) add(nav_txt);
+    if (msg.empty()) msg = "nominal";
 
     char va[192];
     std::snprintf(va, sizeof(va), "%s\n%s\n%s\n%s\n%s",

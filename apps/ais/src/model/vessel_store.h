@@ -10,16 +10,18 @@
 #include "entity_store.h"
 
 #include <string>
-#include <vector>
 
 namespace ais {
 
-// Decode every !AIVDM line in `nmea` (one sentence per line) into Vessels.
-// Lines that are not a valid type 1/2/3 position report are skipped.
-std::vector<Vessel> parse_nmea_lines(const std::string& nmea);
+// Merge one decoded Vessel into the shared EntityStore (keyed by MMSI), mirroring
+// ADS-B's apply_to_store: a sparse field bag, position only when available.
+// Position (1/2/3) and static (type 5) reports merge into the same record.
+void apply_to_store(toolkit::EntityStore& store, const Vessel& vessel);
 
-// Merge vessels into the shared EntityStore (keyed by MMSI), mirroring ADS-B's
-// apply_to_store: sparse field bag, position only when available.
-void apply_to_store(toolkit::EntityStore& store, const std::vector<Vessel>& vessels);
+// Feed a blob of newline-separated !AIVDM sentences through `re` (which persists
+// the partial state of multi-fragment messages across calls) and merge every
+// completed message into the store. Use one AivdmReassembler per source so that
+// fragments split across reads/datagrams still reassemble.
+void apply_nmea(AivdmReassembler& re, toolkit::EntityStore& store, const std::string& nmea);
 
 } // namespace ais

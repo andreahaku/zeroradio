@@ -57,13 +57,16 @@ int main() {
         nmea_path = env;
     }
 
+    // One reassembler per source: type 5 (name/type) spans two fragments, which
+    // must be joined before decoding. Read on the poller thread only.
+    ais::AivdmReassembler reassembler;
+
     // Reuse the toolkit's file poller (same lifecycle as ADS-B's): it reads the
     // whole NMEA file each tick; we split it into sentences and decode each.
     toolkit::FileJsonSource source(
         nmea_path,
-        [&store](const std::string& nmea) {
-            const auto vessels = ais::parse_nmea_lines(nmea);
-            ais::apply_to_store(store, vessels);
+        [&store, &reassembler](const std::string& nmea) {
+            ais::apply_nmea(reassembler, store, nmea);
         },
         2000);
     source.start();

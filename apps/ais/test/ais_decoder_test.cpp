@@ -44,6 +44,26 @@ const Expect kVectors[] = {
     {"V5_canonical_real", "!AIVDM,1,1,,B,177KQJ5000G?tO`K>RA1wUbN0TKH,0*5C", 1, 477553000u, true, 47.5828330, -122.3458330, true, 0.0, true, 51.0, true, 181, 5},
 };
 
+// Type-5 (static/voyage) oracle: each message is TWO AIVDM fragments that the
+// reassembler must join before decoding. Expected values agreed by gpsdecode +
+// pyais (scratchpad gen_type5.py). Exercises multipart reassembly + 6-bit text.
+struct StaticExpect {
+    const char* frag1;
+    const char* frag2;
+    unsigned mmsi;
+    const char* name;
+    const char* callsign;
+    int ship_type;
+    const char* destination;
+};
+
+// === type-5 oracle (frozen, two-source). Generated. ===
+const StaticExpect kStatic[] = {
+    {"!AIVDM,2,1,0,A,53cajJP00000T<@p000LDpt60EQ18E=<0000001600000000001iCSmP@000,0*68", "!AIVDM,2,2,0,A,00000000000,2*24", 247100010u, "GENOA EXPRESS", "ICDN", 70, "GENOVA"},
+    {"!AIVDM,2,1,0,A,53cajM000000T95C800hTME8T61=@5800000001@000000000032ESlSSh00,0*68", "!AIVDM,2,2,0,A,00000000000,2*24", 247100020u, "LIGURIA STAR", "IBQT2", 80, "LIVORNO"},
+    {"!AIVDM,2,1,0,A,53cajOP00000U`4H000<UAV0tJ0LDpt40000000t00000000000PDPiC3kP@,0*07", "!AIVDM,2,2,0,A,00000000000,2*24", 247100030u, "CITY OF GENOA", "IZAF", 60, "BARCELONA"},
+};
+
 int g_fails = 0;
 
 void check(bool ok, const char* name, const char* field) {
@@ -104,9 +124,46 @@ int main() {
     check(!ais::parse_aivdm("!AIVDM,1,1,,A,11mg=5@P1s157m0EMB`3Ojl1P000,1*18", junk),
           "bad_fill_bits", "should reject");
 
+    // --- Type 5 + multipart reassembly ---
+    for (const auto& e : kStatic) {
+        ais::AivdmReassembler re;
+        ais::Vessel v1;
+        // Fragment 1 alone completes nothing.
+        check(!re.feed(e.frag1, v1), e.name, "frag1 should not complete");
+        // Fragment 2 completes the message and decodes the static fields.
+        ais::Vessel v;
+        const bool done = re.feed(e.frag2, v);
+        check(done, e.name, "frag2 should complete");
+        if (done) {
+            check(v.msg_type == 5, e.name, "type5 msg_type");
+            check(v.mmsi == e.mmsi, e.name, "type5 mmsi");
+            check(v.name == e.name, e.name, "type5 name");
+            check(v.callsign == e.callsign, e.name, "type5 callsign");
+            check(v.ship_type == e.ship_type, e.name, "type5 ship_type");
+            check(v.destination == e.destination, e.name, "type5 destination");
+        }
+    }
+
+    // The reassembler also passes single-fragment position reports through.
+    {
+        ais::AivdmReassembler re;
+        ais::Vessel v;
+        const bool ok = re.feed(kVectors[0].sentence, v);
+        check(ok && v.msg_type == 1 && v.mmsi == kVectors[0].mmsi, "reassembler_single",
+              "single-fragment position via reassembler");
+    }
+    // A stray second fragment with no first fragment must be dropped, not crash.
+    {
+        ais::AivdmReassembler re;
+        ais::Vessel v;
+        check(!re.feed(kStatic[0].frag2, v), "reassembler_orphan", "orphan frag2 dropped");
+    }
+
     const int total = static_cast<int>(sizeof(kVectors) / sizeof(kVectors[0]));
+    const int total5 = static_cast<int>(sizeof(kStatic) / sizeof(kStatic[0]));
     if (g_fails == 0) {
-        std::printf("AIS decoder: %d/%d vectors OK\n", total, total);
+        std::printf("AIS decoder: %d/%d position + %d/%d static vectors OK\n",
+                    total, total, total5, total5);
         return 0;
     }
     std::printf("AIS decoder: %d assertion(s) FAILED\n", g_fails);

@@ -51,7 +51,10 @@ private:
     // A compact, sorted view row built from the store snapshot each tick.
     struct Row {
         std::string id;          // MMSI
-        std::string name;        // AIS type 5/24 name (absent for 1/2/3 -> "")
+        std::string name;        // AIS type 5 name (absent until a type 5 arrives)
+        std::string callsign;    // AIS type 5 radio callsign
+        std::string destination; // AIS type 5 voyage destination
+        int ship_type{0};        // AIS type 5 ship-and-cargo code (0 = unknown)
         bool has_pos{false};
         toolkit::geo::LatLon pos{};
         bool has_sog{false};
