@@ -583,21 +583,6 @@ void SpectrumScreen::push_waterfall_row(const float* mags) {
         top[x] = colormap_rgb565(mags[x]);
     }
 
-    // Time grid: stamp a translucent marker line every ~1 s that scrolls down.
-    if (lv_subject_get_int(vm_.time_grid_subject()) != 0) {
-        if (++marker_count_ >= kMarkerPeriodTicks) {
-            marker_count_ = 0;
-            for (int x = 0; x < w; ++x) {
-                top[x] = blend_black(top[x]);
-                if (h > 1) {
-                    top[w + x] = blend_black(top[w + x]);
-                }
-            }
-        }
-    } else {
-        marker_count_ = 0;
-    }
-
     lv_obj_invalidate(waterfall_);
 }
 
