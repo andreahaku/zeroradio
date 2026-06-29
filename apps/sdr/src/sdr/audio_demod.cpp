@@ -12,7 +12,14 @@
 // running spectrum/waterfall only, with audio deferred to a future ALSA port.
 #ifdef SDR_HAVE_AUDIO
 
+#ifdef SDR_HAVE_ALSA
+#include <alsa/asoundlib.h>
+#include <cerrno>
+#include <cstdio>  // fprintf (ALSA error logging)
+#include <cstdlib> // getenv
+#else
 #include <SDL2/SDL.h>
+#endif
 
 #include <atomic>
 #include <cmath>
@@ -148,8 +155,17 @@ struct AudioDemod::Impl {
     // AGC (AM/SSB/CW).
     float agc_pk = 1e-3f;
 
-    // SDL audio.
+    // Audio sink: SDL queued audio on the desktop, ALSA (snd_pcm) on the device.
+#ifdef SDR_HAVE_ALSA
+    snd_pcm_t* pcm_dev = nullptr;
+    // Hardware volume via the codec mixer (the app volume IS the device volume).
+    snd_mixer_t* mixer = nullptr;
+    snd_mixer_elem_t* vol_l = nullptr;
+    snd_mixer_elem_t* vol_r = nullptr;
+    long vmin = 0, vmax = 0;
+#else
     SDL_AudioDeviceID dev = 0;
+#endif
     std::vector<float> pcm; // reused per process() call
 
     explicit Impl(double rate) : input_rate(rate) {
@@ -161,6 +177,29 @@ struct AudioDemod::Impl {
 
         build_chain(WFM);
 
+#ifdef SDR_HAVE_ALSA
+        // Device speaker (ES8388 = card 1). plughw lets ALSA convert our float
+        // mono 48k to whatever the codec wants. Override with SDR_ALSA_DEV.
+        const char* dn = std::getenv("SDR_ALSA_DEV");
+        if (!dn || !dn[0]) dn = "plughw:1,0";
+        // Open BLOCKING (more robust than NONBLOCK at open time), then switch the
+        // handle to non-blocking so writei never stalls the FFT/reader thread.
+        int aerr = snd_pcm_open(&pcm_dev, dn, SND_PCM_STREAM_PLAYBACK, 0);
+        if (aerr < 0) {
+            std::fprintf(stderr, "[sdr] ALSA open '%s' failed: %s\n", dn, snd_strerror(aerr));
+            pcm_dev = nullptr;
+        } else {
+            // float LE, mono, 48k, allow resampling, ~0.3 s buffer (latency cap).
+            int perr = snd_pcm_set_params(pcm_dev, SND_PCM_FORMAT_FLOAT_LE,
+                                          SND_PCM_ACCESS_RW_INTERLEAVED, 1, kAudioHz, 1, 300000);
+            if (perr < 0) {
+                std::fprintf(stderr, "[sdr] ALSA set_params failed: %s\n", snd_strerror(perr));
+            }
+            snd_pcm_nonblock(pcm_dev, 1);
+        }
+        open_mixer();
+        volume.store(1.0f); // unity DSP gain: the codec mixer is the volume control
+#else
         if (SDL_InitSubSystem(SDL_INIT_AUDIO) == 0) {
             SDL_AudioSpec want{}, have{};
             want.freq = kAudioHz;
@@ -173,14 +212,69 @@ struct AudioDemod::Impl {
                 SDL_PauseAudioDevice(dev, 0);
             }
         }
+#endif
     }
 
     ~Impl() {
+#ifdef SDR_HAVE_ALSA
+        if (pcm_dev) {
+            snd_pcm_drop(pcm_dev);
+            snd_pcm_close(pcm_dev);
+        }
+        if (mixer) {
+            snd_mixer_close(mixer);
+        }
+#else
         if (dev) {
             SDL_CloseAudioDevice(dev);
         }
         SDL_QuitSubSystem(SDL_INIT_AUDIO);
+#endif
     }
+
+    void set_input_rate(double rate) {
+        if (rate <= 0.0 || rate == input_rate) return;
+        input_rate = rate;
+        m1 = static_cast<int>(std::lround(input_rate / 240000.0));
+        if (m1 < 1) m1 = 1;
+        r1 = input_rate / m1;
+        stage1.init(make_lowpass(47, 100000.0 / input_rate), m1);
+        build_chain(mode); // rebuild the mode filters for the new intermediate rate
+    }
+
+#ifdef SDR_HAVE_ALSA
+    void open_mixer() {
+        const char* card = std::getenv("SDR_ALSA_CARD");
+        if (!card || !card[0]) card = "hw:1"; // ES8388 codec
+        if (snd_mixer_open(&mixer, 0) < 0) { mixer = nullptr; return; }
+        if (snd_mixer_attach(mixer, card) < 0 ||
+            snd_mixer_selem_register(mixer, nullptr, nullptr) < 0 ||
+            snd_mixer_load(mixer) < 0) {
+            snd_mixer_close(mixer);
+            mixer = nullptr;
+            return;
+        }
+        snd_mixer_selem_id_t* sid;
+        snd_mixer_selem_id_alloca(&sid);
+        snd_mixer_selem_id_set_index(sid, 0);
+        snd_mixer_selem_id_set_name(sid, "DACL");
+        vol_l = snd_mixer_find_selem(mixer, sid);
+        snd_mixer_selem_id_set_name(sid, "DACR");
+        vol_r = snd_mixer_find_selem(mixer, sid);
+        if (vol_l) snd_mixer_selem_get_playback_volume_range(vol_l, &vmin, &vmax);
+    }
+
+    // Drive the codec DAC volume from the app's 0..1 setting: the app volume IS
+    // the device (hardware) volume. The demod output stays at unity gain.
+    void set_hw_volume(float v) {
+        if (!mixer || !vol_l) return;
+        if (v < 0.0f) v = 0.0f;
+        if (v > 1.0f) v = 1.0f;
+        const long val = vmin + static_cast<long>((vmax - vmin) * v + 0.5f);
+        snd_mixer_selem_set_playback_volume_all(vol_l, val);
+        if (vol_r) snd_mixer_selem_set_playback_volume_all(vol_r, val);
+    }
+#endif
 
     void build_chain(int m) {
         mode = m;
@@ -297,6 +391,23 @@ struct AudioDemod::Impl {
             }
         }
 
+#ifdef SDR_HAVE_ALSA
+        if (!pcm_dev) return;
+        if (muted.load(std::memory_order_relaxed)) {
+            snd_pcm_drop(pcm_dev);
+            snd_pcm_prepare(pcm_dev);
+            return;
+        }
+        if (pcm.empty()) return;
+        snd_pcm_sframes_t w = snd_pcm_writei(pcm_dev, pcm.data(), pcm.size());
+        if (w == -EPIPE) {                 // underrun: re-prime and retry once
+            snd_pcm_prepare(pcm_dev);
+            snd_pcm_writei(pcm_dev, pcm.data(), pcm.size());
+        } else if (w < 0 && w != -EAGAIN) {
+            snd_pcm_recover(pcm_dev, static_cast<int>(w), 1);
+        }
+        // -EAGAIN: non-blocking buffer full -> drop this chunk, bounding latency.
+#else
         if (!dev) return;
         if (muted.load(std::memory_order_relaxed)) {
             SDL_ClearQueuedAudio(dev);
@@ -309,6 +420,7 @@ struct AudioDemod::Impl {
             SDL_QueueAudio(dev, pcm.data(),
                            static_cast<Uint32>(pcm.size() * sizeof(float)));
         }
+#endif
     }
 };
 
@@ -326,7 +438,14 @@ void AudioDemod::set_muted(bool muted) {
 void AudioDemod::set_volume(float vol) {
     if (vol < 0.0f) vol = 0.0f;
     if (vol > 1.0f) vol = 1.0f;
+#ifdef SDR_HAVE_ALSA
+    impl_->set_hw_volume(vol); // the app volume drives the codec (device) volume
+#else
     impl_->volume.store(vol, std::memory_order_relaxed);
+#endif
+}
+void AudioDemod::set_input_rate(double rate) {
+    impl_->set_input_rate(rate);
 }
 void AudioDemod::process(const std::complex<float>* iq, size_t n) {
     impl_->process(iq, n);
@@ -343,6 +462,7 @@ AudioDemod::~AudioDemod() = default;
 void AudioDemod::set_mode(int) {}
 void AudioDemod::set_muted(bool) {}
 void AudioDemod::set_volume(float) {}
+void AudioDemod::set_input_rate(double) {}
 void AudioDemod::process(const std::complex<float>*, size_t) {}
 } // namespace sdr
 

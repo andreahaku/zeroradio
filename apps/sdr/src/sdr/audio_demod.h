@@ -30,6 +30,7 @@ public:
     void set_mode(int mode);     // rebuilds the demod chain
     void set_muted(bool muted);
     void set_volume(float vol);  // 0..1 master gain
+    void set_input_rate(double input_rate); // rebuild the chain for a new IQ rate
 
     // Demodulate `n` complex baseband samples at input_rate and queue audio.
     void process(const std::complex<float>* iq, size_t n);

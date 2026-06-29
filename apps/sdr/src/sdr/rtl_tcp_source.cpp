@@ -223,6 +223,7 @@ struct RtlTcpSource::Impl {
         const uint32_t init_sr = rate_for_span(span_hz.load(), max_sample_rate);
 #endif
         sample_rate.store(init_sr);
+        audio.set_input_rate(static_cast<double>(init_sr));
         send_cmd(fd, kSetSampleRate, init_sr);
         apply_gain(fd, desired_gain_auto.load(), desired_gain_tenth.load());
         send_cmd(fd, kSetAgcMode, 1);    // RTL2832 digital AGC on
@@ -298,11 +299,10 @@ struct RtlTcpSource::Impl {
                 pending_i = false;
             }
 
-#ifndef SDR_HAVE_AUDIO
             // Follow the page-2 zoom: capture only the visible span (clamped to
             // the RTL minimum and the host's drain ceiling). Changing the rate
-            // invalidates buffered IQ, so flush + restart the frame like a retune.
-            // Gated off when audio is built in: the demod assumes a fixed rate.
+            // invalidates buffered IQ, so flush + restart the frame like a retune,
+            // and rebuild the audio demod for the new intermediate rate.
             const uint32_t want_sr = rate_for_span(span_hz.load(), max_sample_rate);
             if (want_sr != current_sr) {
                 if (!send_cmd(fd, kSetSampleRate, want_sr)) {
@@ -312,13 +312,13 @@ struct RtlTcpSource::Impl {
                 }
                 sample_rate.store(want_sr);
                 current_sr = want_sr;
+                audio.set_input_rate(static_cast<double>(want_sr));
                 while (::recv(fd, buf.data(), buf.size(), MSG_DONTWAIT) > 0) {
                     // discard stale pre-rate-change samples
                 }
                 have = 0;
                 pending_i = false;
             }
-#endif
 
             // Apply a gain change.
             const bool g_auto = desired_gain_auto.load();
