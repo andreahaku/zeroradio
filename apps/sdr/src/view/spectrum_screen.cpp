@@ -112,7 +112,7 @@ SpectrumScreen::SpectrumScreen(SdrViewModel& vm, app::AssetManager& assets)
       vm_(vm),
       source_(make_source()),
       frame_(kBins, 0.0f),
-      wf_buf_(static_cast<size_t>(kWaterfallWidth) * kWaterfallHeight, 0u) {
+      wf_buf_(static_cast<size_t>(kWaterfallWidth) * kMaxWaterfallHeight, 0u) {
     init();
 }
 
@@ -125,6 +125,10 @@ SpectrumScreen::~SpectrumScreen() {
     if (freq_req_observer_) {
         lv_observer_remove(freq_req_observer_);
         freq_req_observer_ = nullptr;
+    }
+    if (wf_split_observer_) {
+        lv_observer_remove(wf_split_observer_);
+        wf_split_observer_ = nullptr;
     }
     if (timer_) {
         lv_timer_delete(timer_);
@@ -200,7 +204,7 @@ void SpectrumScreen::build_content(lv_obj_t* content) {
 
     // --- Waterfall canvas (RGB565, full width) ---
     waterfall_ = lv_canvas_create(content);
-    lv_canvas_set_buffer(waterfall_, wf_buf_.data(), kWaterfallWidth, kWaterfallHeight,
+    lv_canvas_set_buffer(waterfall_, wf_buf_.data(), kWaterfallWidth, kMaxWaterfallHeight,
                          LV_COLOR_FORMAT_RGB565);
     lv_canvas_fill_bg(waterfall_, lv_color_black(), LV_OPA_COVER);
     lv_obj_set_size(waterfall_, kWaterfallWidth, kWaterfallHeight);
@@ -270,6 +274,42 @@ void SpectrumScreen::build_content(lv_obj_t* content) {
 
     // Open the frequency dialog when the ViewModel bumps the request counter.
     freq_req_observer_ = lv_subject_add_observer(vm_.freq_input_req_subject(), freq_req_cb, this);
+
+    // Waterfall/spectrum split (page-3 key 7). Fires immediately with the current
+    // value, applying the initial split.
+    wf_split_observer_ = lv_subject_add_observer(vm_.wf_split_subject(), wf_split_cb, this);
+}
+
+void SpectrumScreen::wf_split_cb(lv_observer_t* observer, lv_subject_t* subject) {
+    auto* self = static_cast<SpectrumScreen*>(lv_observer_get_user_data(observer));
+    if (self) {
+        self->apply_wf_split(lv_subject_get_int(subject));
+    }
+}
+
+void SpectrumScreen::apply_wf_split(int32_t percent) {
+    if (percent < 0) percent = 0;
+    if (percent > 100) percent = 100;
+    int32_t rows = percent * kMaxWaterfallHeight / 100;
+    if (rows > kMaxWaterfallHeight) rows = kMaxWaterfallHeight;
+
+    // Clear newly revealed rows so growing the waterfall doesn't expose stale
+    // history left below the previous visible band.
+    if (rows > wf_rows_ && !wf_buf_.empty()) {
+        std::fill(wf_buf_.begin() + static_cast<size_t>(kWaterfallWidth) * wf_rows_,
+                  wf_buf_.begin() + static_cast<size_t>(kWaterfallWidth) * rows,
+                  uint16_t{0});
+    }
+    wf_rows_ = rows;
+
+    if (waterfall_) {
+        lv_obj_set_height(waterfall_, rows);
+    }
+    if (chart_) {
+        int32_t chart_h = kSplitArea - kRowPad - rows;
+        if (chart_h < 0) chart_h = 0;
+        lv_obj_set_height(chart_, chart_h);
+    }
 }
 
 void SpectrumScreen::freq_req_cb(lv_observer_t* observer, lv_subject_t* subject) {
@@ -516,12 +556,16 @@ void SpectrumScreen::tick() {
 }
 
 void SpectrumScreen::push_waterfall_row(const float* mags) {
-    if (!waterfall_ || wf_buf_.empty()) {
-        return;
+    if (!waterfall_ || wf_buf_.empty() || wf_rows_ <= 0) {
+        return; // 0% split: nothing visible, skip the per-frame work entirely
     }
 
     const int w = kWaterfallWidth;
-    const int h = kWaterfallHeight;
+    // Scroll the WHOLE buffer, not just the visible rows: the canvas can show
+    // rows below the scrolled band (especially right after the split shrinks),
+    // and a partial scroll would leave that lower band frozen with stale data.
+    // The extra memmove is negligible on the CM0 (~3 MB/s).
+    const int h = kMaxWaterfallHeight;
 
     // Scroll everything down by one row (new data at the top, flowing downward).
     std::memmove(wf_buf_.data() + w, wf_buf_.data(),

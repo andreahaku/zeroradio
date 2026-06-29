@@ -67,6 +67,7 @@ lv_subject_t* SdrViewModel::grid_high_text_subject() { return grid_high_text_sub
 lv_subject_t* SdrViewModel::freq_grid_subject()      { return freq_grid_subject_.native(); }
 lv_subject_t* SdrViewModel::time_grid_subject()      { return time_grid_subject_.native(); }
 lv_subject_t* SdrViewModel::peak_hold_subject()      { return peak_hold_subject_.native(); }
+lv_subject_t* SdrViewModel::wf_split_subject()       { return wf_split_subject_.native(); }
 lv_subject_t* SdrViewModel::freq_input_req_subject() { return freq_input_req_subject_.native(); }
 lv_subject_t* SdrViewModel::fine_tune_subject()      { return fine_tune_subject_.native(); }
 lv_subject_t* SdrViewModel::muted_subject()          { return muted_subject_.native(); }
@@ -114,6 +115,15 @@ void SdrViewModel::toggle_time_grid() { model_.toggle_time_grid(); publish_grids
 void SdrViewModel::toggle_peak_hold() {
     model_.toggle_peak_hold();
     peak_hold_subject_.set(model_.peak_hold());
+}
+
+void SdrViewModel::cycle_wf_split() {
+    // Waterfall share (%) of the spectrum+waterfall area. Key 7 steps the split
+    // down (more spectrum line, less waterfall), wrapping back to full waterfall
+    // after "none": mostly -> half -> none -> full -> ...
+    static constexpr int kPresets[] = {80, 50, 0, 100};
+    wf_split_idx_ = (wf_split_idx_ + 1) % 4;
+    wf_split_subject_.set(kPresets[wf_split_idx_]);
 }
 
 void SdrViewModel::toggle_mute() {
@@ -220,7 +230,7 @@ void SdrViewModel::nav_activate(int page, int slot) {
         case Page::Visual:
             if (slot == 1) toggle_dark();
             else if (slot == 2) toggle_freq_grid();
-            else if (slot == 3) toggle_time_grid();
+            else if (slot == 3) cycle_wf_split();
             else if (slot == 4) toggle_peak_hold();
             break;
         case Page::Audio:

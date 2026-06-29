@@ -52,9 +52,28 @@ private:
     static constexpr int32_t kWaterfallHeight = 120;
     static constexpr int     kBins            = kWaterfallWidth; // 1 bin per column
 
+    // The waterfall buffer is allocated at the FULL chart+waterfall area height so
+    // the canvas object can grow to cover the spectrum chart (the "100% waterfall"
+    // split) WITHOUT ever calling lv_canvas_set_buffer again (a runtime resize of
+    // the canvas buffer crashes the flush — see the project memory). Only the
+    // currently visible rows (`wf_rows_`) are scrolled/colormapped per frame, so a
+    // smaller split costs less, not more.
+    // Full chart+waterfall area below the header, down to the screen bottom (the
+    // overlay NavBar floats over its lower band). The split divides THIS area, so
+    // the waterfall always reaches the bottom edge (no black gap under the navbar).
+    static constexpr int32_t kScreenH            = 170; // view::kScreenHeight (device panel)
+    static constexpr int32_t kSplitArea          = kScreenH - kHeaderHeight;
+    static constexpr int32_t kMaxWaterfallHeight  = kSplitArea; // canvas buffer rows
+
     void build_grids(lv_obj_t* parent);
     void update_passband();
     void update_peak();
+
+    // Waterfall/spectrum split (page-3 key 7): resize the canvas object and the
+    // spectrum chart to `rows` waterfall rows (0..kMaxWaterfallHeight) without
+    // touching the canvas buffer. Newly revealed rows are cleared.
+    void apply_wf_split(int32_t rows);
+    static void wf_split_cb(lv_observer_t* observer, lv_subject_t* subject);
 
     // Modal frequency-entry dialog (manual key capture, no LVGL focus group).
     static void freq_req_cb(lv_observer_t* observer, lv_subject_t* subject);
@@ -77,6 +96,8 @@ private:
     lv_obj_t*           waterfall_  = nullptr;
     lv_obj_t*           freq_grid_  = nullptr; // vertical lines (frequency)
     int                 marker_count_ = 0;     // ticks since the last 1 s time marker
+    int32_t             wf_rows_      = kWaterfallHeight; // visible waterfall rows
+    lv_observer_t*      wf_split_observer_ = nullptr;
     lv_obj_t*           passband_   = nullptr; // demod bandwidth highlight
     int                 last_pb_x_  = -1;
     int                 last_pb_w_  = -1;

@@ -45,6 +45,7 @@ public:
     lv_subject_t* freq_grid_subject();
     lv_subject_t* time_grid_subject();
     lv_subject_t* peak_hold_subject();
+    lv_subject_t* wf_split_subject();   // visible waterfall rows (page-3 key 7)
     lv_subject_t* freq_input_req_subject();
     lv_subject_t* fine_tune_subject();
     lv_subject_t* muted_subject();
@@ -65,6 +66,7 @@ public:
     void toggle_freq_grid();
     void toggle_time_grid();
     void toggle_peak_hold();
+    void cycle_wf_split();           // cycle the waterfall/spectrum split (key 7)
     void toggle_mute();
     void volume_up();
     void volume_down();
@@ -110,6 +112,8 @@ private:
     reactive::BoolSubject       freq_grid_subject_{true};
     reactive::BoolSubject       time_grid_subject_{true};
     reactive::BoolSubject       peak_hold_subject_{false};
+    reactive::IntSubject        wf_split_subject_{80}; // waterfall % of the split area
+    int                         wf_split_idx_{0};      // index into the split presets
     reactive::IntSubject        freq_input_req_subject_{0};
     reactive::BoolSubject       fine_tune_subject_{false};
     reactive::BoolSubject       muted_subject_{false};
