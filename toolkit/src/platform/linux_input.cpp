@@ -112,6 +112,14 @@ uint32_t map_evdev_key(uint16_t code) {
         case KEY_DOWN:       return LV_KEY_DOWN;
         case KEY_LEFT:       return LV_KEY_LEFT;
         case KEY_RIGHT:      return LV_KEY_RIGHT;
+        // CardputerZero keyboard: the arrows live on the Fn layer of F/X/Z/C.
+        // Mirror those physical keys (pressed WITHOUT Fn) onto the same nav so
+        // the menu/lists can be driven either way. The apps are menu-driven and
+        // never type these letters, so there's no conflict with text entry.
+        case KEY_F:          return LV_KEY_UP;
+        case KEY_X:          return LV_KEY_DOWN;
+        case KEY_Z:          return LV_KEY_LEFT;
+        case KEY_C:          return LV_KEY_RIGHT;
         // Digits, dot, backspace and enter feed the frequency dialog (and the
         // nav routing for 4-8). The rest are ignored outside the dialog.
         case KEY_0:          return '0';
