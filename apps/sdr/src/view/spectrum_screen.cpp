@@ -35,8 +35,8 @@ constexpr int kMarkerPeriodTicks = 1000 / kTickPeriodMs;
 // Chart Y range. Magnitudes are [0,1]; scale to 0..1000 for integer chart data.
 constexpr int32_t kChartMax = 1000;
 
-// Peak-hold decay per tick (~33 ms): peaks fade over ~1-2 s ("temporary hold").
-constexpr float kPeakDecay = 0.97f;
+// Peak-hold decay per tick (~33 ms): peaks fade over ~3-4 s ("temporary hold").
+constexpr float kPeakDecay = 0.99f;
 
 // Map a normalized magnitude [0,1] to an RGB565 colormap:
 // black -> blue -> cyan -> yellow -> red.

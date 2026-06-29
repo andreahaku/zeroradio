@@ -70,15 +70,27 @@ uint32_t effective_sample_rate() {
     return kSampleRate;
 }
 
+// RTL capture rate for a given visible span (page-2 zoom): match the span so we
+// only stream what's shown, clamped to the RTL2832U minimum (300k-900k is an
+// invalid gap) and the host's drain ceiling `cap`.
+uint32_t rate_for_span(int32_t span_hz, uint32_t cap) {
+    constexpr uint32_t kMinRate = 960000;
+    uint32_t r = span_hz > 0 ? static_cast<uint32_t>(span_hz) : cap;
+    if (r < kMinRate) r = kMinRate;
+    if (r > cap)      r = cap;
+    return r;
+}
+
 } // namespace
 
 struct RtlTcpSource::Impl {
     std::string host;
     uint16_t    port;
-    const uint32_t sample_rate{effective_sample_rate()};
+    const uint32_t max_sample_rate{effective_sample_rate()}; // host drain ceiling
+    std::atomic<uint32_t> sample_rate{max_sample_rate};       // active RTL rate
 
     std::atomic<int64_t> desired_center{0};
-    std::atomic<int32_t> span_hz{static_cast<int32_t>(sample_rate)};
+    std::atomic<int32_t> span_hz{static_cast<int32_t>(max_sample_rate)};
     std::atomic<bool>    desired_gain_auto{true};
     std::atomic<int>     desired_gain_tenth{297};
     std::atomic<bool>    running{true};
@@ -205,7 +217,13 @@ struct RtlTcpSource::Impl {
 
         // Configure the receiver. Order matters little; do freq last.
         const int64_t center = desired_center.load();
-        send_cmd(fd, kSetSampleRate, sample_rate);
+#ifdef SDR_HAVE_AUDIO
+        const uint32_t init_sr = max_sample_rate; // fixed rate keeps the audio demod in sync
+#else
+        const uint32_t init_sr = rate_for_span(span_hz.load(), max_sample_rate);
+#endif
+        sample_rate.store(init_sr);
+        send_cmd(fd, kSetSampleRate, init_sr);
         apply_gain(fd, desired_gain_auto.load(), desired_gain_tenth.load());
         send_cmd(fd, kSetAgcMode, 1);    // RTL2832 digital AGC on
         send_cmd(fd, kSetFreqCorr, 0);   // 0 ppm
@@ -242,6 +260,7 @@ struct RtlTcpSource::Impl {
         int64_t current_center = desired_center.load();
         bool    current_gain_auto = desired_gain_auto.load();
         int     current_gain_tenth = desired_gain_tenth.load();
+        uint32_t current_sr = sample_rate.load();
 
         while (running.load()) {
             if (fd < 0) {
@@ -253,6 +272,7 @@ struct RtlTcpSource::Impl {
                 current_center = desired_center.load();
                 current_gain_auto = desired_gain_auto.load();
                 current_gain_tenth = desired_gain_tenth.load();
+                current_sr = sample_rate.load(); // connect_once set it from the span
                 have = 0;
                 pending_i = false;
             }
@@ -277,6 +297,28 @@ struct RtlTcpSource::Impl {
                 have = 0;
                 pending_i = false;
             }
+
+#ifndef SDR_HAVE_AUDIO
+            // Follow the page-2 zoom: capture only the visible span (clamped to
+            // the RTL minimum and the host's drain ceiling). Changing the rate
+            // invalidates buffered IQ, so flush + restart the frame like a retune.
+            // Gated off when audio is built in: the demod assumes a fixed rate.
+            const uint32_t want_sr = rate_for_span(span_hz.load(), max_sample_rate);
+            if (want_sr != current_sr) {
+                if (!send_cmd(fd, kSetSampleRate, want_sr)) {
+                    ::close(fd);
+                    fd = -1;
+                    continue;
+                }
+                sample_rate.store(want_sr);
+                current_sr = want_sr;
+                while (::recv(fd, buf.data(), buf.size(), MSG_DONTWAIT) > 0) {
+                    // discard stale pre-rate-change samples
+                }
+                have = 0;
+                pending_i = false;
+            }
+#endif
 
             // Apply a gain change.
             const bool g_auto = desired_gain_auto.load();
@@ -368,7 +410,7 @@ RtlTcpSource::~RtlTcpSource() = default;
 
 void RtlTcpSource::set_tuning(int64_t center_hz, int32_t span_hz) {
     impl_->desired_center.store(center_hz);
-    impl_->span_hz.store(span_hz > 0 ? span_hz : static_cast<int32_t>(impl_->sample_rate));
+    impl_->span_hz.store(span_hz > 0 ? span_hz : static_cast<int32_t>(impl_->max_sample_rate));
 }
 
 void RtlTcpSource::set_mode(int mode) {
@@ -415,7 +457,7 @@ void RtlTcpSource::next_frame(float* mags, int n_bins) {
     // Central window covering the visible span out of the full sample rate.
     const float* db = impl_->scratch_db.data();
     double frac = static_cast<double>(impl_->span_hz.load()) /
-                  static_cast<double>(impl_->sample_rate);
+                  static_cast<double>(impl_->sample_rate.load());
     if (frac > 1.0) frac = 1.0;
     if (frac < 1.0 / kFftSize) frac = 1.0 / kFftSize;
     const double visible = frac * kFftSize;
