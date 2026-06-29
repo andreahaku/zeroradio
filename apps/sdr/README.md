@@ -73,6 +73,32 @@ every change and restored the next time you open the app.
 
 All captured live from a real RTL-SDR Blog V4 (WFM broadcast, ~99.6 MHz) at native 320×170.
 
+## On the CardputerZero device (over the network)
+
+The cross build (`cmake --preset cp0-cross`) enables a **spectrum-only** backend:
+`SDR_HAVE_RTLTCP` (FFTW + sockets) is on, `SDR_HAVE_AUDIO` (SDL2) is off, so the
+device renders the live spectrum/waterfall but has a no-op `AudioDemod` (audio is
+deferred to a future ALSA port). The CM0 can't host the dongle (no VBUS — see the
+project notes), so the dongle stays on a capable host running `rtl_tcp`, and the
+device connects over the LAN:
+
+```shell
+# On the host with the dongle:
+rtl_tcp -a 0.0.0.0 -p 1234
+# On the device (e.g. via the hub, or directly):
+SDR_RTLTCP=<host-ip>:1234 SDR_SAMPLE_RATE=1024000 ./sdr_app
+```
+
+- `SDR_RTLTCP=host:port` — the rtl_tcp endpoint (default `127.0.0.1:1234`).
+- `SDR_SAMPLE_RATE=<hz>` — lower the RTL sample rate (valid: 900k–3.2M or 225k–300k)
+  so a weak host drains the stream in real time. The CM0 needs ~1.0 Msps; the stock
+  2.4 Msps overruns it (rtl_tcp buffer grows → tuning lag + waterfall jitter).
+  Retuning flushes the socket so the waterfall jumps to the new VFO at once.
+
+**Cross-build prereq:** the BSP sysroot needs the fftw3 dev bits — `fftw3.h` in
+`.cache/sdk_bsp-src/usr/include/` and a `libfftw3f.so` symlink next to
+`libfftw3f.so.3` in the sysroot lib dir.
+
 ## Quick start (desktop, with a real RTL-SDR)
 
 ```shell

@@ -26,6 +26,7 @@
 #include <cerrno>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <thread>
@@ -54,14 +55,30 @@ enum RtlCmd : uint8_t {
     kSetBiasTee     = 0x0e, // keep OFF: the v4 can feed 4.5 V to the antenna
 };
 
+// Effective RTL sample rate. Defaults to kSampleRate (2.4 Msps, full FFT
+// bandwidth on a capable host). Override with SDR_SAMPLE_RATE to a lower rate
+// so a weak host (the CardputerZero CM0) can drain the IQ stream in real time
+// instead of letting the rtl_tcp server buffer grow (which adds tuning latency
+// and waterfall jitter). Clamped to the RTL2832U's valid ranges.
+uint32_t effective_sample_rate() {
+    if (const char* env = std::getenv("SDR_SAMPLE_RATE"); env && env[0] != '\0') {
+        const long v = std::atol(env);
+        if ((v >= 900000 && v <= 3200000) || (v >= 225001 && v <= 300000)) {
+            return static_cast<uint32_t>(v);
+        }
+    }
+    return kSampleRate;
+}
+
 } // namespace
 
 struct RtlTcpSource::Impl {
     std::string host;
     uint16_t    port;
+    const uint32_t sample_rate{effective_sample_rate()};
 
     std::atomic<int64_t> desired_center{0};
-    std::atomic<int32_t> span_hz{kSampleRate};
+    std::atomic<int32_t> span_hz{static_cast<int32_t>(sample_rate)};
     std::atomic<bool>    desired_gain_auto{true};
     std::atomic<int>     desired_gain_tenth{297};
     std::atomic<bool>    running{true};
@@ -91,7 +108,7 @@ struct RtlTcpSource::Impl {
     std::thread thread;
 
     explicit Impl(std::string h, uint16_t p, int64_t center)
-        : host(std::move(h)), port(p), audio(static_cast<double>(kSampleRate)) {
+        : host(std::move(h)), port(p), audio(static_cast<double>(effective_sample_rate())) {
         desired_center.store(center);
         shared_db.assign(kFftSize, -120.0f);
         scratch_db.assign(kFftSize, -120.0f);
@@ -188,7 +205,7 @@ struct RtlTcpSource::Impl {
 
         // Configure the receiver. Order matters little; do freq last.
         const int64_t center = desired_center.load();
-        send_cmd(fd, kSetSampleRate, kSampleRate);
+        send_cmd(fd, kSetSampleRate, sample_rate);
         apply_gain(fd, desired_gain_auto.load(), desired_gain_tenth.load());
         send_cmd(fd, kSetAgcMode, 1);    // RTL2832 digital AGC on
         send_cmd(fd, kSetFreqCorr, 0);   // 0 ppm
@@ -250,6 +267,15 @@ struct RtlTcpSource::Impl {
                     continue;
                 }
                 current_center = want;
+                // Flush IQ still buffered at the OLD frequency so the waterfall
+                // jumps to the new VFO at once instead of draining the backlog
+                // (which on a slow host reads as "tuning lag"). Drop the
+                // partially-accumulated frame too.
+                while (::recv(fd, buf.data(), buf.size(), MSG_DONTWAIT) > 0) {
+                    // discard stale pre-retune samples
+                }
+                have = 0;
+                pending_i = false;
             }
 
             // Apply a gain change.
@@ -342,7 +368,7 @@ RtlTcpSource::~RtlTcpSource() = default;
 
 void RtlTcpSource::set_tuning(int64_t center_hz, int32_t span_hz) {
     impl_->desired_center.store(center_hz);
-    impl_->span_hz.store(span_hz > 0 ? span_hz : static_cast<int32_t>(kSampleRate));
+    impl_->span_hz.store(span_hz > 0 ? span_hz : static_cast<int32_t>(impl_->sample_rate));
 }
 
 void RtlTcpSource::set_mode(int mode) {
@@ -389,7 +415,7 @@ void RtlTcpSource::next_frame(float* mags, int n_bins) {
     // Central window covering the visible span out of the full sample rate.
     const float* db = impl_->scratch_db.data();
     double frac = static_cast<double>(impl_->span_hz.load()) /
-                  static_cast<double>(kSampleRate);
+                  static_cast<double>(impl_->sample_rate);
     if (frac > 1.0) frac = 1.0;
     if (frac < 1.0 / kFftSize) frac = 1.0 / kFftSize;
     const double visible = frac * kFftSize;

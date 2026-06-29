@@ -6,7 +6,11 @@
 
 #include "audio_demod.h"
 
-#ifdef SDR_HAVE_RTLTCP
+// The SDL2-backed audio player is built only when SDR_HAVE_AUDIO is set (desktop).
+// On the device the rtl_tcp spectrum backend is built WITHOUT SDL2 (SDR_HAVE_RTLTCP
+// without SDR_HAVE_AUDIO): the no-op stub below keeps RtlTcpSource compiling and
+// running spectrum/waterfall only, with audio deferred to a future ALSA port.
+#ifdef SDR_HAVE_AUDIO
 
 #include <SDL2/SDL.h>
 
@@ -330,7 +334,7 @@ void AudioDemod::process(const std::complex<float>* iq, size_t n) {
 
 } // namespace sdr
 
-#else // !SDR_HAVE_RTLTCP
+#else // !SDR_HAVE_AUDIO — no-op audio (spectrum-only device build, or mock)
 
 namespace sdr {
 struct AudioDemod::Impl {};
@@ -342,4 +346,4 @@ void AudioDemod::set_volume(float) {}
 void AudioDemod::process(const std::complex<float>*, size_t) {}
 } // namespace sdr
 
-#endif // SDR_HAVE_RTLTCP
+#endif // SDR_HAVE_AUDIO
