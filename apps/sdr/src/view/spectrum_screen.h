@@ -92,6 +92,7 @@ private:
     lv_chart_series_t*  series_      = nullptr;
     lv_chart_series_t*  peak_series_ = nullptr; // decaying peak-hold trace
     std::vector<float>  peak_;                  // per-bin held peak [0,1]
+    std::vector<float>  smooth_;                // per-bin EMA of the live spectrum
     bool                peak_visible_ = false;
     lv_obj_t*           waterfall_  = nullptr;
     lv_obj_t*           freq_grid_  = nullptr; // vertical lines (frequency)

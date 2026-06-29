@@ -38,6 +38,11 @@ constexpr int32_t kChartMax = 1000;
 // Peak-hold decay per tick (~33 ms): peaks fade over ~3-4 s ("temporary hold").
 constexpr float kPeakDecay = 0.99f;
 
+// EMA smoothing for the live (green) spectrum line: each tick moves the
+// displayed value a fraction toward the new magnitude, taming the per-frame
+// jitter. Lower = smoother/slower. Peak-hold still tracks the raw magnitudes.
+constexpr float kSpectrumSmooth = 0.4f;
+
 // Map a normalized magnitude [0,1] to an RGB565 colormap:
 // black -> blue -> cyan -> yellow -> red.
 uint16_t colormap_rgb565(float v) {
@@ -201,6 +206,7 @@ void SpectrumScreen::build_content(lv_obj_t* content) {
     peak_series_ = lv_chart_add_series(chart_, lv_color_hex(0xffcc00), LV_CHART_AXIS_PRIMARY_Y);
     lv_chart_hide_series(chart_, peak_series_, true);
     peak_.assign(kBins, 0.0f);
+    smooth_.assign(kBins, 0.0f);
 
     // --- Waterfall canvas (RGB565, full width) ---
     waterfall_ = lv_canvas_create(content);
@@ -542,7 +548,8 @@ void SpectrumScreen::tick() {
         int32_t* y = lv_chart_get_series_y_array(chart_, series_);
         if (y) {
             for (int i = 0; i < kBins; ++i) {
-                y[i] = static_cast<int32_t>(frame_[i] * static_cast<float>(kChartMax));
+                smooth_[i] += kSpectrumSmooth * (frame_[i] - smooth_[i]); // EMA
+                y[i] = static_cast<int32_t>(smooth_[i] * static_cast<float>(kChartMax));
             }
         }
         update_peak();
