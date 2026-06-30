@@ -62,6 +62,16 @@ pipewire ALSA plugin connects to the session daemon automatically — no extra e
 `SDR_ALSA_DEV=pipewire`; the `.deb` must `Depends: pipewire-alsa`. A future option is native
 PipeWire output (`pw-stream`) to drop the ALSA-bridge dependency entirely.
 
+**Amp-pop gotcha (fixed 2026-06-30):** `pipewire-alsa` also installs `99-pipewire-default.conf`, which
+makes PipeWire the ALSA **`default`**. Something at codec init (APPLaunch?) then opens `default` →
+powers the ES8388 speaker amp (`hpamp-regulator`) → **a few seconds of noise on every boot / APPLaunch
+restart** (before pipewire-alsa, opening `default` hit the busy hw and silently failed → no pop). Fix:
+disable that one file (`mv .../99-pipewire-default.conf{,.disabled}`); SDR audio is unaffected because it
+uses the explicit `pipewire` PCM from `50-pipewire.conf`. **This is a distribution blocker**: a `.deb`
+that `Depends: pipewire-alsa` reintroduces 99-default + the pop on a clean device. Resolve by shipping an
+override that neutralises 99-default, or — cleaner — give the app **native PipeWire output (pw-stream)**
+and drop the ALSA-bridge dependency. (The ADC→DAC monitor mute was a red herring — it did not fix the pop.)
+
 ## Next steps
 
 1. **Re-profile with the dongle attached locally** once the USB host hardware blocker is cleared
