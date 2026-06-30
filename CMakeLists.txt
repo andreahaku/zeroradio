@@ -447,3 +447,50 @@ add_subdirectory(apps/sdr)
 add_subdirectory(apps/meshtastic)
 add_subdirectory(apps/radio)
 add_subdirectory(apps/ais)
+
+# ====================================================
+# Packaging — Phase 1: self-contained Debian package for a stock CardputerZero
+# ====================================================
+# Lays out everything under /usr/share/cardputer_radio (the five app binaries +
+# the launch wrapper + the runtime assets the AssetManager resolves from
+# /usr/share/<app_name>), plus the APPLaunch tile + icon. A `dpkg -i` on a clean
+# device then yields a working "Radio" launcher entry. Only meaningful for the
+# aarch64 cross build; skipped for desktop/SDL builds.
+if(CMAKE_CROSSCOMPILING)
+    set(RADIO_PKG_BINDIR  "share/cardputer_radio/bin")
+    set(RADIO_PKG_DATADIR "share/cardputer_radio")
+    set(RADIO_APPLAUNCH   "share/APPLaunch")
+
+    # App binaries + the hub, colocated so the hub can posix_spawn() its siblings.
+    install(TARGETS radio_app sdr_app adsb_app meshtastic_app ais_app
+            RUNTIME DESTINATION "${RADIO_PKG_BINDIR}")
+
+    # Launch wrapper — carries the SDR runtime env (sample-rate cap, pipewire audio).
+    install(PROGRAMS "${CMAKE_CURRENT_SOURCE_DIR}/apps/radio/applications/radio-launch.sh"
+            DESTINATION "${RADIO_PKG_BINDIR}")
+
+    # Runtime assets — resolved via the AssetManager fallback /usr/share/cardputer_radio.
+    install(DIRECTORY "${RADIO_ASSETS_ROOT}/fonts" "${RADIO_ASSETS_ROOT}/mapdata"
+            DESTINATION "${RADIO_PKG_DATADIR}")
+
+    # APPLaunch integration: the launcher tile + its icon.
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/apps/radio/applications/Radio.desktop"
+            DESTINATION "${RADIO_APPLAUNCH}/applications" RENAME radio.desktop)
+    install(FILES "${RADIO_ASSETS_ROOT}/images/radio.png"
+            DESTINATION "${RADIO_APPLAUNCH}/share/images")
+
+    # ---- CPack: Debian package ----
+    set(CPACK_GENERATOR "DEB")
+    set(CPACK_PACKAGE_NAME "cardputer-radio")
+    set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+    set(CPACK_PACKAGE_CONTACT "Andrea Salvatore <andreahaku@gmail.com>")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+        "SDR, ADS-B, AIS and Meshtastic radio apps for CardputerZero")
+    set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
+    set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "arm64")
+    set(CPACK_DEBIAN_PACKAGE_SECTION "hamradio")
+    # pipewire-alsa: routes the SDR ALSA sink through PipeWire (see docs/sdr-device-profile.md).
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "pipewire-alsa")
+    set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
+    include(CPack)
+endif()
