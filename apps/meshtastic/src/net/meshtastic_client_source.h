@@ -11,62 +11,11 @@
 #include <memory>
 #include <string>
 
+// The decoded-event data types (NodeUpdate, ChannelUpdate, AckState, MeshMessage,
+// PacketCounts) live with the pure decoder that produces them.
+#include "meshtastic_decoder.h"
+
 namespace meshtastic {
-
-// A decoded node update from a NodeInfo packet (step 3). The app maps it onto the
-// toolkit EntityStore (merge-by-id). Fields are optional — Meshtastic spreads a
-// node's data across packets, so only set what arrived.
-struct NodeUpdate {
-    std::string id;                       // "!aabbccdd" (or derived from num)
-    bool is_self = false;
-    bool has_long = false;  std::string long_name;
-    bool has_short = false; std::string short_name;
-    bool has_pos = false;   double lat = 0.0, lon = 0.0;
-    bool has_snr = false;   float snr = 0.0f;
-    bool has_hops = false;  int hops = 0;
-    bool has_last_heard = false; uint32_t last_heard = 0; // epoch seconds
-    bool has_hw = false;    int hw_model = 0;             // HardwareModel enum
-    bool has_role = false;  int role = 0;                 // DeviceConfig.Role enum
-    bool has_battery = false; int battery = 0;            // percent (0..100; >100 = plugged)
-    bool has_voltage = false; float voltage = 0.0f;       // volts
-};
-
-// A channel slot decoded from a FromRadio.channel packet (config burst). The app
-// maps it into a ChannelTable for the CHATS channel switcher.
-struct ChannelUpdate {
-    int index = 0;          // 0..7 (0 = primary)
-    std::string name;       // settings.name ("" for the default primary)
-    int role = 0;           // 0 disabled, 1 primary, 2 secondary
-};
-
-// Delivery state of one of our own sent messages (color-outline in the feed).
-enum class AckState : uint8_t {
-    None = 0,   // not applicable (received message)
-    Pending,    // sent, awaiting ACK (yellow)
-    Delivered,  // acknowledged (green)
-    Failed,     // routing failure / no ACK (red)
-};
-
-// A text message (TEXT_MESSAGE_APP) decoded from a MeshPacket.
-struct MeshMessage {
-    uint32_t from = 0;       // sender node number
-    uint32_t to = 0;         // destination node number (0xFFFFFFFF = broadcast)
-    bool is_self = false;    // sent by our own node
-    uint8_t channel = 0;     // channel index
-    std::string text;        // UTF-8 body
-    uint32_t id = 0;         // packet id (ACK matching)
-    uint32_t rx_time = 0;    // epoch seconds (0 if unknown)
-    AckState ack = AckState::None;
-};
-
-// Cumulative packet counters (incremented on the reader thread; safe to read
-// from any thread). Snapshot via MeshtasticClientSource::packet_counts().
-struct PacketCounts {
-    int text     = 0; // TEXT_MESSAGE_APP frames
-    int nodeinfo = 0; // NodeInfo frames
-    int pos      = 0; // NodeInfo frames that carried a position fix
-    int total    = 0; // every successfully decoded FromRadio frame
-};
 
 // TCP client of a local `meshtasticd` Client API (default 127.0.0.1:4403). A
 // background thread connects, performs the want_config_id handshake, and reads

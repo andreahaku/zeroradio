@@ -9,3 +9,9 @@ compile_commands.json
 
 # Natural Earth GeoJSON download cache for build_mapdata.py
 tools/mapdata/cache/
+
+# graphify knowledge-graph output
+graphify-out/
+
+# /scaffold reward-lock (frozen-reward SHA snapshot; tooling artifact)
+.scaffold/

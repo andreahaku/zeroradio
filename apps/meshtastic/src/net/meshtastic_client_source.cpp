@@ -6,8 +6,9 @@
 
 #include "meshtastic_client_source.h"
 
+#include "meshtastic_decoder.h"
+
 #include "meshtastic/mesh.pb.h"
-#include "pb_decode.h"
 #include "pb_encode.h"
 
 #include <arpa/inet.h>
@@ -31,7 +32,8 @@ namespace meshtastic {
 namespace {
 
 // Meshtastic stream framing: 0x94 0xC3 then a big-endian 16-bit length, then that
-// many bytes of a serialized ToRadio/FromRadio. >512 is treated as corruption.
+// many bytes of a serialized ToRadio. Frame decode lives in MeshDecoder; only the
+// TX (encode) side needs the framing here.
 constexpr uint8_t kStart1 = 0x94;
 constexpr uint8_t kStart2 = 0xC3;
 constexpr uint16_t kMaxFrame = 512;
@@ -61,26 +63,34 @@ struct MeshtasticClientSource::Impl {
 
     std::atomic<bool> running{false};
     std::atomic<bool> ok{false};
-    std::atomic<int> node_count{0};
-    std::atomic<int> cnt_text{0};
-    std::atomic<int> cnt_nodeinfo{0};
-    std::atomic<int> cnt_pos{0};
-    std::atomic<int> cnt_total{0};
     std::thread thread;
 
     uint32_t nonce = 0x1000;
-    std::atomic<uint32_t> my_node_num{0};
 
     // Outbound TX queue (UI thread enqueues, reader loop writes).
     std::mutex out_mutex;
     std::deque<std::vector<uint8_t>> outbox;
     std::atomic<uint32_t> next_id{1};
 
-    // Reused across decodes: FromRadio is a big union, keep it off the stack.
-    meshtastic_FromRadio scratch{};
+    // Pure decode of the inbound FromRadio stream. Its sink forwards to cb (and flips
+    // ok on config-complete); the reader thread pumps recv() bytes into decoder.feed().
+    std::unique_ptr<MeshDecoder> decoder;
 
     Impl(std::string h, uint16_t p, Callbacks c)
-        : host(std::move(h)), port(p), cb(std::move(c)) {}
+        : host(std::move(h)), port(p), cb(std::move(c)) {
+        DecodeSink sink;
+        sink.on_self = [this](uint32_t n) { if (cb.on_self) cb.on_self(n); };
+        sink.on_config_complete = [this](int nodes) {
+            ok.store(true);
+            std::fprintf(stderr, "[meshtastic] config complete: %d nodes\n", nodes);
+            if (cb.on_config_complete) cb.on_config_complete(nodes);
+        };
+        sink.on_node = [this](const NodeUpdate& u) { if (cb.on_node) cb.on_node(u); };
+        sink.on_message = [this](const MeshMessage& m) { if (cb.on_message) cb.on_message(m); };
+        sink.on_ack = [this](uint32_t id, AckState st) { if (cb.on_ack) cb.on_ack(id, st); };
+        sink.on_channel = [this](const ChannelUpdate& u) { if (cb.on_channel) cb.on_channel(u); };
+        decoder = std::make_unique<MeshDecoder>(std::move(sink), nonce);
+    }
 
     int connect_once() {
         const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
@@ -142,10 +152,11 @@ struct MeshtasticClientSource::Impl {
     uint32_t enqueue_text(const std::string& text, uint32_t to, uint8_t channel,
                           bool want_ack) {
         const uint32_t id = next_id.fetch_add(1);
+        const uint32_t self = decoder->my_node_num();
         meshtastic_ToRadio t = meshtastic_ToRadio_init_zero;
         t.which_payload_variant = meshtastic_ToRadio_packet_tag;
         meshtastic_MeshPacket& p = t.packet;
-        p.from = my_node_num.load();
+        p.from = self;
         p.to = to;
         p.channel = channel;
         p.id = id;
@@ -165,7 +176,7 @@ struct MeshtasticClientSource::Impl {
         // Echo to our own feed immediately (optimistic; ACK state lands later).
         if (cb.on_message) {
             MeshMessage m;
-            m.from = my_node_num.load();
+            m.from = self;
             m.to = to;
             m.is_self = true;
             m.channel = channel;
@@ -177,156 +188,6 @@ struct MeshtasticClientSource::Impl {
         return id;
     }
 
-    enum class Frame { NeedMore, Skipped, Decoded };
-
-    // Pull one frame from `buf` (consuming it). Resyncs past noise, waits for a
-    // partial frame, drops an over-long (corrupt) length.
-    Frame next_frame(std::vector<uint8_t>& buf) {
-        // Resync to the start marker.
-        while (buf.size() >= 2 && !(buf[0] == kStart1 && buf[1] == kStart2)) {
-            buf.erase(buf.begin());
-        }
-        if (buf.size() < 4) return Frame::NeedMore;
-        const uint16_t len = static_cast<uint16_t>((buf[2] << 8) | buf[3]);
-        if (len > kMaxFrame) {
-            buf.erase(buf.begin()); // corrupt length: drop a byte and resync
-            return Frame::Skipped;
-        }
-        if (buf.size() < static_cast<size_t>(4) + len) return Frame::NeedMore;
-        scratch = meshtastic_FromRadio_init_zero;
-        pb_istream_t is = pb_istream_from_buffer(buf.data() + 4, len);
-        const bool decoded = pb_decode(&is, meshtastic_FromRadio_fields, &scratch);
-        buf.erase(buf.begin(), buf.begin() + 4 + len);
-        return decoded ? Frame::Decoded : Frame::Skipped;
-    }
-
-    void handle(bool& synced, int& burst_nodes) {
-        ++cnt_total; // every successfully decoded frame
-        switch (scratch.which_payload_variant) {
-            case meshtastic_FromRadio_my_info_tag:
-                my_node_num.store(scratch.my_info.my_node_num);
-                std::fprintf(stderr,
-                             "[meshtastic] my_info: node_num=0x%08x nodedb=%u\n",
-                             my_node_num.load(), scratch.my_info.nodedb_count);
-                if (cb.on_self) cb.on_self(my_node_num.load());
-                break;
-            case meshtastic_FromRadio_node_info_tag: {
-                if (!synced) ++burst_nodes;
-                const meshtastic_NodeInfo& ni = scratch.node_info;
-                NodeUpdate u;
-                if (ni.has_user && ni.user.id[0] != '\0') {
-                    u.id = ni.user.id;
-                } else {
-                    char idbuf[16];
-                    std::snprintf(idbuf, sizeof(idbuf), "!%08x", ni.num);
-                    u.id = idbuf;
-                }
-                u.is_self = (ni.num == my_node_num.load());
-                ++cnt_nodeinfo;
-                if (ni.has_position && ni.position.has_latitude_i &&
-                    ni.position.has_longitude_i) ++cnt_pos;
-                if (ni.has_user) {
-                    if (ni.user.long_name[0] != '\0') {
-                        u.has_long = true;
-                        u.long_name = ni.user.long_name;
-                    }
-                    if (ni.user.short_name[0] != '\0') {
-                        u.has_short = true;
-                        u.short_name = ni.user.short_name;
-                    }
-                    u.has_hw = true;
-                    u.hw_model = static_cast<int>(ni.user.hw_model);
-                    u.has_role = true;
-                    u.role = static_cast<int>(ni.user.role);
-                }
-                if (ni.has_device_metrics) {
-                    if (ni.device_metrics.has_battery_level) {
-                        u.has_battery = true;
-                        u.battery = static_cast<int>(ni.device_metrics.battery_level);
-                    }
-                    if (ni.device_metrics.has_voltage) {
-                        u.has_voltage = true;
-                        u.voltage = ni.device_metrics.voltage;
-                    }
-                }
-                if (ni.has_position && ni.position.has_latitude_i &&
-                    ni.position.has_longitude_i) {
-                    u.has_pos = true;
-                    u.lat = ni.position.latitude_i * 1e-7;
-                    u.lon = ni.position.longitude_i * 1e-7;
-                }
-                u.has_snr = true;
-                u.snr = ni.snr;
-                if (ni.has_hops_away) {
-                    u.has_hops = true;
-                    u.hops = ni.hops_away;
-                }
-                if (ni.last_heard != 0) {
-                    u.has_last_heard = true;
-                    u.last_heard = ni.last_heard;
-                }
-                if (cb.on_node) cb.on_node(u);
-                break;
-            }
-            case meshtastic_FromRadio_channel_tag: {
-                const meshtastic_Channel& ch = scratch.channel;
-                if (cb.on_channel) {
-                    ChannelUpdate u;
-                    u.index = ch.index;
-                    u.role = static_cast<int>(ch.role);
-                    if (ch.has_settings && ch.settings.name[0] != '\0') u.name = ch.settings.name;
-                    cb.on_channel(u);
-                }
-                break;
-            }
-            case meshtastic_FromRadio_config_complete_id_tag:
-                if (scratch.config_complete_id == nonce && !synced) {
-                    synced = true;
-                    node_count.store(burst_nodes);
-                    ok.store(true);
-                    std::fprintf(stderr, "[meshtastic] config complete: %d nodes\n",
-                                 burst_nodes);
-                    if (cb.on_config_complete) cb.on_config_complete(burst_nodes);
-                }
-                break;
-            case meshtastic_FromRadio_packet_tag: {
-                const meshtastic_MeshPacket& pkt = scratch.packet;
-                if (pkt.which_payload_variant != meshtastic_MeshPacket_decoded_tag) {
-                    break;
-                }
-                const meshtastic_Data& d = pkt.decoded;
-                if (d.portnum == meshtastic_PortNum_TEXT_MESSAGE_APP) {
-                    ++cnt_text;
-                    MeshMessage m;
-                    m.from = pkt.from;
-                    m.to = pkt.to;
-                    m.is_self = (pkt.from == my_node_num.load());
-                    m.channel = pkt.channel;
-                    m.id = pkt.id;
-                    m.rx_time = pkt.rx_time;
-                    m.text.assign(reinterpret_cast<const char*>(d.payload.bytes),
-                                  d.payload.size);
-                    if (cb.on_message) cb.on_message(m);
-                } else if (d.portnum == meshtastic_PortNum_ROUTING_APP) {
-                    // ACK / failure for a message we sent (matched by request_id).
-                    meshtastic_Routing r = meshtastic_Routing_init_zero;
-                    pb_istream_t is = pb_istream_from_buffer(d.payload.bytes, d.payload.size);
-                    if (pb_decode(&is, meshtastic_Routing_fields, &r) &&
-                        r.which_variant == meshtastic_Routing_error_reason_tag &&
-                        cb.on_ack && d.request_id != 0) {
-                        const AckState st = (r.error_reason == meshtastic_Routing_Error_NONE)
-                                                ? AckState::Delivered
-                                                : AckState::Failed;
-                        cb.on_ack(d.request_id, st);
-                    }
-                }
-                break;
-            }
-            default:
-                break; // other variants: ignored for now
-        }
-    }
-
     void backoff() {
         // Up to ~2 s, observing stop in short steps.
         for (int i = 0; i < 20 && running.load(); ++i) {
@@ -335,7 +196,6 @@ struct MeshtasticClientSource::Impl {
     }
 
     void run() {
-        std::vector<uint8_t> buf;
         while (running.load()) {
             const int fd = connect_once();
             if (fd < 0) {
@@ -345,11 +205,9 @@ struct MeshtasticClientSource::Impl {
             }
             std::fprintf(stderr, "[meshtastic] connected %s:%u\n", host.c_str(), port);
             ++nonce; // fresh request nonce per connection
+            decoder->begin_config(nonce);
             send_want_config(fd);
 
-            bool synced = false;
-            int burst_nodes = 0;
-            buf.clear();
             auto last_hb = std::chrono::steady_clock::now();
 
             while (running.load()) {
@@ -363,12 +221,7 @@ struct MeshtasticClientSource::Impl {
                     uint8_t tmp[1024];
                     const ssize_t n = ::recv(fd, tmp, sizeof(tmp), 0);
                     if (n <= 0) break; // peer closed / error
-                    buf.insert(buf.end(), tmp, tmp + n);
-                    for (;;) {
-                        const Frame r = next_frame(buf);
-                        if (r == Frame::NeedMore) break;
-                        if (r == Frame::Decoded) handle(synced, burst_nodes);
-                    }
+                    decoder->feed(tmp, static_cast<size_t>(n));
                 }
 
                 // Drain queued outbound frames (send_text from the UI thread).
@@ -389,7 +242,7 @@ struct MeshtasticClientSource::Impl {
                 }
 
                 const auto now = std::chrono::steady_clock::now();
-                if (synced && now - last_hb > kHeartbeat) {
+                if (decoder->synced() && now - last_hb > kHeartbeat) {
                     if (!send_heartbeat(fd)) break;
                     last_hb = now;
                 }
@@ -424,7 +277,7 @@ bool MeshtasticClientSource::ok() const {
 }
 
 int MeshtasticClientSource::node_count() const {
-    return impl_->node_count.load();
+    return impl_->decoder->node_count();
 }
 
 uint32_t MeshtasticClientSource::send_text(const std::string& text, uint32_t to,
@@ -433,12 +286,7 @@ uint32_t MeshtasticClientSource::send_text(const std::string& text, uint32_t to,
 }
 
 PacketCounts MeshtasticClientSource::packet_counts() const {
-    PacketCounts c;
-    c.text     = impl_->cnt_text.load();
-    c.nodeinfo = impl_->cnt_nodeinfo.load();
-    c.pos      = impl_->cnt_pos.load();
-    c.total    = impl_->cnt_total.load();
-    return c;
+    return impl_->decoder->packet_counts();
 }
 
 } // namespace meshtastic
