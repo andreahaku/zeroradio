@@ -19,6 +19,10 @@ Working (verified on a `meshtasticd -s` bench / scripted peer, both presets host
   framing, `want_config_id` → `config_complete_id`, resilient reconnect/backoff + heartbeat.
 - **Nodes** — `NodeInfo` → `EntityStore`; the NODES view is a themed `lv_table` (SHORT/SNR/HOP/AGE) with
   a green cursor band (keys ▲/▼) and the self node in accent green. Title shows the live node count.
+- **Live position & telemetry** — post-handshake `POSITION_APP` and `TELEMETRY_APP` (`device_metrics`)
+  packets update the same `EntityStore` nodes (position, battery/voltage, last-heard from `rx_time`), so
+  the map, node detail and AGE column follow live traffic. Decoded by the pure `MeshDecoder`
+  (`src/decode/`) and covered by the frozen two-source parity vectors in `test/`.
 - **Chat receive** — `TEXT_MESSAGE_APP` → `MessageLog`; the CHATS view shows the feed (sender short name
   recoloured: self green, peers info-blue), filtered to the current conversation.
 - **Chat send + compose** — the `8` (write) key enters a compose row (raw key capture via
@@ -50,8 +54,9 @@ Working (verified on a `meshtasticd -s` bench / scripted peer, both presets host
 - **Tools** — a 4-item list (cursor `›` in green; V2 items greyed). Key `7` runs the selected tool
   inline (toggle output panel); key `8` closes it. V1 tools: *Mesh stats* (link state, node count,
   packets/sec + total) and *Packet log* (TEXT / NODEINFO / POS counters). *Traceroute* and
-  *Telemetry req* are greyed V2 entries. Packet counters are incremented on the reader thread in
-  the client source (`cnt_text`, `cnt_nodeinfo`, `cnt_pos`, `cnt_total`).
+  *Telemetry req* are greyed V2 entries. Packet counters are incremented on the reader thread by the
+  pure decoder (`src/decode/meshtastic_decoder`): `text`, `nodeinfo`, `pos` (position fixes from
+  NodeInfo or live `POSITION_APP`), `total`.
 
 - **Settings** — a 2-column lv_table (name | value) with the same green cursor band as ADS-B
   settings. V1 items: Theme (Dark/Light cycle), Long name (text edit), Short name (text edit),

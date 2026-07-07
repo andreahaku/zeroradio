@@ -16,6 +16,8 @@
  *   channel(primary/disabled capt + named synth) -> on_channel
  *   config_complete (matching nonce) -> on_config_complete/synced
  *   TEXT_MESSAGE_APP -> on_message | ROUTING_APP(NONE/NO_RESPONSE) -> on_ack
+ *   live POSITION_APP -> on_node(has_pos) | live TELEMETRY_APP device_metrics
+ *   (capt + synth) -> on_node(battery/voltage); no-fix/env/empty variants ignored
  *   invalid protobuf -> decode returns false | framed stream w/ noise -> feed() resync
  */
 
@@ -151,6 +153,54 @@ int main() {
         if (st) check(static_cast<int>(*st) == e.ack_state, e.name, "ack_state");
     }
 
+    // --- on_node from live traffic (POSITION_APP / TELEMETRY_APP device_metrics) ---
+    const auto run_live = [](const LiveExpect* v, size_t count, bool is_pos) {
+        for (size_t i = 0; i < count; ++i) {
+            const LiveExpect& e = v[i];
+            std::optional<NodeUpdate> got;
+            int node_fired = 0;
+            bool other = false;
+            DecodeSink s;
+            s.on_node = [&](const NodeUpdate& u) { got = u; ++node_fired; };
+            s.on_self = [&](uint32_t) { other = true; };
+            s.on_message = [&](const MeshMessage&) { other = true; };
+            s.on_ack = [&](uint32_t, AckState) { other = true; };
+            s.on_channel = [&](const ChannelUpdate&) { other = true; };
+            s.on_config_complete = [&](int) { other = true; };
+            MeshDecoder dec(s, kConfigNonce);
+            dec.set_my_node_num(0xBEEF1234u);
+            const bool ok = dec.decode_from_radio(e.d, e.n);
+            check(ok, e.name, "decode returned false");
+            check(node_fired == 1, e.name, "on_node must fire exactly once");
+            check(!other, e.name, "no other callback on live packet");
+            if (!got) continue;
+            const NodeUpdate& u = *got;
+            check(u.id == e.id, e.name, "id");
+            check(u.is_self == e.is_self, e.name, "is_self");
+            check(u.has_pos == e.has_pos, e.name, "has_pos");
+            if (e.has_pos) {
+                check(dclose(u.lat, e.lat), e.name, "lat");
+                check(dclose(u.lon, e.lon), e.name, "lon");
+            }
+            check(u.has_battery == e.has_batt, e.name, "has_battery");
+            if (e.has_batt) check(u.battery == e.batt, e.name, "battery");
+            check(u.has_voltage == e.has_volt, e.name, "has_voltage");
+            if (e.has_volt) check(dclose(u.voltage, e.volt), e.name, "voltage");
+            check(u.has_last_heard == e.has_last, e.name, "has_last_heard");
+            if (e.has_last) check(u.last_heard == e.last_heard, e.name, "last_heard");
+            // A live packet carries no User/NodeInfo-only data: these must stay unset.
+            check(!u.has_long && !u.has_short && !u.has_hw && !u.has_role, e.name,
+                  "user fields must be unset");
+            check(!u.has_snr && !u.has_hops, e.name, "snr/hops must be unset");
+            const PacketCounts pc = dec.packet_counts();
+            check(pc.nodeinfo == 0 && pc.text == 0 && pc.total == 1, e.name,
+                  "nodeinfo/text/total counters");
+            check(pc.pos == (is_pos ? 1 : 0), e.name, "pos counter");
+        }
+    };
+    run_live(kLivePos, sizeof(kLivePos) / sizeof(kLivePos[0]), true);
+    run_live(kLiveTelemetry, sizeof(kLiveTelemetry) / sizeof(kLiveTelemetry[0]), false);
+
     // --- unhandled variant/portnum: decode succeeds but fires NO callback (bumps total) ---
     for (const auto& e : kIgnored) {
         bool any = false;
@@ -165,7 +215,10 @@ int main() {
         const bool ok = dec.decode_from_radio(e.d, e.n);
         check(ok, e.name, "unhandled frame should still decode true");
         check(!any, e.name, "no callback on unhandled frame");
-        check(dec.packet_counts().total == 1, e.name, "total counter bumped");
+        const PacketCounts pc = dec.packet_counts();
+        check(pc.total == 1, e.name, "total counter bumped");
+        check(pc.pos == 0 && pc.text == 0 && pc.nodeinfo == 0, e.name,
+              "no typed counter on unhandled frame");
     }
 
     // --- invalid protobuf must be rejected (decode returns false, no callback) ---
@@ -270,8 +323,9 @@ int main() {
     const int total = static_cast<int>(
         (sizeof(kSelf) / sizeof(kSelf[0])) + (sizeof(kNode) / sizeof(kNode[0])) +
         (sizeof(kChannel) / sizeof(kChannel[0])) + (sizeof(kMessage) / sizeof(kMessage[0])) +
-        (sizeof(kAck) / sizeof(kAck[0])) + (sizeof(kIgnored) / sizeof(kIgnored[0])) +
-        (sizeof(kReject) / sizeof(kReject[0])));
+        (sizeof(kAck) / sizeof(kAck[0])) + (sizeof(kLivePos) / sizeof(kLivePos[0])) +
+        (sizeof(kLiveTelemetry) / sizeof(kLiveTelemetry[0])) +
+        (sizeof(kIgnored) / sizeof(kIgnored[0])) + (sizeof(kReject) / sizeof(kReject[0])));
     if (g_fails == 0) {
         std::printf("Meshtastic decoder: %d vectors + nonce/reset/feed state checks OK\n", total);
         return 0;

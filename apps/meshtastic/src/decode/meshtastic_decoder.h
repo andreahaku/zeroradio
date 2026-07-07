@@ -64,7 +64,7 @@ struct MeshMessage {
 struct PacketCounts {
     int text     = 0; // TEXT_MESSAGE_APP frames
     int nodeinfo = 0; // NodeInfo frames
-    int pos      = 0; // NodeInfo frames that carried a position fix
+    int pos      = 0; // frames that carried a position fix (NodeInfo or POSITION_APP)
     int total    = 0; // every successfully decoded FromRadio frame
 };
 

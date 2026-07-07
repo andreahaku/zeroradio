@@ -7,6 +7,7 @@
 #include "meshtastic_decoder.h"
 
 #include "meshtastic/mesh.pb.h"
+#include "meshtastic/telemetry.pb.h"
 #include "pb_decode.h"
 
 #include <atomic>
@@ -125,6 +126,55 @@ struct MeshDecoder::Impl {
         if (sink.on_config_complete) sink.on_config_complete(burst_nodes);
     }
 
+    // Seed a NodeUpdate for live (post-config) traffic: the sender is known only by
+    // node number, and rx_time doubles as last-heard. Position/telemetry fill the rest.
+    NodeUpdate live_node_update(const meshtastic_MeshPacket& pkt) const {
+        NodeUpdate u;
+        char idbuf[16];
+        std::snprintf(idbuf, sizeof(idbuf), "!%08x", pkt.from);
+        u.id = idbuf;
+        u.is_self = (pkt.from == my_node_num.load());
+        if (pkt.rx_time != 0) {
+            u.has_last_heard = true;
+            u.last_heard = pkt.rx_time;
+        }
+        return u;
+    }
+
+    void handle_position(const meshtastic_MeshPacket& pkt, const meshtastic_Data& d) {
+        meshtastic_Position p = meshtastic_Position_init_zero;
+        pb_istream_t is = pb_istream_from_buffer(d.payload.bytes, d.payload.size);
+        if (!pb_decode(&is, meshtastic_Position_fields, &p)) return;
+        if (!p.has_latitude_i || !p.has_longitude_i) return; // no fix: nothing to report
+        ++cnt_pos;
+        if (!sink.on_node) return;
+        NodeUpdate u = live_node_update(pkt);
+        u.has_pos = true;
+        u.lat = p.latitude_i * kPositionScale;
+        u.lon = p.longitude_i * kPositionScale;
+        sink.on_node(u);
+    }
+
+    void handle_telemetry(const meshtastic_MeshPacket& pkt, const meshtastic_Data& d) {
+        meshtastic_Telemetry t = meshtastic_Telemetry_init_zero;
+        pb_istream_t is = pb_istream_from_buffer(d.payload.bytes, d.payload.size);
+        if (!pb_decode(&is, meshtastic_Telemetry_fields, &t)) return;
+        if (t.which_variant != meshtastic_Telemetry_device_metrics_tag) return;
+        const meshtastic_DeviceMetrics& dm = t.variant.device_metrics;
+        if (!dm.has_battery_level && !dm.has_voltage) return; // nothing to report
+        if (!sink.on_node) return;
+        NodeUpdate u = live_node_update(pkt);
+        if (dm.has_battery_level) {
+            u.has_battery = true;
+            u.battery = static_cast<int>(dm.battery_level);
+        }
+        if (dm.has_voltage) {
+            u.has_voltage = true;
+            u.voltage = dm.voltage;
+        }
+        sink.on_node(u);
+    }
+
     void handle_packet(const meshtastic_MeshPacket& pkt) {
         if (pkt.which_payload_variant != meshtastic_MeshPacket_decoded_tag) return;
         const meshtastic_Data& d = pkt.decoded;
@@ -140,6 +190,14 @@ struct MeshDecoder::Impl {
             m.rx_time = pkt.rx_time;
             m.text.assign(reinterpret_cast<const char*>(d.payload.bytes), d.payload.size);
             sink.on_message(m);
+            return;
+        }
+        if (d.portnum == meshtastic_PortNum_POSITION_APP) {
+            handle_position(pkt, d);
+            return;
+        }
+        if (d.portnum == meshtastic_PortNum_TELEMETRY_APP) {
+            handle_telemetry(pkt, d);
             return;
         }
         if (d.portnum == meshtastic_PortNum_ROUTING_APP) {
