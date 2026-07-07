@@ -9,6 +9,7 @@
 #include "persisted_state.h"
 
 #include <array>
+#include <cstdlib>
 #include <fstream>
 
 namespace sdr {
@@ -79,6 +80,14 @@ Passband mode_passband(RadioMode mode) {
 
 SdrModel::SdrModel() {
     load_state();
+    // Handoff from the survey app (and scripts): SDR_FREQ overrides the
+    // persisted VFO with an initial centre frequency in Hz.
+    if (const char* env = std::getenv("SDR_FREQ"); env && env[0] != '\0') {
+        const long long hz = std::atoll(env);
+        if (hz > 0) {
+            set_vfo_hz(hz);
+        }
+    }
 }
 
 bool SdrModel::dark_mode() const { return dark_mode_; }

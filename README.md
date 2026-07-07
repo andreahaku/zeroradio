@@ -10,7 +10,9 @@ mapping** over the common viewer toolkit. See [Planned apps](#planned-apps) for 
 toolkit/        # reusable LVGL shell + radio widgets (PPI/list/detail), entity store, geo, net sources
 apps/
   adsb/         # ADS-B 1090 MHz aircraft viewer (dump1090 aircraft.json)
+  ais/          # AIS marine vessel viewer (on-device AIVDM decode)
   sdr/          # SDR receiver: spectrum + waterfall, demod (WFM/FM/AM/USB/LSB/CW), rtl_tcp
+  survey/       # Spectrum survey: wide-band waterfall + PEAKS list (rtl_power/hackrf_sweep) → SDR
   meshtastic/   # Meshtastic mesh client (Client API :4403 → local meshtasticd)
 ```
 

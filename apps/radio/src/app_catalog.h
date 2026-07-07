@@ -25,11 +25,12 @@ struct AppEntry {
     const char* app_dir;   // source/build subdir under apps/, e.g. "sdr"
 };
 
-// The shipped suite, in menu order. Survey/SIGINT apps slot in here later.
+// The shipped suite, in menu order. Further SIGINT apps slot in here later.
 // Icons are the verified-rendering glyphs already used by the SDR nav bar.
 inline const std::vector<AppEntry>& app_catalog() {
     static const std::vector<AppEntry> kCatalog = {
         {"sdr", "SDR", "Spectrum & demod", view::ICON_BROADCAST, "sdr_app", "sdr"},
+        {"survey", "Survey", "Wide-band sweep & peaks", view::ICON_GRID_FREQ, "survey_app", "survey"},
         {"adsb", "ADS-B", "Aircraft radar & map", view::ICON_MAP_TOGGLE, "adsb_app", "adsb"},
         {"ais", "AIS", "Marine vessel radar & map", view::ICON_MODE, "ais_app", "ais"},
         {"meshtastic", "Meshtastic", "Mesh nodes & messages", view::ICON_BAND, "meshtastic_app", "meshtastic"},
