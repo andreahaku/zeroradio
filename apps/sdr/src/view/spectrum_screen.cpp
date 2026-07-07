@@ -8,6 +8,7 @@
 
 #include "asset_manager.h"
 #include "bindings.h"
+#include "raster.h"
 #include "linux_input.h"
 #include "theme.h"
 #include "ui_const.h"
@@ -43,33 +44,9 @@ constexpr float kPeakDecay = 0.99f;
 // jitter. Lower = smoother/slower. Peak-hold still tracks the raw magnitudes.
 constexpr float kSpectrumSmooth = 0.4f;
 
-// Map a normalized magnitude [0,1] to an RGB565 colormap:
-// black -> blue -> cyan -> yellow -> red.
-uint16_t colormap_rgb565(float v) {
-    if (v < 0.0f) v = 0.0f;
-    if (v > 1.0f) v = 1.0f;
-
-    float r, g, b;
-    if (v < 0.25f) {            // black -> blue
-        const float t = v / 0.25f;
-        r = 0.0f; g = 0.0f; b = t;
-    } else if (v < 0.5f) {      // blue -> cyan
-        const float t = (v - 0.25f) / 0.25f;
-        r = 0.0f; g = t; b = 1.0f;
-    } else if (v < 0.75f) {     // cyan -> yellow
-        const float t = (v - 0.5f) / 0.25f;
-        r = t; g = 1.0f; b = 1.0f - t;
-    } else {                    // yellow -> red
-        const float t = (v - 0.75f) / 0.25f;
-        r = 1.0f; g = 1.0f - t; b = 0.0f;
-    }
-
-    const auto to_u8 = [](float c) -> uint8_t {
-        const int x = static_cast<int>(c * 255.0f + 0.5f);
-        return static_cast<uint8_t>(std::clamp(x, 0, 255));
-    };
-    return lv_color_to_u16(lv_color_make(to_u8(r), to_u8(g), to_u8(b)));
-}
+// The [0,1] -> RGB565 waterfall colormap is shared with the Survey waterfall —
+// see toolkit view::raster.
+using view::colormap_rgb565;
 
 // 80% blend of an RGB565 pixel toward black for the 1 s time-marker line.
 inline uint16_t blend_black(uint16_t c) {

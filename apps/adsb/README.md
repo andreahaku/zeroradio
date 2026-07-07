@@ -157,6 +157,12 @@ ADS-B-specific files (`apps/adsb/src/`):
 
 - **`model/aircraft.{h,cpp}`** — the dump1090 `aircraft.json` parser (`Aircraft` struct + tolerant,
   non-throwing JSON parse) and `apply_to_store`, the sparse merge into the generic `EntityStore`.
+  Built as the `adsb_decoder` static lib (it links `radio_toolkit` for the `EntityStore` that
+  `apply_to_store` merges into) and covered by a frozen parity test (`test/aircraft_parse_test.cpp`,
+  CTest target `aircraft_parse_test`): one canonical document pins every field branch —
+  number/`"ground"`/absent `alt_baro`, all three emergency squawks (7500/7600/7700) vs a near-miss,
+  track wraparound (incl. exactly 360°), out-of-range position rejection (incl. one-coord-invalid),
+  category-code mapping (case-insensitive), and the missing-`hex` skip.
 - **`viewmodel/adsb_viewmodel.{h,cpp}`** — app state (current screen, sort, range ladder/AUTO,
   cursor vs locked selection, view toggles), the Settings model with **v2 persistence**, and the
   `NavProvider` mapping keys to actions, on the toolkit's `ShellViewModel`.

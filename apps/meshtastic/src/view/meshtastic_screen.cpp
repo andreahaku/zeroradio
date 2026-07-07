@@ -9,6 +9,7 @@
 #include "asset_manager.h"
 #include "bindings.h"
 #include "geo.h"
+#include "raster.h"
 #include "linux_input.h"
 #include "map_renderer.h"
 #include "theme.h"
@@ -79,34 +80,10 @@ constexpr uint32_t kNodeColors[] = {
 };
 constexpr int kNodeColorCount = static_cast<int>(sizeof(kNodeColors) / sizeof(kNodeColors[0]));
 
-// Fill a disc of radius r at (cx, cy).
-void plot_disc(uint16_t* buf, int w, int h, int cx, int cy, int r, uint16_t color) {
-    for (int dy = -r; dy <= r; ++dy) {
-        for (int dx = -r; dx <= r; ++dx) {
-            if (dx * dx + dy * dy > r * r) continue;
-            const int x = cx + dx, y = cy + dy;
-            if (x < 0 || x >= w || y < 0 || y >= h) continue;
-            buf[y * w + x] = color;
-        }
-    }
-}
-
-// Thin ring (midpoint circle) of radius r around (cx, cy).
-void plot_ring(uint16_t* buf, int w, int h, int cx, int cy, int r, uint16_t color) {
-    int x = r, y = 0, err = 1 - r;
-    const auto put = [&](int px, int py) {
-        if (px >= 0 && px < w && py >= 0 && py < h) buf[py * w + px] = color;
-    };
-    while (x >= y) {
-        put(cx + x, cy + y); put(cx - x, cy + y);
-        put(cx + x, cy - y); put(cx - x, cy - y);
-        put(cx + y, cy + x); put(cx - y, cy + x);
-        put(cx + y, cy - x); put(cx - y, cy - x);
-        ++y;
-        if (err < 0) { err += 2 * y + 1; }
-        else { --x; err += 2 * (y - x) + 1; }
-    }
-}
+// RGB565 raster primitives (disc/ring) are shared with the ADS-B/AIS scopes —
+// see toolkit view::raster.
+using view::plot_disc;
+using view::plot_ring;
 
 } // namespace
 
