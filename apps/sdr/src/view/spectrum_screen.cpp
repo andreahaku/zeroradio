@@ -20,7 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
-#include <cstring>
+#include <cstring> // std::strcmp (SDR_SOURCE parsing)
 #include <memory>
 #include <string>
 
@@ -43,10 +43,6 @@ constexpr float kPeakDecay = 0.99f;
 // displayed value a fraction toward the new magnitude, taming the per-frame
 // jitter. Lower = smoother/slower. Peak-hold still tracks the raw magnitudes.
 constexpr float kSpectrumSmooth = 0.4f;
-
-// The [0,1] -> RGB565 waterfall colormap is shared with the Survey waterfall —
-// see toolkit view::raster.
-using view::colormap_rgb565;
 
 // 80% blend of an RGB565 pixel toward black for the 1 s time-marker line.
 inline uint16_t blend_black(uint16_t c) {
@@ -544,21 +540,12 @@ void SpectrumScreen::push_waterfall_row(const float* mags) {
         return; // 0% split: nothing visible, skip the per-frame work entirely
     }
 
-    const int w = kWaterfallWidth;
-    // Scroll the WHOLE buffer, not just the visible rows: the canvas can show
-    // rows below the scrolled band (especially right after the split shrinks),
-    // and a partial scroll would leave that lower band frozen with stale data.
-    // The extra memmove is negligible on the CM0 (~3 MB/s).
-    const int h = kMaxWaterfallHeight;
-
-    // Scroll everything down by one row (new data at the top, flowing downward).
-    std::memmove(wf_buf_.data() + w, wf_buf_.data(),
-                 static_cast<size_t>(w) * (h - 1) * sizeof(uint16_t));
-
-    uint16_t* top = wf_buf_.data();
-    for (int x = 0; x < w; ++x) {
-        top[x] = colormap_rgb565(mags[x]);
-    }
+    // Scroll the WHOLE buffer (kMaxWaterfallHeight), not just the visible
+    // rows: the canvas can show rows below the scrolled band (especially
+    // right after the split shrinks), and a partial scroll would leave that
+    // lower band frozen with stale data. The extra memmove is negligible on
+    // the CM0 (~3 MB/s).
+    view::push_waterfall_row(wf_buf_.data(), kWaterfallWidth, kMaxWaterfallHeight, mags);
 
     lv_obj_invalidate(waterfall_);
 }

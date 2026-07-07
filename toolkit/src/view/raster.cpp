@@ -9,7 +9,9 @@
 #include "lvgl.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cstdlib> // std::abs(int) used by plot_line
+#include <cstring> // std::memmove used by push_waterfall_row
 
 namespace view {
 
@@ -107,6 +109,20 @@ uint16_t colormap_rgb565(float v) {
         return static_cast<uint8_t>(std::clamp(x, 0, 255));
     };
     return lv_color_to_u16(lv_color_make(to_u8(r), to_u8(g), to_u8(b)));
+}
+
+void push_waterfall_row(uint16_t* buf, int w, int h, const float* mags) {
+    // Caller contract (see raster.h): w >= 1, h >= 1 — h == 0 would underflow
+    // the memmove size below.
+    assert(buf && mags && w >= 1 && h >= 1);
+
+    // Scroll everything down by one row (new data at the top, flowing
+    // downward), then colormap the new top row. Extracted verbatim from the
+    // SDR and Survey waterfalls.
+    std::memmove(buf + w, buf, static_cast<size_t>(w) * (h - 1) * sizeof(uint16_t));
+    for (int x = 0; x < w; ++x) {
+        buf[x] = colormap_rgb565(mags[x]);
+    }
 }
 
 } // namespace view

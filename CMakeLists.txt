@@ -442,6 +442,14 @@ target_link_libraries(radio_toolkit
 # Host-side unit tests (e.g. the AIS decoder parity test) register with CTest.
 enable_testing()
 
+# Toolkit unit tests (host-only): the shared waterfall primitive + colormap.
+if(USE_DESKTOP)
+    add_executable(waterfall_scroll_test
+        ${CMAKE_CURRENT_SOURCE_DIR}/toolkit/test/waterfall_scroll_test.cpp)
+    target_link_libraries(waterfall_scroll_test PRIVATE radio_toolkit)
+    add_test(NAME waterfall_scroll_test COMMAND waterfall_scroll_test)
+endif()
+
 add_subdirectory(apps/adsb)
 add_subdirectory(apps/sdr)
 add_subdirectory(apps/meshtastic)

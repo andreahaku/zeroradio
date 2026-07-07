@@ -17,7 +17,7 @@
 
 #include <algorithm>
 #include <cstdlib>
-#include <cstring>
+#include <cstring> // std::strcmp (SURVEY_SOURCE parsing)
 #include <string>
 
 namespace survey {
@@ -32,11 +32,6 @@ constexpr float   kSpectrumSmooth = 0.4f;
 // PEAKS table columns: FREQ | POWER | AGE (320px total).
 constexpr int32_t kPeakColW[3] = {122, 110, 88};
 constexpr const char* kPeakColTitle[3] = {"FREQ MHz", "POWER", "AGE"};
-
-// The [0,1] -> RGB565 waterfall colormap is shared with the SDR waterfall —
-// see toolkit view::raster (the "factor into the toolkit when a third user
-// appears" this file used to note).
-using view::colormap_rgb565;
 
 // Picks the sweep backend: rtl_power by default when the live backend is
 // compiled in, `SURVEY_SOURCE=hackrf` for hackrf_sweep, `SURVEY_SOURCE=mock`
@@ -419,17 +414,7 @@ void SurveyScreen::update_peak_markers(const std::vector<SweepPeak>& peaks) {
 void SurveyScreen::push_waterfall_row(const float* mags) {
     if (!waterfall_ || wf_buf_.empty()) return;
 
-    const int w = kWaterfallWidth;
-    const int h = kWaterfallHeight;
-
-    // Scroll down one row (new data at the top, flowing downward).
-    std::memmove(wf_buf_.data() + w, wf_buf_.data(),
-                 static_cast<size_t>(w) * (h - 1) * sizeof(uint16_t));
-
-    uint16_t* top = wf_buf_.data();
-    for (int x = 0; x < w; ++x) {
-        top[x] = colormap_rgb565(mags[x]);
-    }
+    view::push_waterfall_row(wf_buf_.data(), kWaterfallWidth, kWaterfallHeight, mags);
 
     lv_obj_invalidate(waterfall_);
 }

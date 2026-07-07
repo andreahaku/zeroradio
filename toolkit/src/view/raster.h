@@ -34,4 +34,13 @@ void plot_line(uint16_t* buf, int w, int h, int x0, int y0, int x1, int y1, uint
 // waterfalls; input is clamped to [0,1].
 uint16_t colormap_rgb565(float v);
 
+// Scroll a row-major RGB565 waterfall buffer of `w`x`h` pixels down by one
+// row (new data flows top -> bottom) and write the colormapped `mags` (one
+// normalized value per column, clamped to [0,1]) as the new top row. Updates
+// exactly the w*h buffer extent, never beyond it. Caller contract: `buf` and
+// `mags` valid and non-overlapping, w >= 1, h >= 1 — the empty/degenerate
+// guards (null canvas, zero visible rows) stay app-side, as does the lv_obj
+// invalidation.
+void push_waterfall_row(uint16_t* buf, int w, int h, const float* mags);
+
 } // namespace view
