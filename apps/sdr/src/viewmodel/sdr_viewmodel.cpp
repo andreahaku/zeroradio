@@ -192,7 +192,7 @@ void SdrViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
         case Page::Visual:
             out[1] = {dark ? view::ICON_SUN : view::ICON_MOON, false, true}; // theme
             out[2] = {view::ICON_GRID_FREQ, false, true};    // freq grid
-            out[3] = {view::ICON_GRID_TIME, false, true};    // time grid
+            out[3] = {view::ICON_WF_SPLIT, false, true};     // waterfall/spectrum split
             out[4] = {view::ICON_PEAK, false, true};         // peak hold
             break;
         case Page::Audio:
