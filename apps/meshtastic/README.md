@@ -2,8 +2,7 @@
 
 A Meshtastic LoRa-mesh client for the CardputerZero, built on the shared `radio_toolkit`. It is a
 **client of a local `meshtasticd` daemon** (Client API over `127.0.0.1:4403`), not a reimplementation of
-the radio — see the design docs in [`../../../radio-apps/`](../../../radio-apps/) (`09`, `09a`, `09b`,
-`09c`). UI follows the chosen dark theme (`09c`).
+the radio (design notes `09`–`09c` in the companion planning repo). UI follows the chosen dark theme.
 
 ![Meshtastic world map with live nodes](docs/media/demo.gif)
 
@@ -67,7 +66,6 @@ Working (verified on a `meshtasticd -s` bench / scripted peer, both presets host
 
 Placeholders / pending: reactions (V2), Traceroute (V2), Telemetry req (V2),
 settings → meshtasticd (AdminMessage, V2).
-See `radio-apps/09b` (build order) and `09c` (per-screen design).
 
 ## Screenshots
 
@@ -100,6 +98,9 @@ side-column name; key `7` selects a node, keys `5`/`6` zoom. In CHATS, key `5` s
 
 ```
 meshtasticd :4403  ──Client API (framed protobuf)──▶  MeshtasticClientSource (reader thread)
+                                                          │  raw FromRadio bytes
+                                                          ▼
+                                                MeshDecoder (src/decode/, pure library)
                                                           │  on_node → EntityStore.upsert
                                                           │  on_message → MessageLog.add
                                                           │  on_channel → ChannelTable.upsert
@@ -128,7 +129,8 @@ docker run -d --name mtd-sim -p 127.0.0.1:4403:4403 \
 Keys: `4` cycles the view (Chats→Nodes→Map→Tools→Settings), `5`–`8` are per-view actions, `ESC` quits.
 
 > Note: a single `meshtasticd -s` node has no peer, so no incoming messages appear. To exercise receive,
-> use a scripted peer or two nodes (Meshtasticator) — see the `meshtastic-dev-testbench` dev note.
+> use a second node or a scripted Client-API peer that connects to the same daemon and injects
+> `ToRadio` traffic (positions, texts) — any Meshtastic Python-API script works.
 
 ## On the CardputerZero (real LoRa + GNSS)
 

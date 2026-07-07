@@ -11,10 +11,19 @@ reactive subjects, 5-key NavBar, resilient TCP/HTTP sources) + thin per-app
 viewers. Unifying thesis: **decode on a host, view on the device** — each app is a
 parser + a field mapping over the shared toolkit.
 
-- `toolkit/` — the reusable library (app shell, reactive, platform, view, net, geo, model).
-- `apps/adsb` — ADS-B aircraft radar/list (data: dump1090 `aircraft.json`, mock bundled).
+- `toolkit/` — the reusable library (app shell, reactive, platform, view + shared `view::raster`
+  primitives, Mercator vector `map`, net, geo, model, logger, config). See `toolkit/README.md`.
+- `apps/radio` — the hub launcher (one home-screen entry, spawns the apps below).
 - `apps/sdr`  — SDR spectrum/waterfall + audio (data: `rtl_tcp`, mock synthetic).
-- Design docs for the wider suite: `../radio-apps/`.
+- `apps/survey` — wide-band spectrum survey + peaks (data: `rtl_power`/`hackrf_sweep` CSV).
+- `apps/adsb` — ADS-B aircraft radar/list (data: dump1090 `aircraft.json`, mock bundled).
+- `apps/ais`  — AIS vessel radar/list, on-device AIVDM decoder (data: NMEA over UDP/TCP or file).
+- `apps/meshtastic` — Meshtastic mesh client (data: Client API TCP to a local `meshtasticd`;
+  on the device a native `meshtasticd` drives the Cap LoRa-1262 — see `docs/cap-lora-1262.md`
+  and `device/meshtasticd/`).
+- In-repo docs index: `docs/` (architecture, cap-lora-1262, sdr-device-profile, mapdata-design,
+  distribution-gap-check, m5stack-usb-host-*). `scripts/` holds operator scripts (flash, wifi-diag,
+  sdr-profile, cap-lora-accept, usb-host-diag) — see `scripts/README.md`.
 
 ## Build & run
 
@@ -25,6 +34,16 @@ cmake --preset linux-x86-64 && cmake --build --preset linux-x86-64-dbg
 
 # device (CardputerZero cross build) — needs the BSP sysroot
 cmake --preset cp0-cross && cmake --build --preset cp0-cross-rel
+```
+
+## Tests — run them before declaring a change done
+
+Five CTest targets on the desktop preset; the decoder tests are **frozen parity tests** (never edit
+the vectors to make code pass):
+
+```bash
+ctest --test-dir build/linux-x86-64 -C Debug --output-on-failure
+# aircraft_parse_test · ais_decoder_test · nmea_net_test · meshtastic_decoder_test · sweep_parser_test
 ```
 
 The LVGL display backend is chosen in `toolkit/src/app/run_app.cpp` `init_display()`:

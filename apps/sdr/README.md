@@ -27,11 +27,14 @@ resolution (320×170), fed by a real RTL-SDR over `rtl_tcp`.
   background thread, runs an FFT (FFTW, single precision) and publishes normalized magnitudes with an
   adaptive noise floor. Tuning and zoom **retune the hardware** and crop the FFT window.
 - **Real audio demodulation** — in-app `AudioDemod` (fed the same IQ stream) outputs 48 kHz mono via
-  SDL: **WFM**, **NFM**, **AM** (envelope + AGC), **USB/LSB** (Weaver), **CW**. WFM is verified by ear.
+  SDL on the desktop or **ALSA on the device**: **WFM**, **NFM**, **AM** (envelope + AGC),
+  **USB/LSB** (Weaver), **CW**. WFM is verified by ear on both.
 - **5-page touchless toolbar** — driven by the 5 physical keys (`4`–`8`) + `ESC`, no pointer needed:
   tuning, zoom/band, visual options, **audio** (mute / volume), **settings** (gain / exit).
 - **Passband overlay, peak hold, reference grids** — demod-bandwidth highlight per mode, decaying
-  spectrum peak trace, vertical frequency grid, and a scrolling **1-second time marker** on the waterfall.
+  spectrum peak trace (long hold), EMA-smoothed spectrum line, and a vertical frequency grid.
+- **Adjustable waterfall/spectrum split** — key `7` on the Visual page cycles the layout presets
+  (waterfall 80 / 50 / 0 / 100 % of the plot area).
 - **Manual frequency entry** — modal keypad dialog (no LVGL focus group; direct key capture via the
   toolkit's `platform::set_key_capture`).
 - **Full session persistence** — VFO, mode, zoom, band, volume/mute, gain, dark mode and grids are
@@ -75,12 +78,14 @@ All captured live from a real RTL-SDR Blog V4 (WFM broadcast, ~99.6 MHz) at nati
 
 ## On the CardputerZero device (over the network)
 
-The cross build (`cmake --preset cp0-cross`) enables a **spectrum-only** backend:
-`SDR_HAVE_RTLTCP` (FFTW + sockets) is on, `SDR_HAVE_AUDIO` (SDL2) is off, so the
-device renders the live spectrum/waterfall but has a no-op `AudioDemod` (audio is
-deferred to a future ALSA port). The CM0 can't host the dongle (no VBUS — see the
-project notes), so the dongle stays on a capable host running `rtl_tcp`, and the
-device connects over the LAN:
+The cross build (`cmake --preset cp0-cross`) enables the full backend:
+`SDR_HAVE_RTLTCP` (FFTW + sockets) plus `SDR_HAVE_AUDIO`/`SDR_HAVE_ALSA` — the
+demodulated audio plays out of the device speaker through ALSA (the image is
+PipeWire-managed, so the default sink is the `pipewire` PCM; see
+[`docs/sdr-device-profile.md`](../../docs/sdr-device-profile.md)). The CM0
+currently can't host the dongle (no VBUS on the USB-A port — see the project
+notes), so the dongle stays on a capable host running `rtl_tcp`, and the device
+connects over the LAN:
 
 ```shell
 # On the host with the dongle:
@@ -90,10 +95,14 @@ SDR_RTLTCP=<host-ip>:1234 SDR_SAMPLE_RATE=1024000 ./sdr_app
 ```
 
 - `SDR_RTLTCP=host:port` — the rtl_tcp endpoint (default `127.0.0.1:1234`).
-- `SDR_SAMPLE_RATE=<hz>` — lower the RTL sample rate (valid: 900k–3.2M or 225k–300k)
+- `SDR_SAMPLE_RATE=<hz>` — cap the RTL sample rate (valid: 900k–3.2M or 225k–300k)
   so a weak host drains the stream in real time. The CM0 needs ~1.0 Msps; the stock
   2.4 Msps overruns it (rtl_tcp buffer grows → tuning lag + waterfall jitter).
-  Retuning flushes the socket so the waterfall jumps to the new VFO at once.
+  This is a **cap**: the effective rate then follows the page-2 zoom span dynamically,
+  so narrow spans use lower rates. Retuning flushes the socket so the waterfall jumps
+  to the new VFO at once.
+- `SDR_ALSA_DEV=<pcm>` — the ALSA output PCM on the device (default `pipewire` via the
+  launch wrapper); `SDR_ALSA_CARD` selects a card when using plain ALSA.
 
 **Cross-build prereq:** the BSP sysroot needs the fftw3 dev bits — `fftw3.h` in
 `.cache/sdk_bsp-src/usr/include/` and a `libfftw3f.so` symlink next to
@@ -126,6 +135,9 @@ Environment overrides:
 | --- | --- |
 | `SDR_SOURCE=mock` | Use the synthetic source instead of the dongle (no `rtl_tcp` needed). |
 | `SDR_RTLTCP=host:port` | Point `RtlTcpSource` at a remote `rtl_tcp` (default `127.0.0.1:1234`). |
+| `SDR_FREQ=<hz>` | Start tuned to this frequency, overriding the persisted VFO — this is how the Survey app's **Open in SDR** handoff arrives. |
+| `SDR_SAMPLE_RATE=<hz>` | Cap the RTL sample rate (see the device section above). |
+| `SDR_ALSA_DEV`, `SDR_ALSA_CARD` | ALSA output PCM / card on the device (default `pipewire`). |
 
 ## Controls
 
@@ -137,7 +149,7 @@ cycles the tool page** (1→5) and shows the page number; `ESC` quits from any p
 | `4` | page switch | page switch | page switch | page switch | page switch |
 | `5` | tune − | zoom − | dark/light | mute | gain − |
 | `6` | **frequency entry** | band preset | freq grid | volume − | gain + |
-| `7` | tune + | zoom + | time grid (1 s markers) | volume + | gain auto / value |
+| `7` | tune + | zoom + | **waterfall/spectrum split** (80/50/0/100 %) | volume + | gain auto / value |
 | `8` | coarse/fine (step) | **demod mode** | peak hold | volume % | exit |
 
 The header shows the demod mode (left), the tuned frequency centred over the waterfall marker, and an
@@ -158,7 +170,7 @@ input (keys 4-8 + ESC) → key router (toolkit platform/linux_input)
 live data (independent of input):
    RTL-SDR ──rtl_tcp(TCP IQ)──▶ RtlTcpSource (reader thread)
                                    ├─ FFT (FFTW) ─▶ shared magnitudes ─▶ next_frame() ─▶ chart + waterfall
-                                   └─ AudioDemod  ─▶ demod per mode ─▶ SDL audio (48 kHz)
+                                   └─ AudioDemod  ─▶ demod per mode ─▶ SDL (desktop) / ALSA (device) audio (48 kHz)
    lv_timer (~33 ms) → SpectrumScreen::tick(): set_tuning/mode/volume/gain, pull a frame, draw
 ```
 
@@ -166,12 +178,13 @@ SDR-specific files (`apps/sdr/src/`):
 
 - **`sdr/spectrum_source.{h,cpp}`** — the `SpectrumSource` interface the UI depends on
   (`next_frame`, `set_tuning`, `set_mode`, `set_volume/muted`, `set_gain`) plus `MockSpectrumSource`.
-- **`sdr/rtl_tcp_source.{h,cpp}`** — real source: `rtl_tcp` client + FFTW spectrum + hardware retuning.
-  fftw/SDL kept out of the header via pImpl; desktop-only (gated by `SDR_HAVE_RTLTCP`).
+- **`sdr/rtl_tcp_source.{h,cpp}`** — real source: `rtl_tcp` client + FFTW spectrum + hardware
+  retuning and zoom-following adaptive sample rate. fftw/SDL kept out of the header via pImpl;
+  gated by `SDR_HAVE_RTLTCP` (desktop and cross build).
 - **`sdr/audio_demod.{h,cpp}`** — multi-mode demodulator (decimating FIRs, FM discriminator, AM
-  envelope, Weaver SSB/CW, AGC) with SDL audio output.
-- **`view/spectrum_screen.{h,cpp}`** — the SDR screen: header, chart, waterfall, passband, grids,
-  time markers, frequency dialog (on the toolkit's `BaseScreen`).
+  envelope, Weaver SSB/CW, AGC) with SDL (desktop) or ALSA (device) audio output.
+- **`view/spectrum_screen.{h,cpp}`** — the SDR screen: header, chart, waterfall (colormap from the
+  toolkit's shared `view::raster`), passband, grids, frequency dialog (on the toolkit's `BaseScreen`).
 - **`model/sdr_model.{h,cpp}` / `viewmodel/sdr_viewmodel.{h,cpp}`** — radio state (VFO in Hz, mode,
   span, bands, audio, gain, v4 persistence) and the reactive subjects/actions, bridging onto the
   toolkit's `ShellViewModel` + `NavProvider`.
@@ -194,9 +207,9 @@ cmake --build --preset linux-x86-64-dbg   # → build/linux-x86-64/apps/sdr/Debu
 > **Editor note:** clang in-editor may report false positives (`lvgl.h not found`, `lv_subject_t
 > unknown`) because it doesn't see CMake's include paths. The source of truth is `cmake --build`.
 
-The cross build (`cp0-cross`) and `.deb` packaging are monorepo-wide concerns (pending hardware); the
-real RTL-SDR source is currently desktop-only and the cross build keeps the mock until `fftw3f` is
-provisioned in the BSP sysroot.
+The cross build (`cp0-cross`) enables the same real source (fftw3f from the BSP sysroot) plus ALSA
+audio when `libasound` is found; without fftw3f the app falls back to the mock. `.deb` packaging is
+a monorepo-wide concern.
 
 ## Known limitations
 
@@ -205,8 +218,8 @@ provisioned in the BSP sysroot.
   better antenna/location (or a networked dongle) to confirm.
 - Waterfall frequency labels show 3 decimals (1 kHz resolution); the header keeps 4 decimals, so 100 Hz
   fine tuning shows on the header but not on the waterfall scale.
-- The real RTL-SDR source is **desktop-only**; the cross (device) build uses the synthetic mock until
-  `fftw3f` is provisioned in the BSP sysroot.
+- The RTL-SDR dongle cannot yet plug into the device itself (USB-A VBUS hardware issue under
+  investigation); use a networked `rtl_tcp` host in the meantime.
 
 ## Roadmap
 
@@ -214,7 +227,6 @@ provisioned in the BSP sysroot.
 - Settings page: sample rate, bias-tee, ppm correction (gain is done).
 - HackRF front-end via SoapySDR (RTL-SDR v3/v4 and compatible dongles supported today).
 - On-device `.deb` deployment.
-- Networked source (remote `rtl_tcp` tap) — the TCP boundary already supports it.
 
 ## License
 

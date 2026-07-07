@@ -5,11 +5,22 @@ decoding **AIS** (Automatic Identification System) position reports the way `app
 aircraft. It is a **port of the ADS-B app**: same shared toolkit (reactive MVVM shell, `EntityStore`,
 SDL simulator / device backends), a different decoder and field mapping.
 
-> Status (2026-06-27): the AIVDM decoder (message types 1/2/3) is implemented and **unit-tested against
-> a two-source oracle** (gpsd's `gpsdecode` + `pyais`). The full viewer is a port of ADS-B — the same
-> **List / Radar (PPI) / Mercator map / Detail / Settings** screens — render-proven on the SDL
-> simulator with vessels plotted, the per-contact data being vessel fields. A no-fix vessel (sentinel
-> position) is correctly listed with `-` and never plotted. Name/ship-type (AIS type 5) is the next step.
+> Status: the AIVDM decoder (position reports types 1/2/3 **and static/voyage type 5** with
+> multipart reassembly) is implemented and **unit-tested against a two-source oracle** (gpsd's
+> `gpsdecode` + `pyais`). The full viewer is a port of ADS-B — the same
+> **List / Radar (PPI) / Mercator map / Detail / Settings** screens — with live UDP/TCP NMEA input,
+> validated on-device against AIS-catcher. A no-fix vessel (sentinel position) is correctly listed
+> with `-` and never plotted.
+
+## Screenshots
+
+| List (sortable) | Mercator map | Radar (PPI) | Detail |
+| --- | --- | --- | --- |
+| ![AIS vessel list](docs/media/list.png) | ![AIS Mercator map](docs/media/scope.png) | ![AIS PPI radar](docs/media/radar.png) | ![AIS vessel detail](docs/media/detail.png) |
+
+Captured from the desktop SDL simulator at native 320×170, fed by the bundled mock NMEA (vessels
+along the Ligurian coast). Key `4` cycles the screens, key `8` toggles map ↔ radar, the side
+columns show the vessel names/MMSIs coloured by navigation status.
 
 ## The thesis: decode on a host, view on the device
 
@@ -29,14 +40,15 @@ RTL-SDR --> rtl_ais (host: GMSK/HDLC/CRC/armor) --> !AIVDM lines --> [ais_app] p
 
 | Layer | File | Notes |
 |---|---|---|
-| **Decoder** | `src/decoder/ais_decoder.{h,cpp}` | `parse_aivdm()` + `Vessel`. Pure (std-only), no LVGL/toolkit, so the unit test links it standalone. The new code vs ADS-B's `parse_aircraft_json`. |
-| Model map | `src/model/vessel_store.{h,cpp}` | `parse_nmea_lines()` + `apply_to_store()` — mirrors ADS-B's `apply_to_store` (sparse field bag keyed by MMSI). |
-| Source | reuses `toolkit::FileJsonSource` | polls the NMEA file; the callback splits lines and decodes each. `AIS_NMEA` overrides the bundled mock. |
-| ViewModel / View | `src/viewmodel/ais_viewmodel.*`, `src/view/ais_screen.*` | a port of `AdsbViewModel`/`AdsbScreen`: List / Radar (PPI) / Mercator map / Detail / Settings, the same 5-key nav, range/trails/map-toggle/cursor/selection machinery and persisted settings. Vessels are coloured by **navigation status**, the marker points along **COG**, and the Detail decodes the nav-status text. `AIS_HOME_LAT/LON` / `AIS_TTL` re-centre/age the radar. |
+| **Decoder** | `src/decoder/ais_decoder.{h,cpp}` | `parse_aivdm()` + `Vessel`, plus `AivdmReassembler` (multi-fragment type 5) and `ship_type_label()`. Pure (std-only), no LVGL/toolkit, so the unit test links it standalone. The new code vs ADS-B's `parse_aircraft_json`. |
+| Model map | `src/model/vessel_store.{h,cpp}` | `apply_nmea()` (reassembler + per-line decode) + `apply_to_store()` — mirrors ADS-B's `apply_to_store` (sparse field bag keyed by MMSI). |
+| Source | `toolkit::FileJsonSource` or `toolkit::NmeaNetSource` | polls an NMEA file (`AIS_NMEA` overrides the bundled mock) or receives live `!AIVDM` lines over UDP/TCP (`AIS_UDP` / `AIS_TCP`). |
+| ViewModel / View | `src/viewmodel/ais_viewmodel.*`, `src/view/ais_screen.*` | a port of `AdsbViewModel`/`AdsbScreen`: List / Radar (PPI) / Mercator map / Detail / Settings, the same 5-key nav, **sortable list** (MMSI/DST/SOG/COG, persisted, default DST), range/trails/map-toggle/cursor/selection machinery and persisted settings. The Mercator map draws the vector world base map (`assets/mapdata/world.rmap`) under the vessels. Vessels are coloured by **navigation status**, the marker points along **COG**, and the Detail decodes the nav-status text. `AIS_HOME_LAT/LON` / `AIS_TTL` re-centre/age the radar. |
 
-## The decoder (message types 1/2/3)
+## The decoder
 
-`parse_aivdm()` decodes the **Common Navigation Block** (ITU-R M.1371-6, Table 46), 168 bits:
+**Position reports (types 1/2/3):** `parse_aivdm()` decodes the **Common Navigation Block**
+(ITU-R M.1371-6, Table 46), 168 bits:
 
 | Field | Bits | Decode |
 |---|---|---|

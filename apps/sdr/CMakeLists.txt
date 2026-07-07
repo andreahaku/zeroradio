@@ -37,8 +37,8 @@ target_link_libraries(sdr_app
 #       POSIX sockets only). Enabled on desktop AND on the device cross build,
 #       so the CardputerZero can render real RF from an rtl_tcp server over the
 #       network (capture on host, view on device).
-#   SDR_HAVE_AUDIO  — the SDL2 audio demodulator. Desktop only for now; the
-#       device gets a no-op AudioDemod (audio is deferred to a future ALSA port).
+#   SDR_HAVE_AUDIO  — the audio demodulator: SDL2 on desktop, ALSA on the
+#       device (SDR_HAVE_ALSA, plays out the ES8388 speaker via PipeWire).
 # Without fftw3f, sdr_app still builds and runs on the synthetic mock source.
 # ----------------------------------------------------------------------
 find_library(FFTW3F_LIBRARY fftw3f)

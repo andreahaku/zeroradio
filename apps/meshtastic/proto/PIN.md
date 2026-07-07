@@ -1,8 +1,7 @@
 # Vendored protobuf stack (nanopb)
 
 Pre-generated nanopb code so the build compiles **only C** — no build-time `protoc`/python
-dependency (important for the `cp0-aarch64` cross build and reproducibility). See
-[`../../../../radio-apps/09b-meshtastic-client-source-plan.md`](../../../../radio-apps/09b-meshtastic-client-source-plan.md).
+dependency (important for the `cp0-aarch64` cross build and reproducibility).
 
 ## Pins
 
@@ -13,7 +12,8 @@ dependency (important for the `cp0-aarch64` cross build and reproducibility). Se
 ## Layout
 
 - `nanopb/` — nanopb runtime (vendored from the nanopb 0.4.9.1 release).
-- `meshtastic/` — generated `*.pb.{c,h}` for all Meshtastic protos (cross-imports resolved).
+- `meshtastic/` — generated `*.pb.{c,h}` for the protos this client needs and their import
+  closure (atak, channel, config, device_ui, mesh, module_config, portnums, telemetry, xmodem).
 
 ## Regenerate (when bumping the protobufs pin)
 

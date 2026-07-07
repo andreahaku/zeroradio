@@ -1,21 +1,28 @@
 # Radio — the hub launcher for the CardputerZero radio suite (`apps/radio`)
 
-The **Radio** app is a thin **launcher** that gathers the radio suite — **SDR**, **ADS-B** and
-**Meshtastic** — behind a single home-screen entry on the [M5Stack CardputerZero](https://docs.m5stack.com/).
+The **Radio** app is a thin **launcher** that gathers the radio suite — **SDR**, **Survey**,
+**ADS-B**, **AIS** and **Meshtastic** — behind a single home-screen entry on the
+[M5Stack CardputerZero](https://docs.m5stack.com/).
 It renders a vertical menu, and when you pick an app it hands the lone display off to that app's
 binary (a separate process) and reclaims it when the app exits.
 
 This is **Option A1**: a thin hub that `posix_spawn()`s the existing per-app binaries (`sdr_app`,
-`adsb_app`, `meshtastic_app`) rather than linking them into one monolith. The apps stay independent
-processes — a crash in one cannot take the hub down, and only the changed binary is rebuilt.
+`survey_app`, `adsb_app`, `ais_app`, `meshtastic_app`) rather than linking them into one monolith.
+The apps stay independent processes — a crash in one cannot take the hub down, and only the changed
+binary is rebuilt.
 
-> Status (2026-06-26): implemented and verified end-to-end on the desktop SDL simulator at the native
-> device resolution (320×170) — menu navigation, launch, hand-off and return all working. On-device
-> validation pending the hardware (~2026-06-30).
+> Status: implemented and verified end-to-end on the desktop SDL simulator at the native device
+> resolution (320×170) and on the real CardputerZero — menu navigation, launch, hand-off and
+> return all working.
+
+![Radio hub menu](docs/media/hub.png)
+
+> The hub menu at native 320×170 (desktop SDL simulator): SDR / Survey / ADS-B / AIS / Meshtastic,
+> arrow-key navigation, Enter opens, Esc exits to the system launcher.
 
 ## Why a single "Radio" entry
 
-APPLauncher's home screen is a flat carousel with no native categories. Rather than scatter three
+APPLauncher's home screen is a flat carousel with no native categories. Rather than scatter five
 separate entries across it, the suite ships as one **Radio** hub (`applications/Radio.desktop`); the
 hub itself provides the sub-menu. See the suite distribution notes for the launcher/AppStore layout.
 
@@ -52,18 +59,23 @@ such static state, but the same flow applies.
 
 1. `$RADIO_APPS_DIR/<bin>` — explicit dev override.
 2. `<hub_dir>/<bin>` — the install layout, where every app binary is colocated under
-   `/usr/share/APPLaunch/bin/`.
-3. `<hub_dir>/../<app_dir>/<config>/<bin>` — the dev CMake build tree
-   (`build/<preset>/apps/<app>/Debug/<bin>`), so the hub Just Works from a desktop build.
+   `/usr/share/cardputer_radio/bin/`.
+3. `<hub_dir>/../../<app_dir>/<config>/<bin>` — the dev CMake build tree, trying the configs
+   `Debug`, `Release`, `RelWithDebInfo` in order (`build/<preset>/apps/<app>/<config>/<bin>`),
+   so the hub Just Works from a desktop build.
 
 The spawned child inherits the environment, so `REMOTE_FB` / `ADSB_JSON` / `MESHTASTICD_PORT` etc.
-propagate straight through.
+propagate straight through. On the device the `.desktop` entry launches the hub through
+`applications/radio-launch.sh`, a wrapper that sets device-appropriate SDR defaults
+(`SDR_SAMPLE_RATE=1024000`, `SDR_ALSA_DEV=pipewire`, optionally `SDR_RTLTCP`) before exec'ing
+`radio_app` — the spawned children inherit those too.
 
 ## Adding an app
 
 Append an `AppEntry` to `app_catalog()` in `src/app_catalog.h` (`id`, `name`, `subtitle`, `icon`,
 `bin`, `app_dir`). Icons are Phosphor-Fill glyphs from the toolkit's `ui_const.h`. No other change is
-needed — the menu, resolution and launch are data-driven. The SIGINT/Survey apps slot in here later.
+needed — the menu, resolution and launch are data-driven. That is how Survey and AIS were added;
+further SIGINT apps slot in the same way.
 
 ## Build & run
 
@@ -80,7 +92,8 @@ propagates to the launched app.
 
 ```
 apps/radio/
-  applications/Radio.desktop   # single launcher entry -> /usr/share/APPLaunch/bin/radio_app
+  applications/Radio.desktop   # single launcher entry -> /usr/share/cardputer_radio/bin/radio-launch.sh
+  applications/radio-launch.sh # device launch wrapper: SDR env defaults, then exec radio_app
   src/
     main.cpp                   # outer flow: render menu -> spawn child -> re-exec
     app_catalog.h              # the suite, in menu order (data-driven)

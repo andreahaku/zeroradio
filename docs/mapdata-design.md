@@ -1,7 +1,8 @@
 # Vector map background — design
 
-Status: **Phase 1 implemented (Meshtastic)** — vector Mercator map view shipped.
-Scope: shared background map layer for the geo-radar used by ADS-B, Meshtastic and (soon) AIS.
+Status: **Phases 1–3 implemented** — the shared vector Mercator base map ships in the
+**Meshtastic, ADS-B and AIS** map views (radar ↔ map toggle in each).
+Scope: shared background map layer for the geo-radar apps.
 
 ## Phase 1 — what shipped
 
@@ -73,7 +74,7 @@ toolkit/src/geo/vector_map.h/.cpp   loader for the compact binary map format
 toolkit/src/map/map_renderer.h/.cpp draws a base-map layer onto an RGB565 canvas buffer,
                                     given (dataset, projection, viewport). Apps blit their
                                     entity dots on top — see "Shared renderer" below.
-assets/mapdata/<region>.bin         bundled compact dataset(s)
+assets/mapdata/<region>.rmap        bundled compact dataset(s)
 tools/mapdata/build_mapdata.py      offline generator (NOT in the runtime path)
 ```
 
@@ -131,16 +132,18 @@ in under the same projection later. No raster code in phase 1.
 
 ## Phased plan
 
-- **Phase 1 — foundation (desktop sim, Meshtastic first):**
+- **Phase 1 — foundation (desktop sim, Meshtastic first)** — ✅ shipped:
   binary format + `build_mapdata.py` + `vector_map` loader + `project_mercator()` +
-  `map_renderer` base layer + radar/map toggle setting. Verify on the sim Map view.
-- **Phase 2 — roll-out:** wire the shared renderer into ADS-B; add the layer toggles
-  (coast/border/contour) and the regional contour dataset.
-- **Phase 3 — AIS:** the new app gets the map "for free" via the shared renderer.
+  `map_renderer` base layer + radar/map toggle setting.
+- **Phase 2 — roll-out (ADS-B)** — ✅ shipped: the shared renderer is wired into the ADS-B
+  Radar screen (key `8` toggles). Layer toggles (coast/border/contour) and the regional
+  contour dataset remain future work.
+- **Phase 3 — AIS** — ✅ shipped: the AIS app got the map "for free" via the shared renderer.
 - **Phase 4 — later:** optional online raster layer (desktop-first).
 
-## Open questions for go
+## Decisions taken (was "Open questions for go")
 
-1. Start Phase 1 on **Meshtastic** (has Map view + persisted settings already) — agreed?
-2. Toggle exposure: a **key/button** in the view, a **Settings row**, or both?
-3. Initial bundled region: **Italy / Adriatic** (Rimini, IU4APC) as the first dataset?
+1. Phase 1 started on **Meshtastic** (it already had a Map view + persisted settings).
+2. Toggle exposure: **both** — key `8` in the view and a persisted "Map view" Settings row.
+3. First regional dataset: **Italy / Adriatic**; later replaced as the default by the
+   worldwide 50m dataset (`world.rmap`), with regional cuts still supported via `--bbox`.

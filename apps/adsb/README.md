@@ -131,10 +131,11 @@ the screen** (List → Radar → Detail → Settings) and shows the page number.
 | `5` | **cycle sort** (CALL/DST/SPD/ALT/TRK) | zoom in | zoom in | setting ▲ |
 | `6` | previous aircraft (▲) | zoom out | zoom out | setting ▼ |
 | `7` | next aircraft (▼) | trails on/off | trails on/off | change value |
-| `8` | select / deselect (✓) | — | **show others** on/off | quit |
+| `8` | select / deselect (✓) | **radar ↔ map** toggle | **show others** on/off | quit |
 
 The **Settings** screen is a navigable name|value list: Theme, Units (NM/km), TTL (15/30/60/120 s),
-Range (ladder + AUTO), Trails (All/15/30/60 points), Ground (show/hide), Emergency-only (on/off).
+Range (ladder + AUTO), Trails (All/15/30/60 points), Ground (show/hide), Emergency-only (on/off),
+Map view (Map/Radar, persisted default for the scope screen).
 
 ## Architecture
 
@@ -166,14 +167,16 @@ ADS-B-specific files (`apps/adsb/src/`):
 - **`viewmodel/adsb_viewmodel.{h,cpp}`** — app state (current screen, sort, range ladder/AUTO,
   cursor vs locked selection, view toggles), the Settings model with **v2 persistence**, and the
   `NavProvider` mapping keys to actions, on the toolkit's `ShellViewModel`.
-- **`view/adsb_screen.{h,cpp}`** — the four screens, the shared `render_scope()` RGB565 rasterizer
-  (rings, NM labels, heading arrows, trails), the list/detail/settings tables, header and indicators,
-  on the toolkit's `BaseScreen`.
+- **`view/adsb_screen.{h,cpp}`** — the four screens, the `render_scope()` RGB565 scope renderer
+  (rings, NM labels, heading arrows, trails) built on the shared `toolkit` raster primitives
+  (`view::plot_disc/plot_ring/plot_triangle/plot_line`, also used by the AIS scope), the
+  list/detail/settings tables, header and indicators, on the toolkit's `BaseScreen`.
 - **`main.cpp`** — wiring: resolve the JSON source + home/TTL env overrides, start the `FileJsonSource`
   poller, and run the toolkit app loop.
 
 Everything else (reactive bindings, NavBar/IconButton, key routing, theme, asset manager, the
-`EntityStore`/`FileJsonSource`/`geo` toolkit primitives, run loop) is reused from `radio_toolkit`.
+`EntityStore`/`FileJsonSource`/`geo`/`view::raster` toolkit primitives, run loop) is reused from
+`radio_toolkit`.
 
 ## Build
 

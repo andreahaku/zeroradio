@@ -1,13 +1,16 @@
 # survey — Spectrum Survey
 
-A wide-band spectrum survey for the CardputerZero (radio-apps
-[`10a`](../../../radio-apps/10a-spectrum-survey-source-plan.md)): sweep tens-to-hundreds of MHz,
+A wide-band spectrum survey for the CardputerZero (design note `10a` in the companion planning
+repo): sweep tens-to-hundreds of MHz,
 see **what is transmitting**, and hand a signal off to the SDR app to listen. Where `sdr_app` is
 a *microscope* (one ≤2.4 MHz tune you already know), Survey is the *panorama* — the "survey the
 band, find the peaks, drill in" tool the suite was missing. Built on the shared `radio_toolkit`,
-it reuses the SDR app's waterfall pipeline verbatim; the only new engine is the sweep source.
+it reuses the toolkit's waterfall pipeline (the `view::raster` colormap and chart machinery shared
+with the SDR app); the only new engine is the sweep source.
 
-![Survey waterfall over the FM band](docs/media/waterfall.png)
+| Waterfall (FM band, real RTL-SDR) | Peaks list |
+| --- | --- |
+| ![Survey waterfall over the FM band](docs/media/waterfall.png) | ![Survey peaks list](docs/media/peaks.png) |
 
 ## How it works
 
@@ -34,8 +37,8 @@ a mutex, and respawns with backoff if the tool dies.
 ## Screens
 
 - **Waterfall** (page 1) — the wide-band scope: spectrum chart + scrolling RGB565 waterfall over
-  the swept range, with **frequency labels and vertical reference lines** at ¼ / ½ / ¾ of the
-  span (plus the band edges) and a **yellow dot on every detected peak**; the currently selected
+  the swept range, with **vertical reference lines** at ¼ / ½ / ¾ of the span (frequency labels
+  on those ticks and on the band edges) and a **yellow dot on every detected peak**; the currently selected
   peak's dot is drawn larger in the accent colour. Keys: `5`/`7` zoom out/in, `6` opens the
   **tune dialog** (type a centre frequency then a total span in MHz — `Enter` advances then
   commits, `Esc` cancels; the window becomes centre ± span/2), `8` toggles theme. The range
@@ -43,7 +46,9 @@ a mutex, and respawns with backoff if the tool dies.
 - **Peaks** (page 2) — "who is transmitting": a themed table **FREQ MHz | POWER | AGE** with an
   accent selection band (keys `5`/`6` move the cursor). Key `8` **cycles the sort** through the
   three columns ascending/descending (the header shows e.g. `PWR v`, the nav button the short
-  code). Key `7` — **Open in SDR** — launches `sdr_app` tuned to the selected peak via `SDR_FREQ`.
+  code). Key `7` — **Open in SDR** — launches `sdr_app` tuned to the selected peak via `SDR_FREQ`
+  (the rest of the environment passes through, so `SDR_RTLTCP` etc. still apply) and **quits
+  Survey**, releasing the framebuffer and the RTL-SDR dongle to the SDR app.
 
 ## Build & run (desktop SDL simulator)
 

@@ -2,7 +2,8 @@
 # CardputerZero + M5Stack Cap LoRa-1262 (SX1262 + ATGM336H GNSS)
 # SX1262 on SPI0 CS1 (kernel-managed /dev/spidev0.1), DIO1=GPIO23, BUSY=GPIO22,
 # TCXO on DIO3 (verified empirically), antenna RF switch via PI4IOE5V6408 P0
-# (cap-lora-rfswitch.service). GNSS on /dev/ttyS0 (autoprobed baud, module is
+# (driven by cap-lora-init.sh, run as ExecStartPre of meshtasticd — see
+# meshtasticd-cap-lora.conf). GNSS on /dev/ttyS0 (autoprobed baud, module is
 # 115200 8N1).
 Lora:
   Module: sx1262
