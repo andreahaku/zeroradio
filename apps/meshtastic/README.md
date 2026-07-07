@@ -129,3 +129,11 @@ Keys: `4` cycles the view (Chats→Nodes→Map→Tools→Settings), `5`–`8` ar
 
 > Note: a single `meshtasticd -s` node has no peer, so no incoming messages appear. To exercise receive,
 > use a scripted peer or two nodes (Meshtasticator) — see the `meshtastic-dev-testbench` dev note.
+
+## On the CardputerZero (real LoRa + GNSS)
+
+With the **M5Stack Cap LoRa-1262** on the HAT port, the device runs a native `meshtasticd`
+(SX1262 over `/dev/spidev0.1`, ATGM336H GNSS on `/dev/ttyS0`, region EU_868) and the app
+connects to it on the default `127.0.0.1:4403` — no app changes. Hardware map, install steps,
+config mirrors and the acceptance script live in [`docs/cap-lora-1262.md`](../../docs/cap-lora-1262.md)
+and [`device/meshtasticd/`](../../device/meshtasticd/).

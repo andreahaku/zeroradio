@@ -1,0 +1,26 @@
+---
+# CardputerZero + M5Stack Cap LoRa-1262 (SX1262 + ATGM336H GNSS)
+# SX1262 on SPI0 CS1 (kernel-managed /dev/spidev0.1), DIO1=GPIO23, BUSY=GPIO22,
+# TCXO on DIO3 (verified empirically), antenna RF switch via PI4IOE5V6408 P0
+# (cap-lora-rfswitch.service). GNSS on /dev/ttyS0 (autoprobed baud, module is
+# 115200 8N1).
+Lora:
+  Module: sx1262
+  gpiochip: 0
+  spidev: spidev0.1
+  spiSpeed: 2000000
+  IRQ: 23
+  Busy: 22
+  DIO2_AS_RF_SWITCH: true
+  DIO3_TCXO_VOLTAGE: true
+
+GPS:
+  SerialPath: /dev/ttyS0
+
+Logging:
+  LogLevel: info
+
+General:
+  MaxNodes: 200
+  MaxMessageQueue: 100
+  ConfigDirectory: /etc/meshtasticd/config.d/
