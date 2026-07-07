@@ -35,12 +35,14 @@ endif()
 # decode (ais_decoder) turns host-produced !AIVDM sentences into Vessels merged
 # into the shared EntityStore; the screen lists them. See apps/ais/README.md.
 # ====================================================
-add_executable(ais_app
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/model/vessel_store.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/viewmodel/ais_viewmodel.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/view/ais_screen.cpp
+# Same GLOB pattern as the sibling apps; the decoder sources are excluded —
+# they live in the ais_decoder static lib (linked below).
+file(GLOB_RECURSE AIS_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
+list(FILTER AIS_SOURCES EXCLUDE REGEX "/decoder/ais_decoder\\.cpp$")
+
+add_executable(ais_app ${AIS_SOURCES})
 
 target_include_directories(ais_app
     PRIVATE
