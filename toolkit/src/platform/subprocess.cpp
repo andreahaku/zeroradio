@@ -12,7 +12,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-namespace survey {
+namespace toolkit {
 
 Subprocess::~Subprocess() { stop(); }
 
@@ -86,4 +86,4 @@ void Subprocess::stop() {
     }
 }
 
-} // namespace survey
+} // namespace toolkit

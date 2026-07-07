@@ -456,6 +456,7 @@ add_subdirectory(apps/meshtastic)
 add_subdirectory(apps/radio)
 add_subdirectory(apps/ais)
 add_subdirectory(apps/survey)
+add_subdirectory(apps/ism)
 
 # ====================================================
 # Packaging — Phase 1: self-contained Debian package for a stock CardputerZero
@@ -471,7 +472,7 @@ if(CMAKE_CROSSCOMPILING)
     set(RADIO_APPLAUNCH   "share/APPLaunch")
 
     # App binaries + the hub, colocated so the hub can posix_spawn() its siblings.
-    install(TARGETS radio_app sdr_app adsb_app meshtastic_app ais_app survey_app
+    install(TARGETS radio_app sdr_app adsb_app meshtastic_app ais_app survey_app ism_app
             RUNTIME DESTINATION "${RADIO_PKG_BINDIR}")
 
     # Launch wrapper — carries the SDR runtime env (sample-rate cap, pipewire audio).

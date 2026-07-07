@@ -18,6 +18,7 @@ parser + a field mapping over the shared toolkit.
 - `apps/survey` — wide-band spectrum survey + peaks (data: `rtl_power`/`hackrf_sweep` CSV).
 - `apps/adsb` — ADS-B aircraft radar/list (data: dump1090 `aircraft.json`, mock bundled).
 - `apps/ais`  — AIS vessel radar/list, on-device AIVDM decoder (data: NMEA over UDP/TCP or file).
+- `apps/ism`  — ISM 433/868 device sniffer, list/detail (data: `rtl_433 -F json`, mock/file/dongle).
 - `apps/meshtastic` — Meshtastic mesh client (data: Client API TCP to a local `meshtasticd`;
   on the device a native `meshtasticd` drives the Cap LoRa-1262 — see `docs/cap-lora-1262.md`
   and `device/meshtasticd/`).
@@ -38,12 +39,12 @@ cmake --preset cp0-cross && cmake --build --preset cp0-cross-rel
 
 ## Tests — run them before declaring a change done
 
-Five CTest targets on the desktop preset; the decoder tests are **frozen parity tests** (never edit
+Six CTest targets on the desktop preset; the decoder tests are **frozen parity tests** (never edit
 the vectors to make code pass):
 
 ```bash
 ctest --test-dir build/linux-x86-64 -C Debug --output-on-failure
-# aircraft_parse_test · ais_decoder_test · nmea_net_test · meshtastic_decoder_test · sweep_parser_test
+# aircraft_parse_test · ais_decoder_test · nmea_net_test · meshtastic_decoder_test · sweep_parser_test · ism_parse_test
 ```
 
 The LVGL display backend is chosen in `toolkit/src/app/run_app.cpp` `init_display()`:

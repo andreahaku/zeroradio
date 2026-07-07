@@ -14,6 +14,7 @@ apps/
   survey/       # Spectrum survey: wide-band waterfall + PEAKS list (rtl_power/hackrf_sweep) → SDR
   adsb/         # ADS-B 1090 MHz aircraft viewer (dump1090 aircraft.json)
   ais/          # AIS marine vessel viewer (on-device AIVDM decode)
+  ism/          # ISM 433/868 MHz device sniffer (rtl_433 -F json: weather, TPMS, remotes)
   meshtastic/   # Meshtastic mesh client (Client API :4403 → local meshtasticd)
 device/         # on-device integration (native meshtasticd config for the Cap LoRa-1262)
 scripts/        # operator scripts: flashing, device diagnostics, acceptance checks, profiling
@@ -38,6 +39,10 @@ key `8` toggles it against the azimuthal PPI radar. Source videos: [ADS-B](apps/
 | Radio hub (`apps/radio`) | Survey (`apps/survey`) | AIS (`apps/ais`) |
 | --- | --- | --- |
 | ![Radio hub menu](apps/radio/docs/media/hub.png) | ![Survey waterfall](apps/survey/docs/media/waterfall.png) | ![AIS Mercator map](apps/ais/docs/media/scope.png) |
+
+| ISM (`apps/ism`) — live TPMS off-air (RTL-SDR V4) |
+| --- |
+| ![ISM device list](apps/ism/docs/media/live.png) |
 
 - **`radio_toolkit`** (static lib) — the shared foundation: generic app shell (`ShellViewModel` +
   `NavProvider` + `run_app`), a generalized 5-key NavBar and widgets, `geo` (haversine range/bearing + PPI
@@ -67,6 +72,12 @@ key `8` toggles it against the azimuthal PPI radar. Source videos: [ADS-B](apps/
   (position types 1/2/3 + static type 5, two-source-oracle tested): List / Radar (PPI) / Mercator map /
   Detail / Settings, vessels coloured by navigation status, live NMEA over UDP/TCP from `rtl_ais` or
   AIS-catcher. → [`apps/ais/README.md`](apps/ais/README.md)
+- **`ism_app`** — **ISM-band device sniffer**: lists nearby 433/868 MHz transmissions (weather sensors,
+  **TPMS**, remotes) decoded by `rtl_433 -F json`, a port of the ADS-B structure minus the radar (ISM
+  devices have no position). List (sortable MODEL/AGE/RSSI) / Detail (all reported fields + extras) /
+  Settings; pure parser with a **frozen two-source parity test** over real off-air captures. Runs on a
+  local dongle, a networked `rtl_tcp` dongle, a replay file, or a no-hardware mock.
+  → [`apps/ism/README.md`](apps/ism/README.md)
 - **`meshtastic_app`** — Meshtastic mesh client. Connects to a local `meshtasticd` daemon via the Client
   API (TCP :4403, framed protobuf). **Five views** on the 5-key NavBar cycle: **Chats** (channel/DM feed,
   channel switcher, canned replies, compose, ACK color-outline), **Nodes** (sortable table + node detail
@@ -85,6 +96,7 @@ rough order of work:
 | App | Decoder / source | Shape |
 | --- | --- | --- |
 | **POCSAG / FLEX** | `multimon-ng` | pager message feed |
+| **BLE / device radar** | onboard BT / USB (BlueZ) | geo-radar + list — HW-gated |
 | **APRS** | `direwolf` (KISS / AX.25) | station map + message feed |
 | **ACARS** | `acarsdec` | aircraft message feed |
 | **NOAA APT** | weather-sat pass capture | decoded image gallery |
@@ -104,6 +116,7 @@ cmake --build --preset linux-x86-64-dbg     # → build/linux-x86-64/apps/<app>/
 ./build/linux-x86-64/apps/ais/Debug/ais_app            # AIS viewer (bundled mock NMEA)
 ./build/linux-x86-64/apps/sdr/Debug/sdr_app            # SDR receiver (mock source; SDR_SOURCE=mock to force)
 ./build/linux-x86-64/apps/survey/Debug/survey_app      # spectrum survey (SURVEY_SOURCE=mock for no dongle)
+./build/linux-x86-64/apps/ism/Debug/ism_app            # ISM sniffer (ISM_SOURCE=mock for no dongle)
 ./build/linux-x86-64/apps/meshtastic/Debug/meshtastic_app  # Meshtastic client (default: 127.0.0.1:4403)
 # live ADS-B: run `dump1090 --write-json <dir>` then ADSB_JSON=<dir>/aircraft.json ./.../adsb_app
 # centre the radar on you: ADSB_HOME_LAT=.. ADSB_HOME_LON=.. ./.../adsb_app  (default: Bologna, IT)
@@ -118,7 +131,7 @@ the vectors are never edited to make code pass):
 ```bash
 ctest --test-dir build/linux-x86-64 -C Debug --output-on-failure
 # aircraft_parse_test (ADS-B) · ais_decoder_test + nmea_net_test (AIS)
-# meshtastic_decoder_test · sweep_parser_test (Survey)
+# meshtastic_decoder_test · sweep_parser_test (Survey) · ism_parse_test (ISM)
 ```
 
 Architecture and design (shared toolkit, shell decoupling, per-app data paths): see
@@ -137,10 +150,12 @@ command); summary:
 | **AIS** | `rtl_ais` or `AIS-catcher` | `!AIVDM` NMEA over UDP/TCP (via `AIS_UDP` / `AIS_TCP`) | `rtl-ais` / `ais-catcher` |
 | **SDR** | `rtl_tcp -a 127.0.0.1 -p 1234 -s 2400000` | raw IQ over TCP `127.0.0.1:1234` | `rtl-sdr` |
 | **Survey** | `rtl_power` / `hackrf_sweep` (spawned by the app itself) | CSV sweep rows on the child's stdout | `rtl-sdr` / `hackrf` |
+| **ISM** | `rtl_433 -F json` (spawned by the app itself) | JSON device lines on the child's stdout | `rtl_433` |
 | **Meshtastic** | `meshtasticd -s` (sim, no radio) or **native with the Cap LoRa-1262** ([`docs/cap-lora-1262.md`](docs/cap-lora-1262.md)) | Client API TCP `127.0.0.1:4403` (via `MESHTASTICD_HOST`/`MESHTASTICD_PORT`) | Docker: `meshtastic/meshtasticd` |
 
 Each app also runs with **no hardware** on bundled mock/synthetic data (ADS-B: the bundled
-`aircraft.json`; SDR: `SDR_SOURCE=mock`), so the whole UI works on the desktop simulator without a dongle.
+`aircraft.json`; SDR: `SDR_SOURCE=mock`; Survey: `SURVEY_SOURCE=mock`; ISM: `ISM_SOURCE=mock`), so the
+whole UI works on the desktop simulator without a dongle.
 
 ### SDR front-ends
 

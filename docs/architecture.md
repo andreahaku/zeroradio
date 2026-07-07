@@ -13,6 +13,7 @@ parser plus a field mapping rendered through the shared toolkit.
 - `apps/survey/` — wide-band spectrum survey + peaks list (data: `rtl_power`/`hackrf_sweep` CSV).
 - `apps/adsb/` — ADS-B 1090 MHz aircraft radar/list (data: dump1090 `aircraft.json`, mock bundled).
 - `apps/ais/` — AIS vessel radar/list with an on-device AIVDM decoder (data: NMEA over UDP/TCP or file).
+- `apps/ism/` — ISM 433/868 MHz device sniffer, list/detail (data: `rtl_433 -F json` lines, mock bundled).
 - `apps/meshtastic/` — Meshtastic mesh client (data: Client API TCP to a local `meshtasticd`).
 
 Per-app details live in each app's README (`apps/<app>/README.md`). This document covers the shared
@@ -42,7 +43,7 @@ live data (independent of input, never blocks the UI):
 | `reactive/` | LVGL-subject bindings (the one-way observe layer). |
 | `view/` | Theme, `ui_const.h` (Phosphor icon codepoints), widgets (`IconButton`, `NavBar`, `TitleBar`), `screens/base_screen` (a screen base parameterized on `ShellViewModel&` + `NavProvider&`), and **`raster`** — the shared RGB565 primitives (`plot_disc/plot_ring/plot_triangle/plot_line`) + the waterfall `colormap_rgb565`, used by every scope/waterfall (adsb, ais, meshtastic, sdr, survey). |
 | `map/` | The Mercator vector base map: `VectorMap` (loads the bundled `.rmap` datasets) + `map_renderer` (`draw_base`: filled land, coastline, borders), shared by the ADS-B / AIS / Meshtastic map screens. See [`mapdata-design.md`](mapdata-design.md). |
-| `platform/` | Key routing (`linux_input`), and the headless `remote_fb` display+input driver. |
+| `platform/` | Key routing (`linux_input`), the headless `remote_fb` display+input driver, and `subprocess` (fork/exec + non-blocking stdout pipe, shared by the Survey and ISM external-tool sources). |
 | `net/` | `FileJsonSource` — poll a file on a background thread and hand its contents to a callback; `NmeaNetSource` — receive NMEA lines over UDP/TCP with multi-fragment reassembly (AIS). |
 | `geo/` | Haversine `range_nm` / `bearing_deg`, a north-up `project()` for the radar, `project_mercator()` + `clip_segment()` for the map. |
 | `model/` | `EntityStore` — a thread-safe table of tracked entities (sparse-merge upsert, snapshot, TTL sweep). |
@@ -102,6 +103,13 @@ pipe on a worker thread (respawn with backoff) → the pure `SweepAccumulator` p
 rows into a wide normalized frame + a peaks list → waterfall + PEAKS screens. "Open in SDR" execs
 `sdr_app` with `SDR_FREQ=<peak>` and quits, releasing the framebuffer and the dongle.
 
+**ISM** (`apps/ism`). `IsmSource` spawns `rtl_433 -F json` through the shared `toolkit::Subprocess`
+on a worker thread (buffering partial lines, respawn with backoff; also a file-replay and a
+no-hardware mock mode) → the pure `parse_ism_json_line` decodes each line into an `IsmReading` →
+`apply_to_store` keyed by `device_key()` into the same `EntityStore` → List/Detail/Settings screens
+(no radar — ISM devices have no position). `toolkit::Subprocess` (fork/exec + non-blocking stdout
+pipe) was extracted from Survey into `toolkit/src/platform` when this second user appeared.
+
 **Meshtastic** (`apps/meshtastic`). `MeshtasticClientSource` (TCP `127.0.0.1:4403`, `0x94C3`-framed
 protobuf) pumps raw `FromRadio` bytes into the pure `MeshDecoder` (nanopb), which dispatches nodes /
 messages / channels into `EntityStore` / `MessageLog` / `ChannelTable`; five screens render the mesh.
@@ -114,7 +122,8 @@ Every decoder is a pure library with a **frozen parity test** (CTest, desktop pr
 sources must produce the same vectors, and the vectors are never edited to make code pass. Targets:
 `aircraft_parse_test` (ADS-B JSON), `ais_decoder_test` (AIVDM vs gpsd+pyais), `nmea_net_test`
 (UDP loopback integration), `meshtastic_decoder_test` (FromRadio parity), `sweep_parser_test`
-(rtl_power CSV vs a python oracle, incl. a captured FM sweep).
+(rtl_power CSV vs a python oracle, incl. a captured FM sweep), `ism_parse_test` (rtl_433 JSON vs a
+python oracle, incl. real off-air TPMS captures).
 
 ```bash
 ctest --test-dir build/linux-x86-64 -C Debug --output-on-failure

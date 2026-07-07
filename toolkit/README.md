@@ -18,7 +18,7 @@ see [`docs/architecture.md`](../docs/architecture.md) for the design and data fl
 | `model/` | `entity_store` — a thread-safe table of tracked entities (sparse-merge upsert, snapshot, TTL sweep) behind every aircraft/vessel/node list. |
 | `net/` | `file_json_source` — poll a file on a background thread and hand its contents to a callback (dump1090-style feeds); `nmea_net_source` — receive NMEA lines over UDP/TCP with multi-fragment reassembly (AIS). |
 | `geo/` | Haversine `range_nm` / `bearing_deg`, the north-up azimuthal `project()` for the PPI radar, `project_mercator()` + `clip_segment()` for the map. |
-| `platform/` | `linux_input` — key routing (physical keys and arrow keys → LVGL); `remote_fb` — the headless streaming display+input driver (see [`tools/remote-fb/README.md`](../tools/remote-fb/README.md)). |
+| `platform/` | `linux_input` — key routing (physical keys and arrow keys → LVGL); `remote_fb` — the headless streaming display+input driver (see [`tools/remote-fb/README.md`](../tools/remote-fb/README.md)); `subprocess` — fork/exec of a child tool with a non-blocking stdout pipe, shared by the Survey (`rtl_power`/`hackrf_sweep`) and ISM (`rtl_433`) sources. |
 | `logger/` | A small file/stderr logger. |
 | `config/` | `app_config.h` (config-file path helper) and the LVGL configs (`lv_conf_desktop.h` for the SDL simulator, `lv_conf_cm0.h` for the device). |
 

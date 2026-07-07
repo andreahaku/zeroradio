@@ -133,7 +133,7 @@ struct CsvSweepSource::Impl {
             const int32_t bin = want_bin.load();
 
             SweepAccumulator acc(start, stop);
-            Subprocess child;
+            toolkit::Subprocess child;
             if (!child.start(tool_argv(tool, start, stop, bin))) {
                 sweep_ok.store(false);
                 if (!wait(kRespawnDelay, my_generation)) continue;

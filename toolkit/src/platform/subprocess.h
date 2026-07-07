@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <vector>
 
-namespace survey {
+namespace toolkit {
 
 // A child process with its stdout captured through a non-blocking pipe.
 // Start/read/stop only — respawn policy and stderr belong to the caller
@@ -41,4 +41,4 @@ private:
     int stdout_fd_ = -1;
 };
 
-} // namespace survey
+} // namespace toolkit
