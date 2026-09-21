@@ -33,7 +33,7 @@ device resolution (320×170).
   the home position. In map mode the canvas runs full-width, and the callsign columns overlay it.
   The Light theme switches the radar and map to a daylight palette. The `toolkit/src/map` renderer
   is shared with the AIS and Meshtastic apps.
-- **Auto / manual range** — a range ladder (10/20/50/100/200 NM) plus an **AUTO** state that fits
+- **Auto / manual range** — a range ladder (5/10/20/50/100/200 NM) plus an **AUTO** state that fits
   the outer ring to the farthest aircraft. Zoom from the Radar or Detail page.
 - **Category colours** — light (green), small (cyan), large (blue), heavy (orange), rotorcraft
   (purple), other (grey). An **emergency squawk** (7500/7600/7700) turns the aircraft red.

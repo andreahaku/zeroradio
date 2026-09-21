@@ -114,7 +114,7 @@ public:
 
 private:
     reactive::IntSubject  sort_mode_subject_{static_cast<int>(Sort::Distance)};
-    reactive::IntSubject  range_index_subject_{5}; // 0..4 manual ladder, 5 = AUTO
+    reactive::IntSubject  range_index_subject_{6}; // 0..5 manual ladder, 6 = AUTO
     reactive::BoolSubject show_trails_subject_{true};
     double observed_max_nm_{0.0};
     std::string cursor_hex_;                  // list highlight (up/down)

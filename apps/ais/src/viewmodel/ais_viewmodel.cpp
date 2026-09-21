@@ -18,9 +18,11 @@
 namespace ais {
 namespace {
 
-constexpr std::array<int, 5> kRingLadder = {10, 20, 50, 100, 200};
-constexpr int kManualCount     = 5;
+constexpr std::array<int, 6> kRingLadder = {5, 10, 20, 50, 100, 200};
+constexpr int kManualCount     = static_cast<int>(kRingLadder.size());
 constexpr int kRangeStateCount = kManualCount + 1; // + AUTO (top index)
+// v2: the range ladder gained a 5 NM step (index 0).
+constexpr int kSettingsVersion = 2;
 
 constexpr std::array<const char*, AisViewModel::kSortCount> kSortLabels = {
     "MMSI", "DST", "SOG", "COG"};
@@ -206,7 +208,7 @@ void AisViewModel::settings_activate() {
             break;
         }
         case 3: {                                                 // Range default
-            const int next = (range_index() + 1) % 6;
+            const int next = (range_index() + 1) % kRangeStateCount;
             range_index_subject_.set(next);
             bump_nav_refresh();
             break;
@@ -250,7 +252,7 @@ void AisViewModel::load_settings() {
     std::ifstream in(path);
     if (!in) return;
     int ver = 0;
-    if (!(in >> ver) || ver != 1) return;
+    if (!(in >> ver) || ver < 1 || ver > kSettingsVersion) return;
     int dark = 1, km = 0, ttl = 60, range = 5, trail = 60, trails_on = 1,
         sort = static_cast<int>(Sort::Distance), others = 1, map_view = 0;
     if (!(in >> dark >> km >> ttl >> range >> trail >> trails_on >> sort >> others >> map_view)) {
@@ -259,7 +261,9 @@ void AisViewModel::load_settings() {
     set_dark_mode(dark != 0);
     units_km_ = (km != 0);
     if (ttl == 30 || ttl == 60 || ttl == 120 || ttl == 300) ttl_seconds_ = ttl;
-    if (range >= 0 && range <= 5) range_index_subject_.set(range);
+    // Older files predate the 5 NM step at the bottom of the ladder: shift up.
+    if (ver < kSettingsVersion) ++range;
+    if (range >= 0 && range < kRangeStateCount) range_index_subject_.set(range);
     if (trail == 0 || trail == 15 || trail == 30 || trail == 60) trail_len_ = trail;
     show_trails_subject_.set(trails_on != 0);
     if (sort >= 0 && sort < kSortCount) sort_mode_subject_.set(sort);
@@ -275,7 +279,7 @@ void AisViewModel::save_settings() const {
     {
         std::ofstream out(tmp, std::ios::trunc);
         if (!out) return;
-        out << 1 << ' ' << (is_dark_mode() ? 1 : 0) << ' ' << (units_km_ ? 1 : 0) << ' '
+        out << kSettingsVersion << ' ' << (is_dark_mode() ? 1 : 0) << ' ' << (units_km_ ? 1 : 0) << ' '
             << static_cast<int>(ttl_seconds_) << ' ' << range_index() << ' ' << trail_len_
             << ' ' << (show_trails() ? 1 : 0) << ' ' << sort_mode() << ' '
             << (detail_show_others_ ? 1 : 0) << ' ' << (map_mercator_ ? 1 : 0) << '\n';

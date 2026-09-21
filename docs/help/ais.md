@@ -16,6 +16,8 @@ Key 4 cycles four pages.
 - List: 5 next sort (MMSI, DST, SOG, COG), 6 previous vessel, 7 next vessel, 8 lock/unlock the cursor vessel.
 - Radar: 5 zoom in, 6 zoom out (up to AUTO), 7 trails on/off, 8 radar/map.
 - Detail: 5 zoom in, 6 zoom out, 7 trails on/off, 8 show other traffic on/off.
+
+Zoom steps: 5, 10, 20, 50, 100 and 200 NM, then AUTO.
 - Settings: 5 previous row, 6 next row, 7 change the value, 8 quit.
 
 Settings rows: Theme, Units (NM/km), TTL, Range, Trails, Map view, Location.

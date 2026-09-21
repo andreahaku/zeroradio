@@ -22,9 +22,11 @@ namespace {
 // Range-ring states: manual ladder steps (NM) plus an AUTO state at the top that
 // fits the outer ring to the farthest aircraft. range_in zooms toward 10 NM;
 // range_out widens up to AUTO (the default).
-constexpr std::array<int, 5> kRingLadder = {10, 20, 50, 100, 200};
-constexpr int kManualCount     = 5;
+constexpr std::array<int, 6> kRingLadder = {5, 10, 20, 50, 100, 200};
+constexpr int kManualCount     = static_cast<int>(kRingLadder.size());
 constexpr int kRangeStateCount = kManualCount + 1; // + AUTO (top index)
+// v3: the range ladder gained a 5 NM step (index 0).
+constexpr int kSettingsVersion = 3;
 
 // Short labels for the sort modes (List page slot 1).
 constexpr std::array<const char*, AdsbViewModel::kSortCount> kSortLabels = {
@@ -228,7 +230,7 @@ void AdsbViewModel::settings_activate() {
             break;
         }
         case 3: {                                                 // Range default
-            const int next = (range_index() + 1) % 6; // 0..4 ladder + AUTO(5)
+            const int next = (range_index() + 1) % kRangeStateCount; // ladder + AUTO
             range_index_subject_.set(next);
             bump_nav_refresh();
             break;
@@ -277,7 +279,7 @@ void AdsbViewModel::load_settings() {
     std::ifstream in(path);
     if (!in) return;
     int ver = 0;
-    if (!(in >> ver) || (ver != 1 && ver != 2)) return;
+    if (!(in >> ver) || ver < 1 || ver > kSettingsVersion) return;
     int dark = 1, km = 0, ttl = 30, range = 5, trail = 60, ground = 1, emerg = 0;
     // Require the whole record: a truncated/corrupt file must not apply a
     // half-parsed mix of saved values and inline defaults.
@@ -288,7 +290,9 @@ void AdsbViewModel::load_settings() {
     // out-of-range values are ignored so a corrupt file can't disable expiry
     // (huge TTL) or bypass the trail cap (huge trail length).
     if (ttl == 15 || ttl == 30 || ttl == 60 || ttl == 120) ttl_seconds_ = ttl;
-    if (range >= 0 && range <= 5) range_index_subject_.set(range);
+    // Older files predate the 5 NM step at the bottom of the ladder: shift up.
+    if (ver < kSettingsVersion) ++range;
+    if (range >= 0 && range < kRangeStateCount) range_index_subject_.set(range);
     if (trail == 0 || trail == 15 || trail == 30 || trail == 60) trail_len_ = trail;
     show_ground_ = (ground != 0);
     emergency_only_ = (emerg != 0);
@@ -319,7 +323,7 @@ void AdsbViewModel::save_settings() const {
     {
         std::ofstream out(tmp, std::ios::trunc);
         if (!out) return;
-        out << 2 << ' ' << (is_dark_mode() ? 1 : 0) << ' ' << (units_km_ ? 1 : 0) << ' '
+        out << kSettingsVersion << ' ' << (is_dark_mode() ? 1 : 0) << ' ' << (units_km_ ? 1 : 0) << ' '
             << static_cast<int>(ttl_seconds_) << ' ' << range_index() << ' ' << trail_len_
             << ' ' << (show_ground_ ? 1 : 0) << ' ' << (emergency_only_ ? 1 : 0) << ' '
             << (show_trails() ? 1 : 0) << ' ' << sort_mode() << ' '

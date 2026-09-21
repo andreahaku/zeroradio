@@ -109,7 +109,7 @@ private:
     void save_settings() const;
 
     reactive::IntSubject  sort_mode_subject_{static_cast<int>(Sort::Distance)};
-    reactive::IntSubject  range_index_subject_{5}; // AUTO
+    reactive::IntSubject  range_index_subject_{6}; // AUTO (after the 6 manual steps)
     reactive::BoolSubject show_trails_subject_{true};
 
     std::string cursor_id_;
