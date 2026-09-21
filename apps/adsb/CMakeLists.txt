@@ -5,22 +5,6 @@
 #
 
 # ====================================================
-# nlohmann/json — header-only, used by the ADS-B parser
-# ====================================================
-find_package(nlohmann_json QUIET)
-if(NOT nlohmann_json_FOUND)
-    message(STATUS "nlohmann_json not found in system; fetching v3.11.3")
-    FetchContent_Declare(
-        nlohmann_json
-        GIT_REPOSITORY https://github.com/nlohmann/json.git
-        GIT_TAG        v3.11.3
-        GIT_SHALLOW    TRUE
-    )
-    set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(nlohmann_json)
-endif()
-
-# ====================================================
 # adsb_decoder — the pure dump1090 aircraft.json parser (parse_aircraft_json)
 # plus its EntityStore projection. Split into a static lib so the parse path has
 # a standalone parity test. See apps/adsb/README.md.

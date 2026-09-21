@@ -450,6 +450,22 @@ if(USE_DESKTOP)
     add_test(NAME waterfall_scroll_test COMMAND waterfall_scroll_test)
 endif()
 
+# nlohmann/json — header-only, used by the ADS-B and ISM parsers. Resolved here,
+# not in an app subdirectory: a system package yields an IMPORTED target that is
+# only visible in the directory that found it (the FetchContent fallback is global).
+find_package(nlohmann_json QUIET)
+if(NOT nlohmann_json_FOUND)
+    message(STATUS "nlohmann_json not found in system; fetching v3.11.3")
+    FetchContent_Declare(
+        nlohmann_json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG        v3.11.3
+        GIT_SHALLOW    TRUE
+    )
+    set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(nlohmann_json)
+endif()
+
 add_subdirectory(apps/adsb)
 add_subdirectory(apps/sdr)
 add_subdirectory(apps/meshtastic)
