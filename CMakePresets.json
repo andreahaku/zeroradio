@@ -25,6 +25,24 @@
             }
         },
         {
+            "name": "cp0-trixie",
+            "displayName": "CardputerZero Cross Build (Debian trixie container)",
+            "description": "Cross build inside docker/cp0-build (scripts/cp0-docker-build.sh): sysroot is the container's own trixie arm64 multiarch tree, matching the device glibc/libstdc++",
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
+                "FETCHCONTENT_BASE_DIR": "${sourceDir}/.cache/cp0-trixie-deps",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/${presetName}/install",
+                "USE_DESKTOP": "OFF",
+                "APP_USE_DRM": "OFF",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/cp0-aarch64-linux-gnu.cmake",
+                "CM0_SDK_ROOT": "/",
+                "CMAKE_SYSROOT": "/",
+                "CM0_ALLOW_FETCH_DEPS": "ON"
+            }
+        },
+        {
             "name": "linux-x86-64",
             "displayName": "Linux Desktop Builds",
             "description": "Configure for x86_64 Linux using Ninja Multi-Config",
@@ -49,6 +67,16 @@
         {
             "name": "cp0-cross-rel",
             "configurePreset": "cp0-cross",
+            "configuration": "Release"
+        },
+        {
+            "name": "cp0-trixie-dbg",
+            "configurePreset": "cp0-trixie",
+            "configuration": "Debug"
+        },
+        {
+            "name": "cp0-trixie-rel",
+            "configurePreset": "cp0-trixie",
             "configuration": "Release"
         },
         {

@@ -85,17 +85,20 @@ void AisScreen::render_scope(uint16_t* buf, int width, int height, lv_obj_t* can
                              bool mercator) {
     if (!canvas) return;
     const int w = width, h = height;
-    std::fill(buf, buf + static_cast<size_t>(w) * h, lv_color_to_u16(lv_color_black()));
+    // Light theme = daylight scope (light background, dark lines), readable in sun.
+    const bool day = !vm_.is_dark_mode();
+    std::fill(buf, buf + static_cast<size_t>(w) * h,
+              lv_color_to_u16(day ? lv_color_hex(0xf4f6f8) : lv_color_black()));
 
     const int cx = w / 2, cy = h / 2;
     const int radius_px = (std::min(w, h) / 2) - 4;
     const double max_nm = static_cast<double>(vm_.range_nm());
 
-    const uint16_t ring_col = lv_color_to_u16(lv_color_hex(0x223344));
-    const uint16_t north_col = lv_color_to_u16(lv_color_hex(0x6688aa));
-    const uint16_t home_col = lv_color_to_u16(lv_color_white());
+    const uint16_t ring_col = lv_color_to_u16(lv_color_hex(day ? 0x9fb0c0 : 0x223344));
+    const uint16_t north_col = lv_color_to_u16(lv_color_hex(day ? 0x2b5a85 : 0x6688aa));
+    const uint16_t home_col = lv_color_to_u16(day ? lv_color_black() : lv_color_white());
     const uint16_t ship_col = lv_color_to_u16(view::palette(false).primary);
-    const uint16_t sel_col = lv_color_to_u16(lv_color_hex(0xff9933));
+    const uint16_t sel_col = lv_color_to_u16(lv_color_hex(day ? 0xd96400 : 0xff9933));
     const uint16_t trail_col = lv_color_to_u16(lv_color_hex(0x4a7aa0));
     const uint16_t trail_sel_col = sel_col;
 
@@ -109,7 +112,9 @@ void AisScreen::render_scope(uint16_t* buf, int width, int height, lv_obj_t* can
         vp.home = config_.home;
         vp.range_nm = max_nm;
         vp.projection = toolkit::map::Projection::Mercator;
-        toolkit::map::draw_base(buf, vp, base_map_, toolkit::map::MapStyle{});
+        auto& cache = (canvas == detail_canvas_) ? detail_map_cache_ : scope_map_cache_;
+        cache.draw(buf, vp, base_map_,
+                   day ? toolkit::map::MapStyle::day() : toolkit::map::MapStyle{});
         for (lv_obj_t* lbl : ring_labels)
             if (lbl) lv_obj_add_flag(lbl, LV_OBJ_FLAG_HIDDEN);
     } else {

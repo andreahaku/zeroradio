@@ -7,8 +7,11 @@
 #pragma once
 
 #include "base_widget.h"
+#include "battery_badge.h"
 
 #include "lvgl.h"
+
+#include <memory>
 
 namespace view::widgets {
 
@@ -25,6 +28,7 @@ private:
     lv_subject_t* title_subject_;
     lv_subject_t* subtitle_subject_;
     lv_subject_t* dark_mode_subject_;
+    std::unique_ptr<BatteryBadge> battery_;
 };
 
 } // namespace view::widgets

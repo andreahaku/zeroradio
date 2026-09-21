@@ -60,14 +60,19 @@ constexpr int64_t kDefaultCenterHz = 145500000;
 
 // Picks the spectrum backend. Defaults to the live RTL-SDR (via rtl_tcp) when
 // built with SDR_HAVE_RTLTCP; `SDR_SOURCE=mock` forces the synthetic source.
-// The rtl_tcp endpoint can be overridden with `SDR_RTLTCP=host:port`.
+// By default it starts a local rtl_tcp on 127.0.0.1:1234 for the attached dongle;
+// `SDR_RTLTCP=host:port` instead connects to an existing (e.g. remote) server.
 std::unique_ptr<SpectrumSource> make_source() {
 #ifdef SDR_HAVE_RTLTCP
     const char* want = std::getenv("SDR_SOURCE");
     if (!want || std::strcmp(want, "mock") != 0) {
         std::string host = "127.0.0.1";
         uint16_t    port = 1234;
+        // No SDR_RTLTCP: the dongle is on this device, so the source runs its own
+        // local rtl_tcp. With SDR_RTLTCP we only connect to the given server.
+        bool spawn_local = true;
         if (const char* ep = std::getenv("SDR_RTLTCP"); ep && ep[0] != '\0') {
+            spawn_local = false;
             const std::string s = ep;
             const auto colon = s.find(':');
             if (colon != std::string::npos) {
@@ -77,7 +82,7 @@ std::unique_ptr<SpectrumSource> make_source() {
                 host = s;
             }
         }
-        return std::make_unique<RtlTcpSource>(host, port, kDefaultCenterHz);
+        return std::make_unique<RtlTcpSource>(host, port, kDefaultCenterHz, spawn_local);
     }
 #endif
     return std::make_unique<MockSpectrumSource>();
@@ -139,7 +144,8 @@ void SpectrumScreen::build_content(lv_obj_t* content) {
     lv_label_bind_text(vfo, vm_.vfo_text_subject(), nullptr);
     lv_obj_set_style_text_font(vfo, mono_font ? mono_font : &lv_font_montserrat_12, 0);
     reactive::bind_theme(vfo, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
-    lv_obj_align(vfo, LV_ALIGN_CENTER, 0, 0);
+    // Left of centre: the right side holds the battery badge + S-meter.
+    lv_obj_align(vfo, LV_ALIGN_CENTER, -24, 0);
 
     auto* smeter_box = lv_obj_create(header);
     lv_obj_remove_style_all(smeter_box);
@@ -150,13 +156,16 @@ void SpectrumScreen::build_content(lv_obj_t* content) {
     lv_obj_set_style_pad_column(smeter_box, 3, 0);
     lv_obj_align(smeter_box, LV_ALIGN_RIGHT_MID, -4, 0);
 
+    battery_ = std::make_unique<view::widgets::BatteryBadge>(smeter_box);
+    lv_obj_set_style_margin_right(battery_->obj(), 6, 0);
+
     auto* s_label = lv_label_create(smeter_box);
     lv_label_set_text(s_label, "S");
     lv_obj_set_style_text_font(s_label, small_font ? small_font : &lv_font_montserrat_12, 0);
     reactive::bind_theme(s_label, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
 
     auto* smeter = lv_bar_create(smeter_box);
-    lv_obj_set_size(smeter, 60, 8);
+    lv_obj_set_size(smeter, 44, 8);
     lv_bar_set_range(smeter, 0, 100);
     lv_obj_set_style_bg_color(smeter, view::palette(false).primary, LV_PART_INDICATOR);
     lv_obj_remove_flag(smeter, LV_OBJ_FLAG_CLICKABLE);
@@ -173,6 +182,9 @@ void SpectrumScreen::build_content(lv_obj_t* content) {
     lv_chart_set_point_count(chart_, kBins);
     lv_chart_set_range(chart_, LV_CHART_AXIS_PRIMARY_Y, 0, kChartMax);
     lv_obj_set_style_size(chart_, 0, 0, LV_PART_INDICATOR); // hide point markers
+    // Hairline traces: the theme default (2-3 px, rounded caps) smears the peaks.
+    lv_obj_set_style_line_width(chart_, 1, LV_PART_ITEMS);
+    lv_obj_set_style_line_rounded(chart_, false, LV_PART_ITEMS);
     lv_obj_remove_flag(chart_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(chart_, LV_OBJ_FLAG_CLICKABLE);
     series_ = lv_chart_add_series(chart_, view::palette(false).primary, LV_CHART_AXIS_PRIMARY_Y);

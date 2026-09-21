@@ -1,83 +1,81 @@
 # ADS-B — a live aircraft radar for the M5Stack CardputerZero (`apps/adsb`)
 
-The **ADS-B** app turns the [M5Stack CardputerZero](https://docs.m5stack.com/) (a Raspberry-Pi-class
-handheld running Linux ARM64, 320×170 RGB565 display, physical keyboard) into a pocket **live aircraft
-viewer**: a sortable traffic **list**, a north-up **radar** scope, a per-aircraft **detail** view, and
-persistent **settings** — fed by a [dump1090](https://github.com/flightaware/dump1090) decoder reading
-an RTL-SDR dongle on 1090 MHz.
+The **ADS-B** app is part of **ZeroRadio 1.0.0**. It turns the
+[M5Stack CardputerZero](https://docs.m5stack.com/) (a Linux ARM64 handheld with a 320×170 RGB565
+display and a physical keyboard) into a pocket **live aircraft viewer**. It has a sortable traffic
+**list**, a north-up **radar** scope, a per-aircraft **detail** view and saved **settings**. A bundled
+[readsb](https://github.com/wiedehopf/readsb) decoder reads an RTL-SDR dongle on 1090 MHz.
 
-It is a graphical [LVGL](https://lvgl.io/) application (not a TUI) built on the shared
-**`radio_toolkit`** (the reactive MVVM shell/widgets shared with the `apps/sdr` receiver). It is a pure
-**viewer**: decoding is done by `dump1090`, and the app polls the `aircraft.json` file it writes.
-Development happens on a desktop **SDL simulator** at the exact device resolution (320×170).
-
-> Status (2026-06-21): building green on the desktop SDL simulator. Verified end-to-end on hardware
-> with a real **RTL-SDR Blog V4** feeding `dump1090 --write-json`: live traffic on the list and radar.
+It is a graphical [LVGL](https://lvgl.io/) application built on the shared **`radio_toolkit`** (the
+reactive MVVM shell and widgets shared with the other ZeroRadio apps). `readsb` decodes, and the app
+polls the `aircraft.json` file it writes. Development runs on a desktop **SDL simulator** at the
+device resolution (320×170).
 
 ![ADS-B world map with live traffic](docs/media/demo.gif)
 
-> The full-width **Mercator map** on the SDL simulator at native 320×170: aircraft as heading arrows over
-> a worldwide coastline + national-border base map, with position trails and transparent callsign columns
-> overlaid (selected aircraft inverted). Key `8` toggles between this map and the azimuthal PPI radar.
-> (Simulated feed around the home location.)
+> The full-width **Mercator map** on the SDL simulator at native 320×170: aircraft as heading arrows
+> over a worldwide coastline + national-border base map, with position trails and transparent
+> callsign columns (selected aircraft inverted). Key `8` toggles between this map and the azimuthal
+> PPI radar. (Simulated feed around the home position.)
 
 ## Features
 
-- **Four screens, one key** — **List** (colour-coded, sortable traffic table), **Radar** (north-up PPI
-  scope), **Detail** (selected-aircraft fields + decoded status + a mini-radar), and **Settings**
-  (persisted). Key `4` cycles the screens; the other four keys act on the current one.
-- **North-up radar scope** — three concentric range rings with NM scale labels, a north tick and home
-  dot at centre, every positioned aircraft drawn as a **heading arrowhead** (colour-coded by category,
-  selected one orange and larger, emergency red), optional position **trails**, and side callsign
-  lists. Rendered straight into an RGB565 canvas (`render_scope()`), shared by the Radar and Detail
-  mini-radar so they look identical.
-- **Radar ↔ map toggle** — key `8` on the Radar screen (and a persisted "Map view" setting) switches the
-  scope between the azimuthal **radar** and a **Mercator map** that draws a filled vector map (black land
-  over a faint blue-grey sea, thin coastline + borders; Natural Earth, bundled as
-  `assets/mapdata/*.rmap`) under the aircraft, both centred on the
-  configured home. In map mode the canvas runs **full-width** and the side callsign lists overlay it with
-  a transparent background (left column left-aligned, right column right-aligned); the selected aircraft
-  renders inverted (category colour fill, black text). Shares the `toolkit/src/map` renderer with the
-  Meshtastic app.
-- **Auto / manual range** — a range ladder (10/20/50/100/200 NM) plus an **AUTO** state that fits the
-  outer ring to the farthest aircraft. Zoom in/out from the Radar or Detail page.
+- **Four screens, one key** — **List** (colour-coded, sortable traffic table), **Radar** (north-up
+  PPI scope), **Detail** (selected-aircraft fields, decoded status and a mini-radar) and **Settings**.
+  Key `4` cycles the screens, and the other four keys act on the current one.
+- **North-up radar scope** — three range rings with NM labels, a north tick and a home dot at the
+  centre. Each positioned aircraft is a **heading arrowhead**, coloured by category (selected one
+  orange and larger, emergency red), with optional position **trails** and side callsign lists.
+  `render_scope()` draws it into an RGB565 canvas that the Radar and the Detail mini-radar share.
+- **Radar ↔ map toggle** — key `8` on the Radar screen (and the "Map view" setting) switches the
+  scope between the azimuthal **radar** and a **Mercator map**. The map draws land, sea, coastline
+  and borders (Natural Earth, bundled as `assets/mapdata/*.rmap`) under the aircraft, centred on
+  the home position. In map mode the canvas runs full-width, and the callsign columns overlay it.
+  The Light theme switches the radar and map to a daylight palette. The `toolkit/src/map` renderer
+  is shared with the AIS and Meshtastic apps.
+- **Auto / manual range** — a range ladder (10/20/50/100/200 NM) plus an **AUTO** state that fits
+  the outer ring to the farthest aircraft. Zoom from the Radar or Detail page.
 - **Category colours** — light (green), small (cyan), large (blue), heavy (orange), rotorcraft
-  (purple), other (grey); any **emergency squawk** (7500/7600/7700) overrides to red.
-- **Hex-stable selection** — a moving **cursor** (list highlight) distinct from a locked **selection**
-  (the Detail/Radar focus, marked ● in the list), both tracked by ICAO hex so they survive re-sorts.
+  (purple), other (grey). An **emergency squawk** (7500/7600/7700) turns the aircraft red.
+- **Hex-stable selection** — a moving **cursor** (list highlight) and a locked **selection** (the
+  Detail/Radar focus, marked ● in the list). The app tracks both by ICAO hex, so re-sorts keep them.
 - **Decoded status** — the Detail view spells out HIJACK 7500 / RADIO FAIL 7600 / EMERGENCY 7700 /
-  ON GROUND / nominal, alongside range, bearing, altitude, speed, track, squawk, category and RSSI.
-- **Signal + connection feedback** — header RSSI bar from the strongest contact and a connection dot
-  tracking the live feed health.
-- **Full preference persistence** — theme, units (NM/km), TTL, range, trail length, ground/emergency
-  filters, **trails on/off, sort mode and Detail show-others** are all restored on the next launch
-  (`$XDG_CONFIG_HOME/cardputer_radio/adsb/settings`), saved atomically on every change.
-- **Mock source fallback** — with no `ADSB_JSON` set, the app reads a bundled `aircraft.json`, so the
-  whole UI works with no dongle and no decoder.
+  ON GROUND / nominal, with range, bearing, altitude, speed, track, squawk, category and RSSI.
+- **Signal + connection feedback** — a header RSSI bar from the strongest contact and a connection
+  dot that tracks the feed.
+- **Persistence** — the app saves every preference on change (atomic write) to
+  `~/.config/zeroradio/adsb/settings` and restores it on the next launch.
+
+## Home position
+
+The radar centres on one home position that the whole suite shares. Set it once in
+**Settings > Location** (ADS-B or AIS):
+
+- type a city name, matched against an offline GeoNames list,
+- type coordinates as `lat, lon`,
+- or pick the GPS row, fed by a USB GPS receiver or the Cap LoRa-1262-GPS shield.
+
+The app saves it in `~/.config/zeroradio/location`. `ADSB_HOME_LAT` / `ADSB_HOME_LON` override the
+saved location for one run. Without a home position, range and bearing are wrong.
 
 ## How it works
 
-**The data path, end to end.** An RTL-SDR dongle is plugged into USB and runs `dump1090`, which decodes
-1090 MHz ADS-B and writes a full `aircraft.json` snapshot to disk every second. The app's
-`FileJsonSource` polls that file on a background thread (default every 2 s), parses it, and merges each
-aircraft into a thread-safe `EntityStore`. The UI never blocks on I/O.
+**The data path.** The RTL-SDR dongle sits in the CardputerZero USB-A port. On start, the app launches
+its bundled `readsb`, which decodes 1090 MHz ADS-B and writes an `aircraft.json` snapshot every
+second into a private runtime directory. The app stops `readsb` on exit. `FileJsonSource` polls the
+file on a background thread (every 2 s), parses it and merges each aircraft into a thread-safe
+`EntityStore`. The UI never blocks on I/O.
 
-1. **Parse + merge** — `parse_aircraft_json` turns each record into an `Aircraft` (tolerant of missing
-   fields; never throws), then `apply_to_store` merges it into the store keyed by ICAO **hex**.
-   Position freshness uses dump1090's `seen_pos`: a position older than the TTL is dropped so the radar
-   stops plotting a stale spot.
-2. **Snapshot + render** — an LVGL timer (~300 ms) takes a store snapshot, expires stale aircraft (TTL
-   sweep), builds a sorted row set, records trails, and refreshes the active screen.
+1. **Parse + merge** — `parse_aircraft_json` turns each record into an `Aircraft` (it tolerates
+   missing fields and never throws). `apply_to_store` merges it into the store, keyed by ICAO
+   **hex**. The app drops a position older than the TTL (`seen_pos`), so the radar stops plotting
+   a stale spot.
+2. **Snapshot + render** — an LVGL timer (~300 ms) takes a store snapshot, expires stale aircraft,
+   builds a sorted row set, records trails and refreshes the active screen.
 
-**What you see.** The header shows screen-relevant info on the left (traffic count / range / …), the
-selected aircraft's callsign + active-sort value in the centre, and an RSSI bar + connection dot on the
-right. The body is one of the four screens.
-
-**How you drive it.** There is no touch or mouse — everything is the five physical keys `4`–`8`. Key
-`4` cycles the four screens (and shows the page number); the other four keys act on the current screen.
-
-**It remembers.** Every preference — including the Radar/Detail view toggles — is saved the moment you
-change it and restored next launch.
+**What you see.** The header shows screen-specific info on the left (traffic count, range), the
+selected aircraft's callsign and sort value in the centre, and an RSSI bar and connection dot on
+the right. The body shows one of the four screens.
 
 ## Screenshots
 
@@ -85,45 +83,42 @@ change it and restored next launch.
 | --- | --- | --- | --- | --- |
 | ![list](docs/media/list.png) | ![radar](docs/media/radar.png) | ![map](docs/media/map.png) | ![detail](docs/media/detail.png) | ![settings](docs/media/settings.png) |
 
-Native 320×170 (the device resolution). List is colour-coded by category (emergency red); Radar is a
-north-up scope with range rings; Map is the full-width Mercator view over the worldwide base map (key `8`
-toggles Radar↔Map); Detail pairs the selected-aircraft fields with a mini-radar; Settings is a navigable
-name/value list.
+Native 320×170 (the device resolution). The List uses category colours (emergency red). The Radar
+is a north-up scope with range rings. The Map is the full-width Mercator view (key `8` toggles
+Radar↔Map). The Detail pairs the aircraft fields with a mini-radar. Settings is a name/value list.
 
-## Quick start (desktop, with a real RTL-SDR + dump1090)
+## Quick start
+
+On the CardputerZero, plug the RTL-SDR into the USB-A port and open **ADS-B** from the ZeroRadio hub.
+The `zeroradio` `.deb` ships `readsb`.
+
+On the desktop SDL simulator, the app looks for `readsb` next to its binary, then on `PATH`:
 
 ```shell
-# 1. Dependencies (Arch shown). The RTL-SDR Blog V4 needs the rtl-sdr-blog driver.
-#    nlohmann-json is optional (CMake fetches v3.11.3 if it's missing).
-sudo pacman -S --needed cmake ninja sdl2 fmt libpng libjpeg-turbo freetype2 zlib nlohmann-json \
-                        rtl-sdr dump1090
-
-# 2. Build the monorepo simulator (from the repo root)
+# Build the monorepo simulator (from the repo root)
 cmake --preset linux-x86-64
 cmake --build --preset linux-x86-64-dbg
 
-# 3. Start dump1090 writing JSON (plug the dongle first); leave it running
-dump1090 --device-index 0 --write-json /tmp/adsb-json --write-json-every 1 --quiet
+# Plug the dongle and run: the app starts readsb itself
+./build/linux-x86-64/apps/adsb/Debug/adsb_app
 
-# 4. Run, pointed at the feed
-ADSB_JSON=/tmp/adsb-json/aircraft.json ./build/linux-x86-64/apps/adsb/Debug/adsb_app
+# No dongle: the bundled sample aircraft.json
+ADSB_SOURCE=mock ./build/linux-x86-64/apps/adsb/Debug/adsb_app
 ```
-
-No dongle? Just run `./build/linux-x86-64/apps/adsb/Debug/adsb_app` — with no `ADSB_JSON` it reads the
-bundled mock `aircraft.json` and the whole UI is usable.
 
 Environment overrides:
 
 | Variable | Effect |
 | --- | --- |
-| `ADSB_JSON=/path/aircraft.json` | Read this dump1090 feed instead of the bundled mock. |
-| `ADSB_HOME_LAT`, `ADSB_HOME_LON` | Radar home position (default Bologna, IT: `44.49, 11.34`). |
+| `ADSB_SOURCE=mock` | Read the bundled sample `aircraft.json` instead of starting `readsb`. |
+| `ADSB_JSON=/path/aircraft.json` | Read this `aircraft.json` (e.g. from a `dump1090` or `readsb` elsewhere) instead of starting `readsb`. |
+| `ADSB_HOME_LAT`, `ADSB_HOME_LON` | Radar home position. Overrides the saved location. |
 | `ADSB_TTL=<seconds>` | Drop an aircraft this long after its last update (default `30`). |
 
 ## Controls
 
-The bottom NavBar maps the five physical keys `4`–`8` to five slots. The **leftmost key (`4`) cycles
-the screen** (List → Radar → Detail → Settings) and shows the page number.
+The bottom NavBar maps the five physical keys `4`–`8` to five slots. The **leftmost key (`4`)
+cycles the screen** (List → Radar → Detail → Settings) and shows the page number.
 
 | Key | List | Radar | Detail | Settings |
 | --- | --- | --- | --- | --- |
@@ -133,55 +128,55 @@ the screen** (List → Radar → Detail → Settings) and shows the page number.
 | `7` | next aircraft (▼) | trails on/off | trails on/off | change value |
 | `8` | select / deselect (✓) | **radar ↔ map** toggle | **show others** on/off | quit |
 
-The **Settings** screen is a navigable name|value list: Theme, Units (NM/km), TTL (15/30/60/120 s),
-Range (ladder + AUTO), Trails (All/15/30/60 points), Ground (show/hide), Emergency-only (on/off),
-Map view (Map/Radar, persisted default for the scope screen).
+The **Settings** screen has nine rows: Theme, Units (NM/km), TTL (15/30/60/120 s), Range (ladder +
+AUTO), Trails (All/15/30/60 points), Ground (show/hide), Emerg only (on/off), Map view (Map/Radar)
+and Location.
+
+Global keys, shared by every ZeroRadio app:
+
+- `Esc` — back to the hub. Hold `Esc` for 3 s to return to the system launcher.
+- `H` — open the in-app help ([`docs/help/adsb.md`](../../docs/help/adsb.md)).
+- `F`/`X` (up/down) — move the List and Settings cursors.
 
 ## Architecture
 
-Reactive MVVM with a one-way data flow; the UI observes LVGL *subjects* and never reads state directly.
-The shell (key routing, NavBar, BaseScreen, reactive bindings, theme, assets, run loop) plus the
-`EntityStore`, `FileJsonSource` and `geo` helpers are the shared `radio_toolkit`; only the ADS-B
-pieces live in this app.
+Reactive MVVM with a one-way data flow. The UI observes LVGL *subjects* and never reads state
+directly. The shared `radio_toolkit` provides the shell (key routing, NavBar, BaseScreen, reactive
+bindings, theme, assets, run loop), the `EntityStore`, `FileJsonSource`, `ChildService` and the `geo`
+helpers. Only the ADS-B pieces live in this app.
 
 ```
 input (keys 4-8) → key router (toolkit) → NavBar slot → NavProvider::nav_activate(page,slot)
-                                                          → AdsbViewModel action → subject / persisted settings
+                                                          → AdsbViewModel action → subject / saved settings
 
 live data (independent of input):
-   RTL-SDR ──USB──▶ dump1090 ──aircraft.json──▶ FileJsonSource (reader thread, ~2 s poll)
+   RTL-SDR ──USB──▶ readsb (ChildService) ──aircraft.json──▶ FileJsonSource (reader thread, ~2 s poll)
                                                    └─ parse_aircraft_json ─▶ apply_to_store ─▶ EntityStore (mutex)
    lv_timer (~300 ms) → AdsbScreen::tick(): sweep TTL, snapshot, sort, record trails, draw active screen
 ```
 
 ADS-B-specific files (`apps/adsb/src/`):
 
-- **`model/aircraft.{h,cpp}`** — the dump1090 `aircraft.json` parser (`Aircraft` struct + tolerant,
+- **`model/aircraft.{h,cpp}`** — the `aircraft.json` parser (`Aircraft` struct and a tolerant,
   non-throwing JSON parse) and `apply_to_store`, the sparse merge into the generic `EntityStore`.
-  Built as the `adsb_decoder` static lib (it links `radio_toolkit` for the `EntityStore` that
-  `apply_to_store` merges into) and covered by a frozen parity test (`test/aircraft_parse_test.cpp`,
-  CTest target `aircraft_parse_test`): one canonical document pins every field branch —
-  number/`"ground"`/absent `alt_baro`, all three emergency squawks (7500/7600/7700) vs a near-miss,
-  track wraparound (incl. exactly 360°), out-of-range position rejection (incl. one-coord-invalid),
-  category-code mapping (case-insensitive), and the missing-`hex` skip.
+  It builds as the `adsb_decoder` static lib, and a frozen parity test covers it
+  (`test/aircraft_parse_test.cpp`, CTest target `aircraft_parse_test`). One canonical document pins
+  every field branch: number/`"ground"`/absent `alt_baro`, the three emergency squawks vs a
+  near-miss, track wraparound (incl. exactly 360°), out-of-range positions, category-code mapping
+  and the missing-`hex` skip.
 - **`viewmodel/adsb_viewmodel.{h,cpp}`** — app state (current screen, sort, range ladder/AUTO,
-  cursor vs locked selection, view toggles), the Settings model with **v2 persistence**, and the
-  `NavProvider` mapping keys to actions, on the toolkit's `ShellViewModel`.
-- **`view/adsb_screen.{h,cpp}`** — the four screens, the `render_scope()` RGB565 scope renderer
-  (rings, NM labels, heading arrows, trails) built on the shared `toolkit` raster primitives
-  (`view::plot_disc/plot_ring/plot_triangle/plot_line`, also used by the AIS scope), the
-  list/detail/settings tables, header and indicators, on the toolkit's `BaseScreen`.
-- **`main.cpp`** — wiring: resolve the JSON source + home/TTL env overrides, start the `FileJsonSource`
-  poller, and run the toolkit app loop.
-
-Everything else (reactive bindings, NavBar/IconButton, key routing, theme, asset manager, the
-`EntityStore`/`FileJsonSource`/`geo`/`view::raster` toolkit primitives, run loop) is reused from
-`radio_toolkit`.
+  cursor vs locked selection, view toggles), the Settings model with persistence, and the
+  `NavProvider` key mapping, on the toolkit's `ShellViewModel`.
+- **`view/adsb_screen.{h,cpp}`** — the four screens and the `render_scope()` RGB565 renderer (rings,
+  NM labels, heading arrows, trails) on the shared `view::raster` primitives, plus the tables,
+  header and indicators, on the toolkit's `BaseScreen`.
+- **`main.cpp`** — wiring: load the saved location, apply the env overrides, choose the source
+  (bundled `readsb`, `ADSB_JSON` or mock), start the poller and run the toolkit app loop.
 
 ## Build
 
-CMake ≥ 3.31, C++17. The only extra dependency is **nlohmann/json** (header-only): CMake uses the
-system package if present, otherwise fetches `v3.11.3` automatically. Built as part of the monorepo:
+CMake ≥ 3.31, C++17. The only extra dependency is **nlohmann/json** (header-only). CMake uses the
+system package if present and otherwise fetches `v3.11.3`.
 
 ```shell
 cmake --preset linux-x86-64
@@ -189,20 +184,18 @@ cmake --build --preset linux-x86-64-dbg   # → build/linux-x86-64/apps/adsb/Deb
 # release: cmake --build --preset linux-x86-64-rel
 ```
 
-> **Editor note:** clang in-editor may report false positives (`lvgl.h not found`, `lv_subject_t
-> unknown`, `entity_store.h not found`) because it doesn't see CMake's include paths. The source of
-> truth is `cmake --build`.
+> **Editor note:** clang in the editor may report false positives (`lvgl.h not found`, `lv_subject_t
+> unknown`, `entity_store.h not found`) because it does not see CMake's include paths.
+> `cmake --build` is the source of truth.
 
-The cross build (`cp0-cross`) and `.deb` packaging are monorepo-wide concerns (pending hardware).
+Device builds run in a Debian trixie container (preset `cp0-trixie`), which also builds the bundled
+`readsb`. `scripts/cp0-docker-build.sh --package` produces the `zeroradio` `.deb`, which installs
+to `/usr/share/zeroradio`.
 
 ## Roadmap
 
-- `HttpJsonSource` in the toolkit: poll `dump1090`'s HTTP endpoint (`/data/aircraft.json`) directly,
-  so no shared file is needed.
-- `DecoderSupervisor`: spawn/stop/retune a local `dump1090` from the app, enabling decoder settings
-  (gain / ppm / bias-tee) on the Settings screen.
-- HackRF front-end (via SoapySDR), in addition to RTL-SDR (v3/v4 supported today).
-- On-device `.deb` deployment.
+- Decoder settings (gain, ppm, bias-tee) on the Settings screen, passed to the bundled `readsb`.
+- HackRF front-end (via SoapySDR), in addition to RTL-SDR (v3/v4 work today).
 
 ## License
 

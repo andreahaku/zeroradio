@@ -42,6 +42,7 @@ int nice_range(double nm) {
 } // namespace
 
 AdsbViewModel::AdsbViewModel() {
+    set_help_doc("docs/help/adsb.md"); // H
     set_nav_provider(this);
     set_title("ADSB");
     load_settings();
@@ -198,7 +199,7 @@ int    AdsbViewModel::trail_len() const       { return trail_len_; }
 bool   AdsbViewModel::show_ground() const     { return show_ground_; }
 bool   AdsbViewModel::emergency_only() const  { return emergency_only_; }
 
-int AdsbViewModel::settings_count() const { return 8; }
+int AdsbViewModel::settings_count() const { return 9; }
 
 bool AdsbViewModel::map_mercator() const { return map_mercator_; }
 
@@ -242,6 +243,7 @@ void AdsbViewModel::settings_activate() {
         case 5: show_ground_ = !show_ground_; break;              // Ground
         case 6: emergency_only_ = !emergency_only_; break;        // Emergency only
         case 7: map_mercator_ = !map_mercator_; break;            // Map view (Radar/Map)
+        case 8: location_request_ = true; return; // Location: the screen opens the dialog
         default: break;
     }
     save_settings();
@@ -249,7 +251,7 @@ void AdsbViewModel::settings_activate() {
 
 std::string AdsbViewModel::setting_name(int i) const {
     static const char* kNames[] = {"Theme", "Units", "TTL", "Range",
-                                   "Trails", "Ground", "Emerg only", "Map view"};
+                                   "Trails", "Ground", "Emerg only", "Map view", "Location"};
     return (i >= 0 && i < settings_count()) ? kNames[i] : "";
 }
 
@@ -264,12 +266,13 @@ std::string AdsbViewModel::setting_value(int i) const {
         case 5: return show_ground_ ? "Show" : "Hide";
         case 6: return emergency_only_ ? "On" : "Off";
         case 7: return map_mercator_ ? "Map" : "Radar";
+        case 8: return location_label_;
         default: return "";
     }
 }
 
 void AdsbViewModel::load_settings() {
-    const auto path = toolkit::config_file("cardputer_radio/adsb", "settings");
+    const auto path = toolkit::config_file("zeroradio/adsb", "settings");
     if (path.empty()) return;
     std::ifstream in(path);
     if (!in) return;
@@ -307,7 +310,7 @@ void AdsbViewModel::load_settings() {
 }
 
 void AdsbViewModel::save_settings() const {
-    const auto path = toolkit::config_file("cardputer_radio/adsb", "settings");
+    const auto path = toolkit::config_file("zeroradio/adsb", "settings");
     if (!toolkit::ensure_parent_dir(path)) return;
     // Write to a sibling temp file and rename into place so a crash mid-write
     // can't leave a truncated settings file (which load_settings would reject).
@@ -391,6 +394,27 @@ void AdsbViewModel::nav_activate(int page, int slot) {
             else if (slot == 3) settings_activate();
             else if (slot == 4) request_quit();
             break;
+    }
+}
+
+bool AdsbViewModel::take_location_request() {
+    const bool req = location_request_;
+    location_request_ = false;
+    return req;
+}
+
+void AdsbViewModel::set_location_label(std::string label) {
+    location_set_ = !label.empty();
+    location_label_ = label.empty() ? std::string("Not set") : std::move(label);
+}
+
+void AdsbViewModel::move_cursor(int dir) {
+    if (screen() == static_cast<int>(Screen::List)) {
+        if (dir < 0) select_prev();
+        else select_next();
+    } else if (screen() == static_cast<int>(Screen::Settings)) {
+        if (dir < 0) settings_up();
+        else settings_down();
     }
 }
 

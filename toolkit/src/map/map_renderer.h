@@ -10,6 +10,7 @@
 #include "vector_map.h"
 
 #include <cstdint>
+#include <vector>
 
 namespace toolkit::map {
 
@@ -48,6 +49,25 @@ struct MapStyle {
     uint16_t coast_color = rgb565(0x3c, 0x4b, 0x5a); // faint grey-blue coastline
     uint16_t border_color = rgb565(0x42, 0x42, 0x4a); // dim slate borders, dashed
     bool border_dashed = true;
+    // Skip geometry outside the view before projecting it. Output is identical
+    // either way (checked by map_render_test); off only for that comparison.
+    bool cull = true;
+
+    // Daylight variant for the Light theme: pale sea, near-white land and dark
+    // coast/border lines, readable in direct sunlight.
+    static MapStyle day() {
+        MapStyle s;
+        s.sea_color = rgb565(0xd6, 0xe4, 0xee);
+        s.land_color = rgb565(0xfb, 0xfa, 0xf6);
+        s.coast_color = rgb565(0x2b, 0x40, 0x55);
+        s.border_color = rgb565(0x78, 0x7e, 0x88);
+        return s;
+    }
+    bool operator==(const MapStyle& o) const {
+        return sea_color == o.sea_color && land_color == o.land_color &&
+               coast_color == o.coast_color && border_color == o.border_color &&
+               border_dashed == o.border_dashed && cull == o.cull;
+    }
 };
 
 // Draw the coastline + national-border layers of `map` onto an RGB565 buffer.
@@ -57,5 +77,23 @@ struct MapStyle {
 // Azimuthal: the radius circle). A no-op if the map is invalid.
 void draw_base(uint16_t* buf, const MapViewport& vp,
                const VectorMap& map, const MapStyle& style);
+
+// draw_base() for a view that is redrawn every tick but rarely moves: the base
+// map only changes with home, range, size or projection, so the pixels of the
+// last render are replayed while the viewport is unchanged. One cache per
+// canvas. The caller must prepare the same background before every call (the
+// radar views clear to black), since a hit replays the whole buffer.
+class BaseMapCache {
+public:
+    void draw(uint16_t* buf, const MapViewport& vp, const VectorMap& map,
+              const MapStyle& style = MapStyle{});
+
+private:
+    std::vector<uint16_t> pixels_;
+    MapViewport last_{};
+    MapStyle last_style_{};
+    const VectorMap* map_ = nullptr;
+    bool valid_ = false;
+};
 
 } // namespace toolkit::map

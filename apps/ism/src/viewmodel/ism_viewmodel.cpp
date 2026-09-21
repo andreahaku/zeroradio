@@ -27,6 +27,7 @@ constexpr std::array<double, 4> kTtlLadder = {30, 60, 120, 300};
 } // namespace
 
 IsmViewModel::IsmViewModel() {
+    set_help_doc("docs/help/ism.md"); // H
     set_nav_provider(this);
     set_title("ISM");
     load_settings();
@@ -74,6 +75,11 @@ void IsmViewModel::select_prev() {
     const int i = cursor_index();
     const int n = static_cast<int>(visible_order_.size());
     cursor_key_ = visible_order_[(i <= 0 ? n : i) - 1];
+    // On Detail the locked device follows the cursor, so prev/next browse the
+    // devices instead of moving a cursor Detail doesn't show.
+    if (screen() == static_cast<int>(Screen::Detail) && !selected_key_.empty()) {
+        selected_key_ = cursor_key_;
+    }
 }
 
 void IsmViewModel::select_next() {
@@ -81,6 +87,11 @@ void IsmViewModel::select_next() {
     const int i = cursor_index();
     const int n = static_cast<int>(visible_order_.size());
     cursor_key_ = visible_order_[(i + 1) % n];
+    // On Detail the locked device follows the cursor, so prev/next browse the
+    // devices instead of moving a cursor Detail doesn't show.
+    if (screen() == static_cast<int>(Screen::Detail) && !selected_key_.empty()) {
+        selected_key_ = cursor_key_;
+    }
 }
 
 void IsmViewModel::toggle_select() {
@@ -183,7 +194,7 @@ void IsmViewModel::nav_activate(int page, int slot) {
 }
 
 void IsmViewModel::load_settings() {
-    const auto path = toolkit::config_file("cardputer_radio/ism", "settings");
+    const auto path = toolkit::config_file("zeroradio/ism", "settings");
     if (path.empty()) return;
     std::ifstream in(path);
     if (!in) return;
@@ -198,7 +209,7 @@ void IsmViewModel::load_settings() {
 }
 
 void IsmViewModel::save_settings() const {
-    const auto path = toolkit::config_file("cardputer_radio/ism", "settings");
+    const auto path = toolkit::config_file("zeroradio/ism", "settings");
     if (!toolkit::ensure_parent_dir(path)) return;
     std::filesystem::path tmp = path;
     tmp += ".tmp";
@@ -212,6 +223,16 @@ void IsmViewModel::save_settings() const {
     std::error_code ec;
     std::filesystem::rename(tmp, path, ec);
     if (ec) std::filesystem::remove(tmp, ec);
+}
+
+void IsmViewModel::move_cursor(int dir) {
+    if (screen() == static_cast<int>(Screen::List) || screen() == static_cast<int>(Screen::Detail)) {
+        if (dir < 0) select_prev();
+        else select_next();
+    } else if (screen() == static_cast<int>(Screen::Settings)) {
+        if (dir < 0) settings_up();
+        else settings_down();
+    }
 }
 
 } // namespace ism

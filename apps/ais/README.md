@@ -1,16 +1,10 @@
 # AIS — marine traffic viewer for the M5Stack CardputerZero (`apps/ais`)
 
-The **AIS** app shows nearby ships on the [M5Stack CardputerZero](https://docs.m5stack.com/),
-decoding **AIS** (Automatic Identification System) position reports the way `apps/adsb` shows
-aircraft. It is a **port of the ADS-B app**: same shared toolkit (reactive MVVM shell, `EntityStore`,
-SDL simulator / device backends), a different decoder and field mapping.
-
-> Status: the AIVDM decoder (position reports types 1/2/3 **and static/voyage type 5** with
-> multipart reassembly) is implemented and **unit-tested against a two-source oracle** (gpsd's
-> `gpsdecode` + `pyais`). The full viewer is a port of ADS-B — the same
-> **List / Radar (PPI) / Mercator map / Detail / Settings** screens — with live UDP/TCP NMEA input,
-> validated on-device against AIS-catcher. A no-fix vessel (sentinel position) is correctly listed
-> with `-` and never plotted.
+The **AIS** app is part of **ZeroRadio 1.0.0**. It shows nearby ships on the
+[M5Stack CardputerZero](https://docs.m5stack.com/) from their **AIS** (Automatic Identification
+System) broadcasts, the way `apps/adsb` shows aircraft. It shares the toolkit with ADS-B (reactive
+MVVM shell, `EntityStore`, SDL simulator / device backends) and adds its own decoder and field
+mapping. It has the same **List / Radar (PPI) / Mercator map / Detail / Settings** screens.
 
 ## Screenshots
 
@@ -18,32 +12,63 @@ SDL simulator / device backends), a different decoder and field mapping.
 | --- | --- | --- | --- |
 | ![AIS vessel list](docs/media/list.png) | ![AIS Mercator map](docs/media/scope.png) | ![AIS PPI radar](docs/media/radar.png) | ![AIS vessel detail](docs/media/detail.png) |
 
-Captured from the desktop SDL simulator at native 320×170, fed by the bundled mock NMEA (vessels
-along the Ligurian coast). Key `4` cycles the screens, key `8` toggles map ↔ radar, the side
-columns show the vessel names/MMSIs coloured by navigation status.
+Captured from the desktop SDL simulator at native 320×170 with the bundled sample NMEA (vessels
+along the Ligurian coast). Key `4` cycles the screens and key `8` toggles map ↔ radar. The side
+columns show the vessel names or MMSIs, coloured by navigation status.
 
-## The thesis: decode on a host, view on the device
+## How it works
 
-Like ADS-B (which reads `dump1090`'s already-decoded `aircraft.json`), AIS keeps the **RF chain on a
-host**: a tool such as [`rtl_ais`](https://github.com/dgiardini/rtl_ais) or **AIS-catcher** does the
-GMSK 9600-bps demodulation, HDLC de-framing, CRC-16 and 6-bit ASCII armoring, and emits standard
-`!AIVDM` NMEA sentences (two channels: 161.975 MHz / AIS 1 / 87B and 162.025 MHz / AIS 2 / 88B). The
-device-side job — and the heart of this app — is to **decode each `!AIVDM` sentence** into a `Vessel`
-and merge it into the shared `EntityStore`. This mirrors ADS-B exactly: a parser + a field mapping.
+The RTL-SDR dongle sits in the CardputerZero USB-A port. On start, the app launches a bundled
+[AIS-catcher](https://github.com/jvde-github/AIS-catcher) with `-X off`, so it never shares received
+data with the aiscatcher.org feed. AIS-catcher demodulates both AIS channels (161.975 MHz and
+162.025 MHz) and sends `!AIVDM` NMEA sentences to UDP `127.0.0.1:10110`. The app stops it on exit.
+
+The app's own job is to **decode each `!AIVDM` sentence** into a `Vessel` and merge it into the
+shared `EntityStore`, keyed by MMSI.
 
 ```
-RTL-SDR --> rtl_ais (host: GMSK/HDLC/CRC/armor) --> !AIVDM lines --> [ais_app] parse_aivdm --> EntityStore --> view
-            (== dump1090 for ADS-B)                                  (this repo)
+RTL-SDR --> AIS-catcher (GMSK/HDLC/CRC/armor) --UDP !AIVDM--> [ais_app] parse_aivdm --> EntityStore --> view
 ```
-
-## What this app contains
 
 | Layer | File | Notes |
 |---|---|---|
-| **Decoder** | `src/decoder/ais_decoder.{h,cpp}` | `parse_aivdm()` + `Vessel`, plus `AivdmReassembler` (multi-fragment type 5) and `ship_type_label()`. Pure (std-only), no LVGL/toolkit, so the unit test links it standalone. The new code vs ADS-B's `parse_aircraft_json`. |
-| Model map | `src/model/vessel_store.{h,cpp}` | `apply_nmea()` (reassembler + per-line decode) + `apply_to_store()` — mirrors ADS-B's `apply_to_store` (sparse field bag keyed by MMSI). |
-| Source | `toolkit::FileJsonSource` or `toolkit::NmeaNetSource` | polls an NMEA file (`AIS_NMEA` overrides the bundled mock) or receives live `!AIVDM` lines over UDP/TCP (`AIS_UDP` / `AIS_TCP`). |
-| ViewModel / View | `src/viewmodel/ais_viewmodel.*`, `src/view/ais_screen.*` | a port of `AdsbViewModel`/`AdsbScreen`: List / Radar (PPI) / Mercator map / Detail / Settings, the same 5-key nav, **sortable list** (MMSI/DST/SOG/COG, persisted, default DST), range/trails/map-toggle/cursor/selection machinery and persisted settings. The Mercator map draws the vector world base map (`assets/mapdata/world.rmap`) under the vessels. Vessels are coloured by **navigation status**, the marker points along **COG**, and the Detail decodes the nav-status text. `AIS_HOME_LAT/LON` / `AIS_TTL` re-centre/age the radar. |
+| **Decoder** | `src/decoder/ais_decoder.{h,cpp}` | `parse_aivdm()` + `Vessel`, plus `AivdmReassembler` (multi-fragment type 5) and `ship_type_label()`. Pure C++ (std only), so the unit test links it on its own. |
+| Model map | `src/model/vessel_store.{h,cpp}` | `apply_nmea()` (reassembler + per-line decode) and `apply_to_store()`, a sparse field bag keyed by MMSI. |
+| Source | `toolkit::NmeaNetSource` or `toolkit::FileJsonSource` | receives `!AIVDM` lines over UDP/TCP and reassembles fragments split across datagrams, or polls a file of NMEA lines. |
+| ViewModel / View | `src/viewmodel/ais_viewmodel.*`, `src/view/ais_screen.*` | List / Radar / Mercator map / Detail / Settings with the ADS-B 5-key nav. The list sorts by MMSI/DST/SOG/COG (default DST). Colours follow the **navigation status**, and the marker points along **COG**. The Detail decodes the nav-status text, ship type and destination. |
+
+A vessel with no position fix is listed with `-` and never plotted.
+
+## Home position
+
+The radar centres on one home position that the whole suite shares. Set it once in
+**Settings > Location** (AIS or ADS-B):
+
+- type a city name, matched against an offline GeoNames list,
+- type coordinates as `lat, lon`,
+- or pick the GPS row, fed by a USB GPS receiver or the Cap LoRa-1262-GPS shield.
+
+The app saves it in `~/.config/zeroradio/location`. `AIS_HOME_LAT` / `AIS_HOME_LON` override the
+saved location for one run.
+
+## Controls
+
+Key `4` cycles List → Radar → Detail → Settings. Keys `5`–`8` act on the current screen, as in ADS-B:
+
+- List: `5` next sort, `6`/`7` previous/next vessel, `8` lock/unlock the cursor vessel.
+- Radar: `5`/`6` zoom in/out (up to AUTO), `7` trails on/off, `8` radar ↔ map.
+- Detail: `5`/`6` zoom in/out, `7` trails on/off, `8` show other traffic on/off.
+- Settings: `5`/`6` previous/next row, `7` change the value, `8` quit.
+
+The **Settings** screen has seven rows: Theme, Units, TTL, Range, Trails, Map view and Location. The
+Light theme switches the radar and map to a daylight palette. The app saves the settings to
+`~/.config/zeroradio/ais/settings`.
+
+Global keys, shared by every ZeroRadio app:
+
+- `Esc` — back to the hub. Hold `Esc` for 3 s to return to the system launcher.
+- `H` — open the in-app help ([`docs/help/ais.md`](../../docs/help/ais.md)).
+- `F`/`X` (up/down) — move the List and Settings cursors.
 
 ## The decoder
 
@@ -61,24 +86,28 @@ RTL-SDR --> rtl_ais (host: GMSK/HDLC/CRC/armor) --> !AIVDM lines --> [ais_app] p
 | COG | 116–127 (12) | ×0.1 °; ≥3600 → not available |
 | Heading | 128–136 (9) | 0–359; 360–510 reserved / 511 n/a → not available |
 
-6-bit ASCII de-armoring: `v = c − 48; if (v > 40) v −= 8`, with the illegal `'X'`–`'_'` gap rejected.
-The NMEA checksum (XOR between `!` and `*`) is verified; malformed/truncated/multi-fragment sentences
-are rejected. "Not available" sentinels map to `has_*` flags (never a bogus 181°/1023 value), exactly
-like ADS-B's `Aircraft`.
+**Static and voyage data (type 5)** arrives in two fragments. `AivdmReassembler` joins them before
+the decode, which yields name, callsign, ship type and destination.
+
+6-bit ASCII de-armoring: `v = c − 48; if (v > 40) v −= 8`. The decoder rejects the illegal
+`'X'`–`'_'` gap. It verifies the NMEA checksum (XOR between `!` and `*`) and rejects malformed or
+truncated sentences. "Not available" sentinels map to `has_*` flags, never to a bogus 181° or 1023
+value, like ADS-B's `Aircraft`.
 
 ## Tests — the immutable oracle
 
-`test/ais_decoder_test.cpp` is the reward verifier. Every expected value was produced by encoding a
-field set with `pyais` and decoding the resulting `!AIVDM` with **both** `gpsdecode` **and** `pyais`,
-requiring the two independent decoders to agree (`scratchpad/gen_oracle2.py`). The vectors cover the
-classic decode traps:
+`test/ais_decoder_test.cpp` is the reward verifier. Each expected value comes from a field set
+encoded with `pyais`, then decoded by **both** `gpsdecode` **and** `pyais`. The two decoders had to
+agree. The vectors cover the classic decode traps:
 
 - positive (N/E) and **negative (S/W)** coordinates → two's-complement on lat (27b) + lon (28b)
 - SOG/COG scaling (1/10 kt, 1/10 °)
 - **message type 3** (shared dispatch)
 - the **not-available sentinels** (lon 181°, lat 91°, SOG 1023, COG 3600, HDG 511)
 - a real-world canonical sentence (gpsd docs, negative longitude)
-- across the set, both 6-bit de-armor branches; plus negative tests (truncated payload, armor-gap char)
+- both 6-bit de-armor branches, plus negative tests (truncated payload, armor-gap char)
+
+`test/nmea_net_test.cpp` covers the UDP/TCP source.
 
 ```bash
 cmake --preset linux-x86-64 && cmake --build --preset linux-x86-64-dbg
@@ -87,24 +116,28 @@ ctest --test-dir build/linux-x86-64 -C Debug --output-on-failure   # ais_decoder
 
 ## Run
 
+On the CardputerZero, plug the RTL-SDR into the USB-A port and open **AIS** from the ZeroRadio hub.
+The `zeroradio` `.deb` ships AIS-catcher. On the desktop, the app looks for `AIS-catcher` next to
+its binary, then on `PATH`:
+
 ```bash
-./build/linux-x86-64/apps/ais/Debug/ais_app             # SDL window, bundled mock NMEA
-AIS_NMEA=/path/to/stream.nmea ./build/.../ais_app        # poll a file of !AIVDM lines
-AIS_UDP=10110 ./build/.../ais_app                        # live: bind a UDP port (rtl_ais default)
-AIS_TCP=127.0.0.1:4001 ./build/.../ais_app               # live: connect TCP (AIS-catcher / aggregator)
+./build/linux-x86-64/apps/ais/Debug/ais_app              # starts AIS-catcher on the local dongle
+AIS_SOURCE=mock ./build/.../ais_app                       # the bundled sample NMEA
+AIS_NMEA=/path/to/stream.nmea ./build/.../ais_app         # poll a file of !AIVDM lines
+AIS_UDP=10110 ./build/.../ais_app                         # bind a UDP port fed by an external decoder
+AIS_TCP=127.0.0.1:4001 ./build/.../ais_app                # connect to a TCP NMEA feed
 ```
 
-To feed it live: run `rtl_ais` (UDP, e.g. `-n` to `127.0.0.1:10110`) or AIS-catcher (UDP/TCP) on the
-host; `NmeaNetSource` (in the toolkit) receives the `!AIVDM` lines, reassembling multi-fragment
-sentences split across datagrams. `AIS_HOME_LAT/LON` re-centre the radar on your receiver.
+With `AIS_UDP`, `AIS_TCP`, `AIS_NMEA` or `AIS_SOURCE=mock` set, the app starts no decoder.
+`AIS_TTL=<seconds>` sets how long a silent vessel stays listed.
+
+Device builds use `scripts/cp0-docker-build.sh` (Debian trixie container, preset `cp0-trixie`),
+which also builds the bundled AIS-catcher. `scripts/cp0-docker-build.sh --package` produces the
+`.deb`, which installs to `/usr/share/zeroradio`.
 
 ## Follow-ups
 
-- **Type 24 (Class B static)** — name/type for Class B transponders (small craft) arrive in type 24
-  part A/B rather than type 5; decoding them would name those vessels too. Dimensions/ETA/draught
-  from type 5 are also still unused.
-- **AIS-specific niceties** — CPA/TCPA, MMSI-flag (country) lookup, a richer Detail page now that
-  static data is available.
-- **Done:** the AIVDM decoder (types 1/2/3 + type 5 with multipart reassembly: name / callsign /
-  ship type / destination), the Radar/Mercator-map/Detail/Settings views (ADS-B parity), the live
-  UDP/TCP NMEA source (`AIS_UDP` / `AIS_TCP`), and the `apps/radio` hub entry.
+- **Type 24 (Class B static)** — Class B transponders (small craft) send name and type in type 24
+  part A/B, not type 5. Decoding it would name those vessels too. The Detail does not show
+  dimensions, ETA or draught from type 5 yet.
+- **AIS-specific additions** — CPA/TCPA, MMSI-flag (country) lookup.

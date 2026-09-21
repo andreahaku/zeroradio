@@ -16,9 +16,8 @@ export SDR_SAMPLE_RATE="${SDR_SAMPLE_RATE:-1024000}"
 # Depends). Override with SDR_ALSA_DEV= on systems without PipeWire.
 export SDR_ALSA_DEV="${SDR_ALSA_DEV:-pipewire}"
 
-# rtl_tcp endpoint. Defaults to the app's own 127.0.0.1:1234 (a dongle attached
-# directly to the device). Override with SDR_RTLTCP=<host>:1234 to view a dongle
-# attached to another machine over the LAN (the current dev capture model while the
-# on-device USB host port is hardware-blocked).
+# Decoders. With the dongle in the USB-A port every app starts its own decoder
+# (rtl_tcp, readsb, AIS-catcher, rtl_433, rtl_power) and stops it on exit. To use
+# a dongle on another machine instead, set e.g. SDR_RTLTCP=<host>:1234.
 
 exec ./radio_app

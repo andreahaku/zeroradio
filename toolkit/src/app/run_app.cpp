@@ -7,13 +7,16 @@
 #include "run_app.h"
 
 #include "asset_manager.h"
+#include "docs.h"
 #include "linux_input.h"
 #include "logger.h"
 #include "remote_fb.h"
+#include "text_viewer.h"
 #include "theme.h"
 #include "ui_const.h"
 
 #include <cstdlib>
+#include <memory>
 
 #if !USE_DESKTOP
 #if APP_USE_DRM
@@ -49,7 +52,7 @@ lv_display_t* init_display() {
     // Path B: if REMOTE_FB is set (a port, or "1" for the default 5800), run
     // headless and stream the framebuffer to a desktop viewer over TCP, with key
     // forwarding back. Works in ANY build (desktop or device), so the app can be
-    // driven with no physical display attached (e.g. a Pi Zero 2 W + RTL-SDR).
+    // driven with no physical display attached.
     if (const char* env = std::getenv("REMOTE_FB")) {
         int port = std::atoi(env);
         if (port <= 0) {
@@ -63,7 +66,7 @@ lv_display_t* init_display() {
         return nullptr;
     }
 
-    lv_sdl_window_set_title(display, "CardputerZero Radio");
+    lv_sdl_window_set_title(display, "ZeroRadio");
     lv_sdl_window_set_resizeable(display, false);
     lv_sdl_mouse_create();
     lv_sdl_mousewheel_create();
@@ -89,7 +92,10 @@ lv_display_t* init_display() {
         return nullptr;
     }
 
-    if (lv_linux_fbdev_set_file(display, APP_FRAMEBUFFER_DEVICE) != LV_RESULT_OK) {
+    // LV_LINUX_FBDEV_DEVICE (set by the launcher/platform) wins over the build default.
+    const char* fbdev = std::getenv("LV_LINUX_FBDEV_DEVICE");
+    if (!fbdev || fbdev[0] == '\0') fbdev = APP_FRAMEBUFFER_DEVICE;
+    if (lv_linux_fbdev_set_file(display, fbdev) != LV_RESULT_OK) {
         lv_display_delete(display);
         return nullptr;
     }
@@ -103,6 +109,60 @@ void quit_handler_trampoline(void* ctx) {
     static_cast<ShellViewModel*>(ctx)->request_quit();
 }
 
+void tab_handler_trampoline(void* ctx) {
+    static_cast<ShellViewModel*>(ctx)->on_tab();
+}
+
+// H: the app's help page in a full-screen reader. Lives until closed or until
+// run_app ends (then it is dropped before the display is released).
+struct HelpState {
+    ShellViewModel* shell;
+    app::AssetManager* assets;
+    std::unique_ptr<view::widgets::TextViewer> viewer;
+};
+
+void help_handler_trampoline(void* ctx) {
+    auto* st = static_cast<HelpState*>(ctx);
+    if (st->shell->help_doc().empty()) return;
+    std::string text = read_doc(st->shell->help_doc());
+    if (text.empty()) text = "The help page is not installed.";
+    st->viewer = std::make_unique<view::widgets::TextViewer>(
+        *st->assets, st->shell->is_dark_mode(),
+        std::vector<view::widgets::TextViewer::Page>{{"Help", text, {}}});
+}
+
+void home_handler_trampoline(void* ctx) {
+    static_cast<ShellViewModel*>(ctx)->request_home();
+}
+
+// "Hold ESC 3s to return home" toast while ESC is held (CardputerZero convention).
+lv_obj_t* hold_toast = nullptr;
+
+void hold_hint_trampoline(bool show, void* /*ctx*/) {
+    if (!show) {
+        if (hold_toast) lv_obj_delete(hold_toast);
+        hold_toast = nullptr;
+        return;
+    }
+    if (hold_toast) return;
+    hold_toast = lv_label_create(lv_layer_top());
+    lv_label_set_text(hold_toast, "Hold ESC 3s to return home");
+    lv_obj_set_style_text_font(hold_toast, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(hold_toast, lv_color_white(), 0);
+    lv_obj_set_style_bg_color(hold_toast, lv_color_hex(0x1f3a5f), 0);
+    lv_obj_set_style_bg_opa(hold_toast, LV_OPA_90, 0);
+    lv_obj_set_style_pad_hor(hold_toast, 10, 0);
+    lv_obj_set_style_pad_ver(hold_toast, 5, 0);
+    lv_obj_set_style_radius(hold_toast, 10, 0);
+    lv_obj_align(hold_toast, LV_ALIGN_CENTER, 0, 0);
+}
+
+void arrow_handler_trampoline(int dir, void* ctx) {
+    auto* shell = static_cast<ShellViewModel*>(ctx);
+    if (dir < 0) shell->on_up();
+    else shell->on_down();
+}
+
 } // namespace
 
 int run_app(ShellViewModel& shell,
@@ -110,7 +170,7 @@ int run_app(ShellViewModel& shell,
             const std::function<lv_obj_t*()>& build_root,
             const std::function<void()>& on_teardown) {
     logger::Logger::init();
-    logger::Logger::set_tag("cardputer-radio");
+    logger::Logger::set_tag("zeroradio");
 
     lv_init();
 
@@ -128,6 +188,11 @@ int run_app(ShellViewModel& shell,
 
     // ESC quits from any tool page (decoupled from nav key '4').
     platform::set_quit_handler(quit_handler_trampoline, &shell);
+    platform::set_tab_handler(tab_handler_trampoline, &shell);
+    platform::set_arrow_handler(arrow_handler_trampoline, &shell);
+    platform::set_home_handler(home_handler_trampoline, hold_hint_trampoline, &shell);
+    HelpState help{&shell, &assets, nullptr};
+    platform::set_help_handler(help_handler_trampoline, &help);
 
     // PLUGIN HOOK: the UI is constructed here independently of how the display
     // was created above. For the CardputerZero emulator (which dlopen()s a
@@ -161,6 +226,12 @@ int run_app(ShellViewModel& shell,
     // Release global input handlers that point at the soon-to-be-destroyed
     // shell / screen (matters if run_app() is ever re-entered, e.g. as a plugin).
     platform::set_quit_handler(nullptr, nullptr);
+    platform::set_tab_handler(nullptr, nullptr);
+    platform::set_arrow_handler(nullptr, nullptr);
+    platform::set_home_handler(nullptr, nullptr, nullptr);
+    hold_hint_trampoline(false, nullptr);
+    platform::set_help_handler(nullptr, nullptr);
+    help.viewer.reset();
     platform::set_key_capture(nullptr, nullptr);
 
     // Re-entrant teardown (the Radio hub): give the display back so a spawned
@@ -183,7 +254,7 @@ int run_app(ShellViewModel& shell,
         lv_display_delete(display);
     }
 
-    return 0;
+    return shell.exit_code();
 }
 
 } // namespace toolkit

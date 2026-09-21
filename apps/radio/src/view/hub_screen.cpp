@@ -8,6 +8,7 @@
 
 #include "asset_manager.h"
 #include "bindings.h"
+#include "docs.h"
 #include "linux_input.h"
 #include "theme.h"
 #include "ui_const.h"
@@ -185,7 +186,11 @@ void HubScreen::key_cb(uint32_t key, void* ctx) {
         case LV_KEY_ENTER:
         case LV_KEY_RIGHT:
         case '6': // ...and "open"
-            self->vm_.launch_selected();
+            if (std::string(self->vm_.entry(self->vm_.selected()).id) == "about") {
+                self->open_about();
+            } else {
+                self->vm_.launch_selected();
+            }
             break;
         case LV_KEY_ESC:
             self->vm_.request_quit();
@@ -193,6 +198,49 @@ void HubScreen::key_cb(uint32_t key, void* ctx) {
         default:
             break;
     }
+}
+
+#ifndef ZERORADIO_REPO_URL
+#define ZERORADIO_REPO_URL "https://github.com/andreahaku/cardputer-radio"
+#endif
+
+void HubScreen::open_about() {
+    using Page = view::widgets::TextViewer::Page;
+    const std::string url = ZERORADIO_REPO_URL;
+    std::string short_url = url;
+    if (short_url.rfind("https://", 0) == 0) short_url.erase(0, 8);
+
+    Page info;
+    info.title = "About";
+    info.markdown = "# ZeroRadio " APP_VERSION "\n"
+                    "Radio tools for the M5Stack CardputerZero: SDR, spectrum survey, ISM, ADS-B and AIS.\n"
+                    "## Developer\n"
+                    "Andrea Salvatore (IU4APC)\n"
+                    "## Source code\n" +
+                    short_url + "\n"
+                    "Scan the QR code with your phone.\n"
+                    "## License\n"
+                    "MIT. The bundled decoders are GPL-3.0: see Credits.";
+    info.build = [url](lv_obj_t* content) {
+        // Dark modules on a white quiet zone: phone cameras need the contrast.
+        auto* qr = lv_qrcode_create(content);
+        lv_qrcode_set_size(qr, 96);
+        lv_qrcode_set_dark_color(qr, lv_color_black());
+        lv_qrcode_set_light_color(qr, lv_color_white());
+        lv_qrcode_update(qr, url.c_str(), static_cast<uint32_t>(url.size()));
+        lv_obj_set_style_border_color(qr, lv_color_white(), 0);
+        lv_obj_set_style_border_width(qr, 4, 0);
+    };
+
+    std::string changelog = toolkit::read_doc("CHANGELOG.md");
+    std::string credits = toolkit::read_doc("CREDITS.md");
+    if (changelog.empty()) changelog = "CHANGELOG.md is not installed.";
+    if (credits.empty()) credits = "CREDITS.md is not installed.";
+
+    about_ = std::make_unique<view::widgets::TextViewer>(
+        assets_, vm_.is_dark_mode(),
+        std::vector<Page>{info, {"Changelog", changelog, {}}, {"Credits", credits, {}}},
+        [this]() { platform::set_key_capture(key_cb, this); }); // back to the menu keys
 }
 
 } // namespace radio

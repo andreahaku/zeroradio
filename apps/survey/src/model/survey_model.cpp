@@ -14,7 +14,7 @@
 namespace survey {
 namespace {
 
-constexpr const char* kStateSubdir = "cardputer_radio/survey";
+constexpr const char* kStateSubdir = "zeroradio/survey";
 constexpr const char* kStateFile   = "state";
 constexpr int kStateVersion = 2;
 

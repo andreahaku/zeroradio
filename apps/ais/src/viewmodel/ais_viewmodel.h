@@ -83,12 +83,28 @@ public:
     std::string setting_name(int i) const;
     std::string setting_value(int i) const;
 
+    // Location row (last): activating it asks the screen to open the shared
+    // location dialog; the label is what the row shows ("Valletta, MT").
+    bool take_location_request();
+    void set_location_label(std::string label);
+    // False until a position is saved (or given by env): the screen then opens
+    // the location dialog once, so a fresh install never centres on a default.
+    bool location_set() const { return location_set_; }
+
     // --- NavProvider ---
     int nav_page_count() const override;
     void nav_fill(int page, NavProvider::NavSlot out[5]) const override;
     void nav_activate(int page, int slot) override;
 
+    // F/X (arrows): the list cursor, or the settings cursor.
+    void on_up() override { move_cursor(-1); }
+    void on_down() override { move_cursor(1); }
+
 private:
+    bool        location_request_{false};
+    std::string location_label_{"Not set"};
+    bool        location_set_{false};
+    void move_cursor(int dir);
     void load_settings();
     void save_settings() const;
 

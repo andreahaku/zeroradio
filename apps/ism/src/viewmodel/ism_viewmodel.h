@@ -64,7 +64,12 @@ public:
     void nav_fill(int page, NavProvider::NavSlot out[5]) const override;
     void nav_activate(int page, int slot) override;
 
+    // F/X (arrows): the list cursor, or the settings cursor.
+    void on_up() override { move_cursor(-1); }
+    void on_down() override { move_cursor(1); }
+
 private:
+    void move_cursor(int dir);
     void load_settings();
     void save_settings() const;
     int cursor_index() const; // index of cursor_key_ in visible_order_, or -1

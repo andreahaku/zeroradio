@@ -5,22 +5,6 @@
 #
 
 # ====================================================
-# nlohmann/json — header-only, used by the ADS-B parser
-# ====================================================
-find_package(nlohmann_json QUIET)
-if(NOT nlohmann_json_FOUND)
-    message(STATUS "nlohmann_json not found in system; fetching v3.11.3")
-    FetchContent_Declare(
-        nlohmann_json
-        GIT_REPOSITORY https://github.com/nlohmann/json.git
-        GIT_TAG        v3.11.3
-        GIT_SHALLOW    TRUE
-    )
-    set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(nlohmann_json)
-endif()
-
-# ====================================================
 # adsb_decoder — the pure dump1090 aircraft.json parser (parse_aircraft_json)
 # plus its EntityStore projection. Split into a static lib so the parse path has
 # a standalone parity test. See apps/adsb/README.md.
@@ -67,7 +51,7 @@ target_include_directories(adsb_app
 # at runtime overrides it.
 target_compile_definitions(adsb_app
     PRIVATE
-        APP_MOCK_JSON_PATH="${CMAKE_CURRENT_SOURCE_DIR}/assets/mock/aircraft.json"
+        APP_MOCK_JSON_PATH="$<IF:$<BOOL:${CMAKE_CROSSCOMPILING}>,/usr/share/zeroradio/mock/aircraft.json,${CMAKE_CURRENT_SOURCE_DIR}/assets/mock/aircraft.json>"
 )
 
 target_link_libraries(adsb_app

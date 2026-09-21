@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- SPDX-FileCopyrightText: 2026 One Small Step Apps Ltd -->
+  <!-- SPDX-License-Identifier: MIT -->
+  <!-- ZeroRadio app icon: the "0" ring holds a live spectrum trace; waves radiate out. -->
+  <defs>
+    <linearGradient id="trace" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#70c0e8"/>
+      <stop offset="1" stop-color="#63e2b7"/>
+    </linearGradient>
+    <clipPath id="inside"><circle cx="104" cy="128" r="62"/></clipPath>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="#18181c" stroke="#3d3d3d" stroke-width="4"/>
+  <!-- waterfall rows inside the ring -->
+  <g clip-path="url(#inside)" opacity="0.35">
+    <rect x="42" y="142" width="124" height="8" fill="#70c0e8"/>
+    <rect x="42" y="154" width="124" height="8" fill="#63e2b7" opacity="0.7"/>
+    <rect x="42" y="166" width="124" height="8" fill="#70c0e8" opacity="0.5"/>
+    <rect x="42" y="178" width="124" height="8" fill="#63e2b7" opacity="0.35"/>
+  </g>
+  <!-- spectrum trace with a strong carrier -->
+  <polyline clip-path="url(#inside)" fill="none" stroke="url(#trace)" stroke-width="7"
+            stroke-linejoin="round" stroke-linecap="round"
+            points="36,132 54,128 66,134 78,124 88,130 96,88 104,70 112,90 120,128 132,120 142,130 154,112 162,128 174,132"/>
+  <!-- the zero -->
+  <circle cx="104" cy="128" r="66" fill="none" stroke="#63e2b7" stroke-width="14"/>
+  <!-- radio waves -->
+  <path d="M 182 90 A 54 54 0 0 1 182 166" fill="none" stroke="#70c0e8" stroke-width="12" stroke-linecap="round"/>
+  <path d="M 204 70 A 70 70 0 0 1 204 186" fill="none" stroke="#70c0e8" stroke-width="12" stroke-linecap="round" opacity="0.6"/>
+</svg>

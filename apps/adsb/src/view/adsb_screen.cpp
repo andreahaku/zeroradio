@@ -106,6 +106,9 @@ void AdsbScreen::build_content(lv_obj_t* content) {
     lv_obj_clear_flag(conn_dot_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_align(conn_dot_, LV_ALIGN_RIGHT_MID, -6, 0);
 
+    battery_ = std::make_unique<view::widgets::BatteryBadge>(header_);
+    lv_obj_align(battery_->obj(), LV_ALIGN_RIGHT_MID, -54, 0);
+
     // --- Body: holds the three interchangeable views (one shown at a time). ---
     body_ = lv_obj_create(content);
     lv_obj_remove_style_all(body_);
@@ -357,6 +360,15 @@ void AdsbScreen::update_header(int signal_quality) {
     }
 }
 
+void AdsbScreen::open_location_dialog() {
+    location_dialog_ = std::make_unique<toolkit::LocationDialog>(
+        assets(), vm_.is_dark_mode(), [this](const toolkit::location::Place& place) {
+            config_.home = place.pos; // the radar/map recentre on the next tick
+            toolkit::location::save(place);
+            vm_.set_location_label(place.label);
+        });
+}
+
 void AdsbScreen::tick_cb(lv_timer_t* timer) {
     auto* self = static_cast<AdsbScreen*>(lv_timer_get_user_data(timer));
     if (self) {
@@ -365,6 +377,13 @@ void AdsbScreen::tick_cb(lv_timer_t* timer) {
 }
 
 void AdsbScreen::tick() {
+    // First launch without a saved position: ask for one instead of centring
+    // on a default place. Once per run.
+    if (!location_prompted_ && !vm_.location_set()) {
+        location_prompted_ = true;
+        open_location_dialog();
+    }
+    if (vm_.take_location_request()) open_location_dialog();
     // Drop stale entries (TTL from settings), then snapshot.
     store_.sweep(vm_.ttl_seconds());
     auto rows = build_all_rows();

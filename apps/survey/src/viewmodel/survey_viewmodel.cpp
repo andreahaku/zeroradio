@@ -6,19 +6,18 @@
 
 #include "survey_viewmodel.h"
 
+#include "handoff.h"
+
 #include "ui_const.h"
 
 #include <unistd.h>
 
 #include <algorithm>
-#include <cinttypes>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
-#include <sys/wait.h>
 
-extern char** environ;
 
 namespace survey {
 namespace {
@@ -45,28 +44,13 @@ std::string format_age(std::chrono::seconds age) {
     return buf;
 }
 
-// The sibling sdr_app: same directory as this binary (device install and the
-// per-app build tree both colocate the executables per app dir, so also try
-// the build layout ../../sdr/<config>/sdr_app).
-std::filesystem::path find_sdr_app() {
-    std::error_code ec;
-    const auto self = std::filesystem::read_symlink("/proc/self/exe", ec);
-    if (ec) return {};
-    const auto dir = self.parent_path();
-    const auto sibling = dir / "sdr_app";
-    if (std::filesystem::exists(sibling, ec)) return sibling;
-    // build tree: .../apps/survey/<config>/survey_app -> .../apps/sdr/<config>/sdr_app
-    const auto build = dir.parent_path().parent_path() / "sdr" / dir.filename() / "sdr_app";
-    if (std::filesystem::exists(build, ec)) return build;
-    return {};
-}
-
 } // namespace
 
 SurveyViewModel::SurveyViewModel() {
+    set_help_doc("docs/help/survey.md"); // H
     set_nav_provider(this);
     set_dark_mode(model_.dark_mode());
-    set_title("SURVEY");
+    set_title("SCANNER");
     publish_range();
     refresh_sort_label();
 }
@@ -238,43 +222,14 @@ void SurveyViewModel::open_selected_in_sdr() {
     if (sel < 0 || sel >= static_cast<int>(rows_.size())) return;
     const int64_t freq_hz = rows_[static_cast<size_t>(sel)].freq_hz;
 
-    const auto sdr_app = find_sdr_app();
-    if (sdr_app.empty()) {
+    if (toolkit::find_sibling("sdr_app", "sdr").empty()) {
         std::fprintf(stderr, "[survey] sdr_app not found next to this binary\n");
         return;
     }
-    const std::string path = sdr_app.string();
-
-    // Build argv + envp in the PARENT: between fork and exec the child may only
-    // call async-signal-safe functions (no setenv / heap allocation). envp is
-    // this process's environment plus SDR_FREQ (SDR_RTLTCP etc. pass through).
-    char freq[32];
-    std::snprintf(freq, sizeof(freq), "SDR_FREQ=%" PRId64, freq_hz);
-    std::vector<char*> envp;
-    for (char** e = environ; *e; ++e) {
-        if (std::strncmp(*e, "SDR_FREQ=", 9) != 0) envp.push_back(*e);
-    }
-    envp.push_back(freq);
-    envp.push_back(nullptr);
-    char* argv[] = {const_cast<char*>(path.c_str()), nullptr};
-
-    // Double fork so the SDR app is reparented to init (no zombie). The grandchild
-    // detaches with setsid() and execve()s — both async-signal-safe.
-    const pid_t pid = ::fork();
-    if (pid < 0) return;
-    if (pid == 0) {
-        if (::fork() == 0) {
-            ::setsid();
-            ::execve(path.c_str(), argv, envp.data());
-            _exit(127); // exec failed
-        }
-        _exit(0);
-    }
-    ::waitpid(pid, nullptr, 0);
-
-    // Hand OFF: release the framebuffer and the RTL-SDR (our rtl_power worker)
-    // so the SDR app owns the screen and the dongle, instead of both contending.
-    request_quit();
+    // Exec'd in place of this process once run_app has released the display and
+    // the sweep the dongle (see main.cpp): same PID, so the Radio hub keeps
+    // waiting and only one process ever draws to the screen.
+    request_handoff("sdr_app", "sdr", {{"SDR_FREQ", std::to_string(freq_hz)}});
 }
 
 void SurveyViewModel::publish_range() {

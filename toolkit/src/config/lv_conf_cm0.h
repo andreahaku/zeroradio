@@ -1,3 +1,11 @@
+/*
+ * SPDX-FileCopyrightText: 2026 M5Stack Technology CO LTD
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ * LVGL configuration, based on LVGL's lv_conf_template.h (MIT, LVGL Kft).
+ */
+
 #pragma once
 
 /*====================
@@ -90,6 +98,8 @@
  *====================*/
 
 #define LV_USE_FREETYPE                    1
+// QR code widget: the Radio hub About page links the source repository.
+#define LV_USE_QRCODE                      1
 #define LV_FREETYPE_CACHE_FT_GLYPH_CNT     256
 
 #define LV_USE_TINY_TTF                    0

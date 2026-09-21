@@ -1,3 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2026 M5Stack Technology CO LTD
+ * SPDX-FileCopyrightText: 2026 One Small Step Apps Ltd
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "linux_input.h"
 
 #include <array>
@@ -26,8 +33,27 @@ uint32_t last_key = 0;
 bool last_key_pressed = false;
 void (*quit_handler)(void*) = nullptr;
 void* quit_ctx = nullptr;
+void (*tab_handler)(void*) = nullptr;
+void* tab_ctx = nullptr;
+void (*arrow_handler)(int, void*) = nullptr;
+void* arrow_ctx = nullptr;
+void (*help_handler)(void*) = nullptr;
+void* help_ctx = nullptr;
+void (*home_handler)(void*) = nullptr;
+void (*hold_hint_handler)(bool, void*) = nullptr;
+void* home_ctx = nullptr;
+
+// ESC hold tracking (see set_home_handler).
+constexpr uint32_t kHoldHintMs = 500;
+constexpr uint32_t kHoldHomeMs = 3000;
+lv_indev_t* esc_indev = nullptr;
+uint32_t esc_started_at = 0;
+bool esc_hint_shown = false;
+bool esc_home_sent = false;
+lv_timer_t* esc_timer = nullptr;
 void (*key_capture)(uint32_t, void*) = nullptr;
 void* capture_ctx = nullptr;
+bool capture_text = false;
 
 size_t nav_key_to_index(uint32_t key) {
     switch (key) {
@@ -62,6 +88,18 @@ void dispatch_nav_key(uint32_t key) {
         }
         return;
     }
+    if (key == LV_KEY_NEXT) {
+        if (tab_handler) tab_handler(tab_ctx);
+        return;
+    }
+    if (key == 'h' || key == 'H') {
+        if (help_handler) help_handler(help_ctx);
+        return;
+    }
+    if (key == LV_KEY_UP || key == LV_KEY_DOWN) {
+        if (arrow_handler) arrow_handler(key == LV_KEY_UP ? -1 : 1, arrow_ctx);
+        return;
+    }
 
     const auto index = nav_key_to_index(key);
     if (index >= nav_buttons.size()) {
@@ -76,6 +114,41 @@ void dispatch_nav_key(uint32_t key) {
     lv_obj_send_event(button, LV_EVENT_CLICKED, nullptr);
 }
 
+void esc_timer_cb(lv_timer_t* timer) {
+    const bool held = esc_indev && lv_indev_get_state(esc_indev) == LV_INDEV_STATE_PRESSED &&
+                      lv_indev_get_key(esc_indev) == LV_KEY_ESC;
+    const uint32_t elapsed = lv_tick_elaps(esc_started_at);
+    if (!held) {
+        lv_timer_pause(timer);
+        if (esc_hint_shown && hold_hint_handler) hold_hint_handler(false, home_ctx);
+        esc_hint_shown = false;
+        if (!esc_home_sent && quit_handler) quit_handler(quit_ctx); // short press
+        esc_indev = nullptr;
+        return;
+    }
+    if (esc_home_sent) return;
+    if (elapsed >= kHoldHomeMs) {
+        esc_home_sent = true;
+        if (esc_hint_shown && hold_hint_handler) hold_hint_handler(false, home_ctx);
+        esc_hint_shown = false;
+        if (home_handler) home_handler(home_ctx);
+        else if (quit_handler) quit_handler(quit_ctx);
+    } else if (elapsed >= kHoldHintMs && !esc_hint_shown) {
+        esc_hint_shown = true;
+        if (hold_hint_handler) hold_hint_handler(true, home_ctx);
+    }
+}
+
+// ESC down with no capture: decide short vs hold in esc_timer_cb.
+void start_esc_hold(lv_indev_t* indev) {
+    esc_indev = indev;
+    esc_started_at = lv_tick_get();
+    esc_hint_shown = false;
+    esc_home_sent = false;
+    if (!esc_timer) esc_timer = lv_timer_create(esc_timer_cb, 40, nullptr);
+    lv_timer_resume(esc_timer);
+}
+
 void key_event_cb(lv_event_t* event) {
     LV_UNUSED(event);
 
@@ -88,7 +161,11 @@ void key_event_cb(lv_event_t* event) {
     const bool pressed = lv_indev_get_state(indev) == LV_INDEV_STATE_PRESSED;
 
     if (pressed && (!last_key_pressed || last_key != key)) {
-        dispatch_nav_key(key);
+        if (key == LV_KEY_ESC && !key_capture && !esc_indev) {
+            start_esc_hold(indev);
+        } else if (key != LV_KEY_ESC || key_capture) {
+            dispatch_nav_key(key);
+        }
     }
 
     last_key = key;
@@ -102,9 +179,33 @@ struct EvdevKeypad {
     uint32_t key{0};
 };
 
+// Text entry for a modal capture (e.g. the location search): letters, space,
+// comma and minus as characters. Returns 0 for anything else, which then goes
+// through the normal nav mapping below.
+uint32_t map_evdev_text(uint16_t code) {
+    static constexpr struct { uint16_t code; char ch; } kText[] = {
+        {KEY_A, 'a'}, {KEY_B, 'b'}, {KEY_C, 'c'}, {KEY_D, 'd'}, {KEY_E, 'e'}, {KEY_F, 'f'},
+        {KEY_G, 'g'}, {KEY_H, 'h'}, {KEY_I, 'i'}, {KEY_J, 'j'}, {KEY_K, 'k'}, {KEY_L, 'l'},
+        {KEY_M, 'm'}, {KEY_N, 'n'}, {KEY_O, 'o'}, {KEY_P, 'p'}, {KEY_Q, 'q'}, {KEY_R, 'r'},
+        {KEY_S, 's'}, {KEY_T, 't'}, {KEY_U, 'u'}, {KEY_V, 'v'}, {KEY_W, 'w'}, {KEY_X, 'x'},
+        {KEY_Y, 'y'}, {KEY_Z, 'z'}, {KEY_SPACE, ' '}, {KEY_COMMA, ','}, {KEY_MINUS, '-'},
+    };
+    for (const auto& t : kText) {
+        if (t.code == code) return static_cast<uint32_t>(t.ch);
+    }
+    return 0;
+}
+
 uint32_t map_evdev_key(uint16_t code) {
+    // While a text-entry capture is active, F/X/Z/C are letters again (the Fn
+    // layer still sends real arrows).
+    if (capture_text) {
+        if (const uint32_t ch = map_evdev_text(code)) return ch;
+    }
     switch (code) {
         case KEY_ESC:        return LV_KEY_ESC;
+        case KEY_TAB:        return LV_KEY_NEXT;
+        case KEY_H:          return 'h'; // help page
         // Arrow keys + enter drive list navigation (the Radio hub menu and the
         // aircraft/node/ship lists): a portable selection scheme alongside the
         // 4-8 nav bar. Ignored by screens that don't consume them.
@@ -114,8 +215,8 @@ uint32_t map_evdev_key(uint16_t code) {
         case KEY_RIGHT:      return LV_KEY_RIGHT;
         // CardputerZero keyboard: the arrows live on the Fn layer of F/X/Z/C.
         // Mirror those physical keys (pressed WITHOUT Fn) onto the same nav so
-        // the menu/lists can be driven either way. The apps are menu-driven and
-        // never type these letters, so there's no conflict with text entry.
+        // the menu/lists can be driven either way. A text-entry capture takes
+        // them as letters instead, see map_evdev_text().
         case KEY_F:          return LV_KEY_UP;
         case KEY_X:          return LV_KEY_DOWN;
         case KEY_Z:          return LV_KEY_LEFT;
@@ -287,14 +388,36 @@ void attach_key_router(lv_indev_t* indev) {
     lv_indev_add_event_cb(indev, key_event_cb, LV_EVENT_KEY, nullptr);
 }
 
+void set_home_handler(void (*home)(void* ctx), void (*hint)(bool show, void* ctx), void* ctx) {
+    home_handler = home;
+    hold_hint_handler = hint;
+    home_ctx = ctx;
+}
+
+void set_help_handler(void (*handler)(void* ctx), void* ctx) {
+    help_handler = handler;
+    help_ctx = ctx;
+}
+
+void set_arrow_handler(void (*handler)(int dir, void* ctx), void* ctx) {
+    arrow_handler = handler;
+    arrow_ctx = ctx;
+}
+
+void set_tab_handler(void (*handler)(void* ctx), void* ctx) {
+    tab_handler = handler;
+    tab_ctx = ctx;
+}
+
 void set_quit_handler(void (*handler)(void* ctx), void* ctx) {
     quit_handler = handler;
     quit_ctx = ctx;
 }
 
-void set_key_capture(void (*handler)(uint32_t key, void* ctx), void* ctx) {
+void set_key_capture(void (*handler)(uint32_t key, void* ctx), void* ctx, bool text) {
     key_capture = handler;
     capture_ctx = ctx;
+    capture_text = handler != nullptr && text;
 }
 
 void register_nav_button(size_t index, lv_obj_t* button) {

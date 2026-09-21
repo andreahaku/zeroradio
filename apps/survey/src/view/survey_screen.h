@@ -7,6 +7,7 @@
 #pragma once
 
 #include "base_screen.h"
+#include "battery_badge.h"
 #include "survey_viewmodel.h"
 #include "sweep_source.h"
 
@@ -78,6 +79,7 @@ private:
     lv_obj_t*          waterfall_view_ = nullptr;
     lv_obj_t*          peaks_view_     = nullptr;
     lv_obj_t*          chart_          = nullptr;
+    std::unique_ptr<view::widgets::BatteryBadge> battery_; // header, left of the S-meter
     lv_chart_series_t* series_         = nullptr;
     std::vector<float> smooth_;
     lv_obj_t*          waterfall_      = nullptr;

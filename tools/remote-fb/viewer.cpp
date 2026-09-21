@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: MIT
  *
- * remote-fb viewer (desktop, X1): connects to a cardputer-radio app running
+ * remote-fb viewer (desktop): connects to a cardputer-radio app running
  * headless on a remote device (Path B), shows its 320x170 framebuffer in a
  * scaled SDL2 window, and forwards key presses back so the remote app is
  * drivable from here.

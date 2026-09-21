@@ -9,6 +9,9 @@
 #include <cerrno>
 #include <csignal>
 #include <fcntl.h>
+#ifdef __linux__
+#include <sys/prctl.h>
+#endif
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -33,6 +36,7 @@ bool Subprocess::start(const std::vector<std::string>& argv) {
     int fds[2];
     if (::pipe2(fds, O_CLOEXEC) != 0) return false;
 
+    const pid_t parent = ::getpid();
     const pid_t pid = ::fork();
     if (pid < 0) {
         ::close(fds[0]);
@@ -40,7 +44,18 @@ bool Subprocess::start(const std::vector<std::string>& argv) {
         return false;
     }
     if (pid == 0) {
-        // Child: stdout -> pipe (dup2 clears CLOEXEC on the copy); stderr passes
+        // Child: die with the app. stop() only runs on a clean exit; if the app is
+        // killed (SIGTERM from the launcher, a crash) the kernel still kills the
+        // tool, so it never lingers holding the dongle. Tied to the forking thread,
+        // which in every caller outlives the child. The getppid() check closes the
+        // race where the parent died before prctl().
+#ifdef __linux__
+        ::prctl(PR_SET_PDEATHSIG, SIGKILL);
+        if (::getppid() != parent) _exit(1);
+#else
+        (void)parent;
+#endif
+        // stdout -> pipe (dup2 clears CLOEXEC on the copy); stderr passes
         // through for tool diagnostics. Only async-signal-safe calls here.
         ::dup2(fds[1], STDOUT_FILENO);
         ::close(fds[0]);

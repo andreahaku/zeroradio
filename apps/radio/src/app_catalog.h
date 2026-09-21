@@ -30,13 +30,19 @@ struct AppEntry {
 inline const std::vector<AppEntry>& app_catalog() {
     static const std::vector<AppEntry> kCatalog = {
         {"sdr", "SDR", "Spectrum & demod", view::ICON_BROADCAST, "sdr_app", "sdr"},
-        {"survey", "Survey", "Wide-band sweep & peaks", view::ICON_GRID_FREQ, "survey_app", "survey"},
+        {"survey", "Scanner", "Wide-band sweep & peaks", view::ICON_GRID_FREQ, "survey_app", "survey"},
         {"ism", "ISM", "433/868 device sniffer", view::ICON_PEAK, "ism_app", "ism"},
         {"adsb", "ADS-B", "Aircraft radar & map", view::ICON_MAP_TOGGLE, "adsb_app", "adsb"},
         {"ais", "AIS", "Marine vessel radar & map", view::ICON_MODE, "ais_app", "ais"},
         {"meshtastic", "Meshtastic", "Mesh nodes & messages", view::ICON_BAND, "meshtastic_app", "meshtastic"},
     };
     return kCatalog;
+}
+
+// The hub's own About row (no binary: the hub opens it in place).
+inline const AppEntry& about_entry() {
+    static const AppEntry kAbout{"about", "About", "Help, changelog & credits", view::ICON_INFO, "", ""};
+    return kAbout;
 }
 
 } // namespace radio

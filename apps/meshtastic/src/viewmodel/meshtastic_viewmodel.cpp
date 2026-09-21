@@ -181,7 +181,7 @@ void MeshtasticViewModel::settings_exit() {
 }
 
 void MeshtasticViewModel::load_settings() {
-    const auto path = toolkit::config_file("cardputer_radio/meshtastic", "settings");
+    const auto path = toolkit::config_file("zeroradio/meshtastic", "settings");
     if (path.empty()) return;
     std::ifstream in(path);
     if (!in) return;
@@ -202,7 +202,7 @@ void MeshtasticViewModel::load_settings() {
 }
 
 void MeshtasticViewModel::save_settings() const {
-    const auto path = toolkit::config_file("cardputer_radio/meshtastic", "settings");
+    const auto path = toolkit::config_file("zeroradio/meshtastic", "settings");
     if (path.empty()) return;
     if (!toolkit::ensure_parent_dir(path)) return;
     std::ofstream out(path);

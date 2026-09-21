@@ -31,6 +31,10 @@ struct QPoint {
 
 struct Polyline {
     std::vector<QPoint> points;
+    // Quantized bounding box, filled by the loader: lets the renderer skip
+    // polylines outside the view without projecting a single point.
+    QPoint lo{65535, 65535};
+    QPoint hi{0, 0};
 };
 
 struct Layer {

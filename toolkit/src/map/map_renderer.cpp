@@ -61,8 +61,48 @@ void plot_line(uint16_t* buf, const MapViewport& vp, int x0, int y0, int x1, int
     }
 }
 
+// The part of the map that can reach the canvas, as a quantized box. Geometry
+// entirely outside it is skipped before projection: with a detailed worldwide
+// dataset almost everything is out of view, and projecting it every frame is
+// what costs time on the device. Conservative (20% margin); longitude culling
+// is dropped near the poles or across the antimeridian.
+struct QBox {
+    QPoint lo{0, 0};
+    QPoint hi{65535, 65535};
+    bool intersects(const Polyline& p) const {
+        return p.hi.x >= lo.x && p.lo.x <= hi.x && p.hi.y >= lo.y && p.lo.y <= hi.y;
+    }
+};
+
+QBox view_box(const MapViewport& vp, const VectorMap& map) {
+    QBox box;
+    // Farthest distance from home that can show on the canvas, in NM (the canvas
+    // corner for Mercator; the ring radius already bounds the azimuthal view).
+    const double half_px = 0.5 * std::max(vp.width, vp.height);
+    const double ext_nm = 1.2 * vp.range_nm * std::max(1.0, half_px / vp.radius_px);
+    const double dlat = ext_nm / 60.0;
+
+    auto q = [](double v, double lo, double hi) {
+        const double t = (v - lo) / (hi - lo);
+        return static_cast<uint16_t>(std::clamp(t, 0.0, 1.0) * 65535.0);
+    };
+    box.lo.y = q(vp.home.lat - dlat, map.min_lat(), map.max_lat());
+    box.hi.y = q(vp.home.lat + dlat, map.min_lat(), map.max_lat());
+
+    const double edge_lat = std::fabs(vp.home.lat) + dlat;
+    if (edge_lat < 85.0) {
+        const double dlon = dlat / std::cos(edge_lat * kPi / 180.0);
+        const double w = vp.home.lon - dlon, e = vp.home.lon + dlon;
+        if (w > -180.0 && e < 180.0) {
+            box.lo.x = q(w, map.min_lon(), map.max_lon());
+            box.hi.x = q(e, map.min_lon(), map.max_lon());
+        }
+    }
+    return box;
+}
+
 void draw_layer(uint16_t* buf, const MapViewport& vp, const Layer& layer,
-                const VectorMap& map, uint16_t color, bool dashed) {
+                const VectorMap& map, const QBox& view, uint16_t color, bool dashed) {
     const bool circle = (vp.projection == Projection::Azimuthal);
     // Rectangle the segment is pre-clipped to before rasterizing, so we never
     // run Bresenham across thousands of off-canvas pixels for far-away geometry.
@@ -70,6 +110,7 @@ void draw_layer(uint16_t* buf, const MapViewport& vp, const Layer& layer,
     const double xmax = vp.width - 1.0, ymax = vp.height - 1.0;
 
     for (const auto& poly : layer.polylines) {
+        if (!view.intersects(poly)) continue;
         double px0 = 0.0, py0 = 0.0;
         project_point(vp, map.dequant(poly.points[0]), px0, py0);
         for (size_t i = 1; i < poly.points.size(); ++i) {
@@ -134,6 +175,7 @@ void draw_base(uint16_t* buf, const MapViewport& vp,
     if (!buf || !map.valid() || vp.width <= 0 || vp.height <= 0 || vp.radius_px <= 0) {
         return;
     }
+    const QBox view = style.cull ? view_box(vp, map) : QBox{};
     // Map view: fill the whole canvas with the faint sea colour, then fill the
     // land polygons black on top. Only for the (rectangular) Mercator view — the
     // azimuthal radar keeps its black background and just gets the line layers.
@@ -141,17 +183,44 @@ void draw_base(uint16_t* buf, const MapViewport& vp,
         if (const Layer* land = map.layer(LayerId::Land)) {
             std::fill(buf, buf + static_cast<size_t>(vp.width) * vp.height, style.sea_color);
             for (const auto& ring : land->polylines) {
-                fill_polygon(buf, vp, map, ring, style.land_color);
+                if (view.intersects(ring)) fill_polygon(buf, vp, map, ring, style.land_color);
             }
         }
     }
     // Coast first, borders on top so a border line wins where they overlap.
     if (const Layer* coast = map.layer(LayerId::Coast)) {
-        draw_layer(buf, vp, *coast, map, style.coast_color, false);
+        draw_layer(buf, vp, *coast, map, view, style.coast_color, false);
     }
     if (const Layer* border = map.layer(LayerId::Border)) {
-        draw_layer(buf, vp, *border, map, style.border_color, style.border_dashed);
+        draw_layer(buf, vp, *border, map, view, style.border_color, style.border_dashed);
     }
+}
+
+namespace {
+
+bool same_view(const MapViewport& a, const MapViewport& b) {
+    return a.width == b.width && a.height == b.height && a.cx == b.cx && a.cy == b.cy &&
+           a.radius_px == b.radius_px && a.home.lat == b.home.lat && a.home.lon == b.home.lon &&
+           a.range_nm == b.range_nm && a.projection == b.projection;
+}
+
+} // namespace
+
+void BaseMapCache::draw(uint16_t* buf, const MapViewport& vp, const VectorMap& map,
+                        const MapStyle& style) {
+    if (!buf || vp.width <= 0 || vp.height <= 0) return;
+    const size_t n = static_cast<size_t>(vp.width) * vp.height;
+    if (valid_ && map_ == &map && same_view(last_, vp) && last_style_ == style &&
+        pixels_.size() == n) {
+        std::copy(pixels_.begin(), pixels_.end(), buf);
+        return;
+    }
+    draw_base(buf, vp, map, style);
+    pixels_.assign(buf, buf + n);
+    last_ = vp;
+    last_style_ = style;
+    map_ = &map;
+    valid_ = true;
 }
 
 } // namespace toolkit::map

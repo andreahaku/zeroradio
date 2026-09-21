@@ -1,8 +1,12 @@
-# meshtastic — Meshtastic mesh client
+# Meshtastic — Meshtastic mesh client (`apps/meshtastic`)
+
+> **Not in the ZeroRadio 1.0.0 package.** The app needs a `meshtasticd` daemon and the M5Stack
+> Cap LoRa-1262 hardware, so the `.deb` leaves it out and the hub hides it. Build it from source
+> to use it (see below).
 
 A Meshtastic LoRa-mesh client for the CardputerZero, built on the shared `radio_toolkit`. It is a
-**client of a local `meshtasticd` daemon** (Client API over `127.0.0.1:4403`), not a reimplementation of
-the radio (design notes `09`–`09c` in the companion planning repo). UI follows the chosen dark theme.
+**client of a local `meshtasticd` daemon** (Client API over `127.0.0.1:4403`) and does not
+reimplement the radio (design notes `09`–`09c` in the companion planning repo).
 
 ![Meshtastic world map with live nodes](docs/media/demo.gif)
 
@@ -15,7 +19,7 @@ the radio (design notes `09`–`09c` in the companion planning repo). UI follows
 Working (verified on a `meshtasticd -s` bench / scripted peer, both presets host + cp0 aarch64):
 
 - **Connection + handshake** — `MeshtasticClientSource` (`src/net/`): background TCP client, `0x94C3`
-  framing, `want_config_id` → `config_complete_id`, resilient reconnect/backoff + heartbeat.
+  framing, `want_config_id` → `config_complete_id`, reconnect with backoff + heartbeat.
 - **Nodes** — `NodeInfo` → `EntityStore`; the NODES view is a themed `lv_table` (SHORT/SNR/HOP/AGE) with
   a green cursor band (keys ▲/▼) and the self node in accent green. Title shows the live node count.
 - **Live position & telemetry** — post-handshake `POSITION_APP` and `TELEMETRY_APP` (`device_metrics`)
@@ -61,8 +65,9 @@ Working (verified on a `meshtasticd -s` bench / scripted peer, both presets host
   settings. V1 items: Theme (Dark/Light cycle), Long name (text edit), Short name (text edit),
   Region (picker through standard region codes), Channel (read-only display from ChannelTable).
   Key `7` cycles pickers or opens a compose-style text editor (Enter commits, Esc cancels).
-  Key `8` returns to Chats. Values persisted to `~/.config/cardputer_radio/meshtastic/settings`
-  and restored on launch. Writing settings back to `meshtasticd` (AdminMessage) is V2.
+  Key `8` returns to Chats. The app saves the values to
+  `~/.config/zeroradio/meshtastic/settings` and restores them on launch. Writing settings back to
+  `meshtasticd` (AdminMessage) is V2.
 
 Placeholders / pending: reactions (V2), Traceroute (V2), Telemetry req (V2),
 settings → meshtasticd (AdminMessage, V2).
@@ -126,7 +131,8 @@ docker run -d --name mtd-sim -p 127.0.0.1:4403:4403 \
   meshtastic/meshtasticd:latest meshtasticd -s --fsdir=/var/lib/meshtasticd
 ```
 
-Keys: `4` cycles the view (Chats→Nodes→Map→Tools→Settings), `5`–`8` are per-view actions, `ESC` quits.
+Keys: `4` cycles the view (Chats→Nodes→Map→Tools→Settings), and `5`–`8` are per-view actions.
+`Esc` returns to the hub, and holding `Esc` for 3 s returns to the system launcher.
 
 > Note: a single `meshtasticd -s` node has no peer, so no incoming messages appear. To exercise receive,
 > use a second node or a scripted Client-API peer that connects to the same daemon and injects
@@ -139,3 +145,7 @@ With the **M5Stack Cap LoRa-1262** on the HAT port, the device runs a native `me
 connects to it on the default `127.0.0.1:4403` — no app changes. Hardware map, install steps,
 config mirrors and the acceptance script live in [`docs/cap-lora-1262.md`](../../docs/cap-lora-1262.md)
 and [`device/meshtasticd/`](../../device/meshtasticd/).
+
+To add the app to a device that runs the ZeroRadio package, build it in the Debian trixie container
+(`scripts/cp0-docker-build.sh --target meshtastic_app`, preset `cp0-trixie`). Copy `meshtastic_app`
+next to the hub in `/usr/share/zeroradio/bin/`, and the hub lists it.

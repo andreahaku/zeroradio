@@ -17,6 +17,7 @@
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <vector>
 #include <unistd.h>
 
 namespace {
@@ -49,9 +50,19 @@ int main(int /*argc*/, char** argv) {
     std::string target_id;
     const radio::AppEntry* target_entry = nullptr;
 
+    // Only list apps whose binary is actually present, so a package that ships
+    // a subset of the suite (e.g. without Meshtastic) shows no dead entries.
+    // Outlives the menu scope: the view model and target_entry point into it.
+    std::vector<radio::AppEntry> installed;
+    for (const auto& entry : radio::app_catalog()) {
+        if (!radio::resolve_app_binary(entry).empty()) installed.push_back(entry);
+    }
+    // Last row: About opens in the hub itself (developer, changelog, credits).
+    installed.push_back(radio::about_entry());
+
     {
         app::AssetManager assets;
-        radio::HubViewModel view_model(radio::app_catalog());
+        radio::HubViewModel view_model(installed);
         std::unique_ptr<radio::HubScreen> screen;
 
         toolkit::run_app(
@@ -79,7 +90,9 @@ int main(int /*argc*/, char** argv) {
     } else {
         LOG_INFO("radio hub: launching {} ({})", target_id, path);
         std::fflush(nullptr); // make the launch visible before the child takes over
-        radio::run_app_binary(path); // blocks until the app exits (display is free)
+        // Blocks until the app exits (display is free). An app left with a 3 s
+        // ESC hold asks for the system launcher: close the hub too.
+        if (radio::run_app_binary(path) == toolkit::ShellViewModel::kExitHome) return 0;
     }
 
     reexec_hub(argv); // fresh process -> pristine LVGL/SDL -> show the menu again

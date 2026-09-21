@@ -29,8 +29,8 @@ class SurveyViewModel : public toolkit::ShellViewModel, public toolkit::NavProvi
 public:
     // NavBar tool pages; the screen shows the matching view per page.
     enum class Page : int {
-        Waterfall = 0, // zoom- / range preset / zoom+ / theme
-        Peaks     = 1, // cursor up / cursor down / open in SDR / exit
+        Waterfall = 0, // zoom- / tune dialog / zoom+ / theme
+        Peaks     = 1, // cursor up / cursor down / open in SDR / cycle sort
     };
 
     SurveyViewModel();
@@ -85,7 +85,7 @@ public:
     void peaks_cursor_up();
     void peaks_cursor_down();
     void cycle_sort();           // advance sort field/direction, re-sort the list
-    void open_selected_in_sdr(); // fork/exec the sibling sdr_app at the peak
+    void open_selected_in_sdr(); // hand the selected peak off to the sibling sdr_app
 
     // Short label of the active sort for the Peaks-page nav slot (e.g. "PWR v").
     const char* sort_label() const { return sort_label_; }
@@ -94,6 +94,17 @@ public:
     int nav_page_count() const override { return 2; }
     void nav_fill(int page, NavProvider::NavSlot out[5]) const override;
     void nav_activate(int page, int slot) override;
+
+    // TAB: switch to the SDR app at its own frequency (see toolkit::run_handoff).
+    void on_tab() override { request_handoff("sdr_app", "sdr"); }
+
+    // F/X (arrows): the Peaks cursor (no list on the waterfall page).
+    void on_up() override {
+        if (lv_subject_get_int(toolbar_page_subject()) == static_cast<int>(Page::Peaks)) peaks_cursor_up();
+    }
+    void on_down() override {
+        if (lv_subject_get_int(toolbar_page_subject()) == static_cast<int>(Page::Peaks)) peaks_cursor_down();
+    }
 
 private:
     void publish_range();
@@ -120,6 +131,7 @@ private:
     char      sort_label_[8] = "PWR v";
 
     std::vector<PeakRow> rows_;
+
 
     // How long each transmission has been on the air: first/last-seen wall
     // times keyed by 10 kHz frequency bucket (stable across sweep jitter).

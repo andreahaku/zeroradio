@@ -138,6 +138,9 @@ void SurveyScreen::build_waterfall_view(lv_obj_t* content) {
     lv_obj_set_style_pad_column(smeter_box, 3, 0);
     lv_obj_align(smeter_box, LV_ALIGN_RIGHT_MID, -4, 0);
 
+    battery_ = std::make_unique<view::widgets::BatteryBadge>(smeter_box);
+    lv_obj_set_style_margin_right(battery_->obj(), 6, 0);
+
     auto* s_label = lv_label_create(smeter_box);
     lv_label_set_text(s_label, "S");
     lv_obj_set_style_text_font(s_label, small_font ? small_font : &lv_font_montserrat_12, 0);
@@ -161,6 +164,9 @@ void SurveyScreen::build_waterfall_view(lv_obj_t* content) {
     lv_chart_set_point_count(chart_, kBins);
     lv_chart_set_range(chart_, LV_CHART_AXIS_PRIMARY_Y, 0, kChartMax);
     lv_obj_set_style_size(chart_, 0, 0, LV_PART_INDICATOR);
+    // Hairline traces: the theme default (2-3 px, rounded caps) smears the peaks.
+    lv_obj_set_style_line_width(chart_, 1, LV_PART_ITEMS);
+    lv_obj_set_style_line_rounded(chart_, false, LV_PART_ITEMS);
     lv_obj_remove_flag(chart_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(chart_, LV_OBJ_FLAG_CLICKABLE);
     series_ = lv_chart_add_series(chart_, view::palette(false).primary,
@@ -342,6 +348,12 @@ void SurveyScreen::update_peaks_table() {
         lv_table_set_cell_value(peaks_table_, r, 0, rows[i].freq.c_str());
         lv_table_set_cell_value(peaks_table_, r, 1, rows[i].power.c_str());
         lv_table_set_cell_value(peaks_table_, r, 2, rows[i].age.c_str());
+    }
+    // Keep the cursor on screen: set_selected_cell scrolls the table to the row
+    // (same as the ADS-B/AIS/ISM lists).
+    const int sel = vm_.selected_peak();
+    if (sel >= 0 && sel < static_cast<int>(rows.size())) {
+        lv_table_set_selected_cell(peaks_table_, static_cast<uint16_t>(sel), 0);
     }
     lv_obj_invalidate(peaks_table_);
 }

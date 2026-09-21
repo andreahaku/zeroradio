@@ -11,6 +11,10 @@
 
 #include "lvgl.h"
 
+#include <string>
+#include <utility>
+#include <vector>
+
 namespace toolkit {
 
 // Generic app-shell state, decoupled from any concrete app. Holds the reactive
@@ -32,6 +36,39 @@ public:
 
     // --- lifecycle ---
     void request_quit();
+
+    // Exit code asking the Radio hub to close too: the user held ESC 3 s to go
+    // straight back to the system launcher.
+    static constexpr int kExitHome = 42;
+    void request_home() { exit_code_ = kExitHome; request_quit(); }
+    int exit_code() const { return exit_code_; }
+
+    // Quit, then replace this process with a sibling app (same PID, so a hub
+    // waiting on it keeps waiting): main() calls toolkit::run_handoff() once
+    // run_app has released the display. `app_dir` finds the binary in the dev
+    // build tree (apps/<app_dir>/<config>/<bin>); installed apps sit together.
+    struct Handoff {
+        std::string bin;
+        std::string app_dir;
+        std::vector<std::pair<std::string, std::string>> env;
+        bool pending() const { return !bin.empty(); }
+    };
+    void request_handoff(std::string bin, std::string app_dir,
+                         std::vector<std::pair<std::string, std::string>> env = {});
+    const Handoff& handoff() const { return handoff_; }
+
+    // TAB key: nothing by default; an app overrides it (e.g. SDR <-> Survey).
+    virtual void on_tab() {}
+
+    // Up/down keys (arrows, F/X): move the cursor of the visible list, like the
+    // NavBar up/down slots. Nothing by default; list pages override it.
+    virtual void on_up() {}
+    virtual void on_down() {}
+
+    // Help page opened with H (run_app shows it), as a path relative to the
+    // repository root, e.g. "docs/help/sdr.md"; empty = no help.
+    void set_help_doc(std::string relative_path) { help_doc_ = std::move(relative_path); }
+    const std::string& help_doc() const { return help_doc_; }
 
     // --- NavBar tool page ---
     void cycle_toolbar();   // slot 0: next tool page (wraps), then bump nav_refresh
@@ -56,6 +93,9 @@ public:
 
 private:
     NavProvider* nav_provider_{nullptr};
+    Handoff handoff_;
+    std::string help_doc_;
+    int exit_code_ = 0;
 
     reactive::BoolSubject       dark_mode_subject_{true};
     reactive::IntSubject        current_page_subject_{0};

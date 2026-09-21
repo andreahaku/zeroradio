@@ -12,6 +12,7 @@
 #ifdef SDR_HAVE_RTLTCP
 
 #include "audio_demod.h"
+#include "child_service.h"
 
 #include <fftw3.h>
 
@@ -28,6 +29,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -117,10 +119,18 @@ struct RtlTcpSource::Impl {
     AudioDemod                       audio;
     std::vector<std::complex<float>> audio_buf; // reused per recv chunk
 
+    // Local rtl_tcp server owned by this source (dongle on this device); null
+    // when connecting to an external server.
+    std::unique_ptr<toolkit::ChildService> server;
+
     std::thread thread;
 
-    explicit Impl(std::string h, uint16_t p, int64_t center)
+    Impl(std::string h, uint16_t p, int64_t center, bool spawn)
         : host(std::move(h)), port(p), audio(static_cast<double>(effective_sample_rate())) {
+        if (spawn) {
+            server = std::make_unique<toolkit::ChildService>(std::vector<std::string>{
+                toolkit::find_tool("rtl_tcp"), "-a", host, "-p", std::to_string(port)});
+        }
         desired_center.store(center);
         shared_db.assign(kFftSize, -120.0f);
         scratch_db.assign(kFftSize, -120.0f);
@@ -403,8 +413,10 @@ struct RtlTcpSource::Impl {
     }
 };
 
-RtlTcpSource::RtlTcpSource(std::string host, uint16_t port, int64_t initial_center_hz)
-    : impl_(std::make_unique<Impl>(std::move(host), port, initial_center_hz)) {}
+RtlTcpSource::RtlTcpSource(std::string host, uint16_t port, int64_t initial_center_hz,
+                           bool spawn_local_server)
+    : impl_(std::make_unique<Impl>(std::move(host), port, initial_center_hz,
+                                   spawn_local_server)) {}
 
 RtlTcpSource::~RtlTcpSource() = default;
 
@@ -510,7 +522,7 @@ namespace sdr {
 
 struct RtlTcpSource::Impl {}; // complete type so unique_ptr<Impl> can destruct
 
-RtlTcpSource::RtlTcpSource(std::string, uint16_t, int64_t) {}
+RtlTcpSource::RtlTcpSource(std::string, uint16_t, int64_t, bool) {}
 RtlTcpSource::~RtlTcpSource() = default;
 void RtlTcpSource::next_frame(float* mags, int n_bins) {
     if (mags && n_bins > 0) {

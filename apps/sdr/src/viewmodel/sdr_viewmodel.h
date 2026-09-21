@@ -27,7 +27,7 @@ public:
     enum class Page : int {
         Tuning   = 0, // < / freq-entry / >  + fine-step toggle
         Zoom     = 1, // zoom- / band / zoom+ / mode
-        Visual   = 2, // theme / freq grid / time grid / peak hold
+        Visual   = 2, // theme / freq grid / waterfall split / peak hold
         Audio    = 3, // mute / vol- / vol+ / vol readout
         Settings = 4, // gain- / gain+ / gain auto / exit
     };
@@ -92,6 +92,9 @@ public:
     int nav_page_count() const override;
     void nav_fill(int page, NavProvider::NavSlot out[5]) const override;
     void nav_activate(int page, int slot) override;
+
+    // TAB: switch to the Spectrum Survey app (see toolkit::run_handoff).
+    void on_tab() override { request_handoff("survey_app", "survey"); }
 
 private:
     void publish_vfo();

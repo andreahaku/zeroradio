@@ -28,6 +28,10 @@ cd "$ROOT"
 pkill -f "${APP}_app" 2>/dev/null || true
 sleep 0.2
 
+# Sample data by default, so the demo needs no dongle (override to use one).
+export SDR_SOURCE="${SDR_SOURCE:-mock}" SURVEY_SOURCE="${SURVEY_SOURCE:-mock}" \
+       ISM_SOURCE="${ISM_SOURCE:-mock}" ADSB_SOURCE="${ADSB_SOURCE:-mock}" AIS_SOURCE="${AIS_SOURCE:-mock}"
+
 echo ">> ${APP}_app headless on REMOTE_FB=$PORT (log: /tmp/cr-${APP}.out)"
 REMOTE_FB="$PORT" "$APP_BIN" >"/tmp/cr-${APP}.out" 2>&1 &
 APP_PID=$!

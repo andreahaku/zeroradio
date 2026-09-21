@@ -1,8 +1,8 @@
 /*
  * SPDX-License-Identifier: MIT
  *
- * remote-fb wire protocol (Path B): the app runs on the device (e.g. a Raspberry
- * Pi Zero 2 W with the RTL-SDR attached) and renders headless; it streams its
+ * remote-fb wire protocol (Path B): the app runs on the device and renders
+ * headless; it streams its
  * 320x170 framebuffer over TCP to a standalone viewer on the desktop, which also
  * forwards key presses back so the remote app is drivable.
  *

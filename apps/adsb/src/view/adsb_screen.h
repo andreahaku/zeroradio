@@ -7,9 +7,11 @@
 #pragma once
 
 #include "adsb_viewmodel.h"
+#include "battery_badge.h"
 #include "app_config.h"
 #include "base_screen.h"
 #include "entity_store.h"
+#include "location_dialog.h"
 #include "map_renderer.h"
 #include "vector_map.h"
 
@@ -20,6 +22,7 @@
 #include <functional>
 #include <map>
 #include <string>
+#include <memory>
 #include <vector>
 
 namespace adsb {
@@ -45,6 +48,7 @@ protected:
 private:
     static void tick_cb(lv_timer_t* timer);
     void tick();
+    void open_location_dialog();
     // Per-row text colour for the list table (category / emergency), applied via
     // the table's draw-task event. Index 0 is the header row (left default).
     static void list_draw_event_cb(lv_event_t* event);
@@ -103,6 +107,7 @@ private:
     lv_obj_t* header_count_   = nullptr;
     lv_obj_t* sig_bar_        = nullptr; // signal-quality bar (strongest RSSI)
     lv_obj_t* conn_dot_       = nullptr;
+    std::unique_ptr<view::widgets::BatteryBadge> battery_; // header, right
 
     // Body containers (one shown at a time).
     lv_obj_t* body_           = nullptr;
@@ -149,6 +154,11 @@ private:
     std::vector<uint16_t> detail_buf_;
     // Coastline/border base layer for the Mercator map view.
     toolkit::map::VectorMap base_map_;
+    std::unique_ptr<toolkit::LocationDialog> location_dialog_; // Settings > Location
+    bool location_prompted_ = false;                            // first-run prompt shown
+    // Base-map pixels per canvas, replayed while the view is unchanged.
+    toolkit::map::BaseMapCache scope_map_cache_;
+    toolkit::map::BaseMapCache detail_map_cache_;
 
     const lv_font_t* font_small_ = nullptr;
     const lv_font_t* font_mono_  = nullptr;
