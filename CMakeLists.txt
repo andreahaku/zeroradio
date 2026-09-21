@@ -9,7 +9,7 @@ cmake_minimum_required(VERSION 3.31)
 project(zeroradio VERSION 1.0.0 LANGUAGES C CXX)
 
 # Public source repository: the hub About page (text + QR) and the package homepage.
-set(RADIO_REPO_URL "https://github.com/andreahaku/cardputer-radio")
+set(RADIO_REPO_URL "https://github.com/andreahaku/zeroradio")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

@@ -201,7 +201,7 @@ void HubScreen::key_cb(uint32_t key, void* ctx) {
 }
 
 #ifndef ZERORADIO_REPO_URL
-#define ZERORADIO_REPO_URL "https://github.com/andreahaku/cardputer-radio"
+#define ZERORADIO_REPO_URL "https://github.com/andreahaku/zeroradio"
 #endif
 
 void HubScreen::open_about() {

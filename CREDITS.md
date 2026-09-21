@@ -4,7 +4,7 @@
 
 Made by Andrea Salvatore (IU4APC), One Small Step Apps Ltd.
 
-Source code: github.com/andreahaku/cardputer-radio
+Source code: github.com/andreahaku/zeroradio
 
 ZeroRadio is released under the MIT License. It started from the M5Stack CardputerZero app template (MIT), and the files derived from it keep the M5Stack copyright.
 
@@ -28,6 +28,10 @@ These run as separate programs next to the apps. Their full source is available 
 - rtl_433, ISM band decoder by Benjamin Larsson and contributors. GPL-2.0-or-later.
 - HackRF tools (hackrf_sweep). GPL-2.0-or-later.
 - PipeWire ALSA plugin, audio output.
+
+## In the source repository only
+
+- Meshtastic protobuf definitions (apps/meshtastic/proto), generated from github.com/meshtastic/protobufs. GPL-3.0. The Meshtastic app is not part of the ZeroRadio package.
 
 ## Data
 
