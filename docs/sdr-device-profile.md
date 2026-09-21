@@ -59,20 +59,10 @@ bcm2835-i2s-ES8389 HiFi playback [active]`, and the audio played on the device s
 starts apps as user `pi` with `XDG_RUNTIME_DIR=/run/user/1000` set, so the PipeWire ALSA plugin
 finds the session daemon without extra environment.
 
-### Known issue: speaker pop at boot
+### Speaker noise at boot (older images)
 
-`pipewire-alsa` also installs `99-pipewire-default.conf`, which makes PipeWire the ALSA `default`
-device. A process that opens `default` at codec init (APPLaunch is the suspect) then powers the
-ES8388 speaker amplifier (`hpamp-regulator`). The result is a few seconds of noise at every boot and
-every APPLaunch restart.
-
-Disabling that one file (`mv .../99-pipewire-default.conf{,.disabled}`) removes the noise. SDR audio
-still works, because it uses the explicit `pipewire` PCM from `50-pipewire.conf`. The package does
-not ship this override yet. Two fixes are open: ship an override that neutralises the file, or give
-the app native PipeWire output (`pw-stream`) and drop the `pipewire-alsa` dependency. Muting the
-ADC→DAC monitor does not fix the noise.
+On earlier CardputerZero images, the `99-pipewire-default.conf` file that `pipewire-alsa` installs made PipeWire the ALSA `default` device, and a few seconds of speaker noise followed every boot. The 2026-09-20 image with ZeroRadio 1.0.0 installed shows no noise. If it returns, disable that file (`mv .../99-pipewire-default.conf{,.disabled}`): SDR audio keeps working through the explicit `pipewire` PCM from `50-pipewire.conf`.
 
 ## Next steps
 
 1. Re-profile with the dongle in the device's USB-A port.
-2. Fix the speaker pop in the package (see above).
