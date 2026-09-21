@@ -32,6 +32,18 @@ void (*arrow_handler)(int, void*) = nullptr;
 void* arrow_ctx = nullptr;
 void (*help_handler)(void*) = nullptr;
 void* help_ctx = nullptr;
+void (*home_handler)(void*) = nullptr;
+void (*hold_hint_handler)(bool, void*) = nullptr;
+void* home_ctx = nullptr;
+
+// ESC hold tracking (see set_home_handler).
+constexpr uint32_t kHoldHintMs = 500;
+constexpr uint32_t kHoldHomeMs = 3000;
+lv_indev_t* esc_indev = nullptr;
+uint32_t esc_started_at = 0;
+bool esc_hint_shown = false;
+bool esc_home_sent = false;
+lv_timer_t* esc_timer = nullptr;
 void (*key_capture)(uint32_t, void*) = nullptr;
 void* capture_ctx = nullptr;
 bool capture_text = false;
@@ -95,6 +107,41 @@ void dispatch_nav_key(uint32_t key) {
     lv_obj_send_event(button, LV_EVENT_CLICKED, nullptr);
 }
 
+void esc_timer_cb(lv_timer_t* timer) {
+    const bool held = esc_indev && lv_indev_get_state(esc_indev) == LV_INDEV_STATE_PRESSED &&
+                      lv_indev_get_key(esc_indev) == LV_KEY_ESC;
+    const uint32_t elapsed = lv_tick_elaps(esc_started_at);
+    if (!held) {
+        lv_timer_pause(timer);
+        if (esc_hint_shown && hold_hint_handler) hold_hint_handler(false, home_ctx);
+        esc_hint_shown = false;
+        if (!esc_home_sent && quit_handler) quit_handler(quit_ctx); // short press
+        esc_indev = nullptr;
+        return;
+    }
+    if (esc_home_sent) return;
+    if (elapsed >= kHoldHomeMs) {
+        esc_home_sent = true;
+        if (esc_hint_shown && hold_hint_handler) hold_hint_handler(false, home_ctx);
+        esc_hint_shown = false;
+        if (home_handler) home_handler(home_ctx);
+        else if (quit_handler) quit_handler(quit_ctx);
+    } else if (elapsed >= kHoldHintMs && !esc_hint_shown) {
+        esc_hint_shown = true;
+        if (hold_hint_handler) hold_hint_handler(true, home_ctx);
+    }
+}
+
+// ESC down with no capture: decide short vs hold in esc_timer_cb.
+void start_esc_hold(lv_indev_t* indev) {
+    esc_indev = indev;
+    esc_started_at = lv_tick_get();
+    esc_hint_shown = false;
+    esc_home_sent = false;
+    if (!esc_timer) esc_timer = lv_timer_create(esc_timer_cb, 40, nullptr);
+    lv_timer_resume(esc_timer);
+}
+
 void key_event_cb(lv_event_t* event) {
     LV_UNUSED(event);
 
@@ -107,7 +154,11 @@ void key_event_cb(lv_event_t* event) {
     const bool pressed = lv_indev_get_state(indev) == LV_INDEV_STATE_PRESSED;
 
     if (pressed && (!last_key_pressed || last_key != key)) {
-        dispatch_nav_key(key);
+        if (key == LV_KEY_ESC && !key_capture && !esc_indev) {
+            start_esc_hold(indev);
+        } else if (key != LV_KEY_ESC || key_capture) {
+            dispatch_nav_key(key);
+        }
     }
 
     last_key = key;
@@ -328,6 +379,12 @@ void attach_key_router(lv_indev_t* indev) {
     }
 
     lv_indev_add_event_cb(indev, key_event_cb, LV_EVENT_KEY, nullptr);
+}
+
+void set_home_handler(void (*home)(void* ctx), void (*hint)(bool show, void* ctx), void* ctx) {
+    home_handler = home;
+    hold_hint_handler = hint;
+    home_ctx = ctx;
 }
 
 void set_help_handler(void (*handler)(void* ctx), void* ctx) {

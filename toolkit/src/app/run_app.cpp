@@ -131,6 +131,32 @@ void help_handler_trampoline(void* ctx) {
         std::vector<view::widgets::TextViewer::Page>{{"Help", text, {}}});
 }
 
+void home_handler_trampoline(void* ctx) {
+    static_cast<ShellViewModel*>(ctx)->request_home();
+}
+
+// "Hold ESC 3s to return home" toast while ESC is held (CardputerZero convention).
+lv_obj_t* hold_toast = nullptr;
+
+void hold_hint_trampoline(bool show, void* /*ctx*/) {
+    if (!show) {
+        if (hold_toast) lv_obj_delete(hold_toast);
+        hold_toast = nullptr;
+        return;
+    }
+    if (hold_toast) return;
+    hold_toast = lv_label_create(lv_layer_top());
+    lv_label_set_text(hold_toast, "Hold ESC 3s to return home");
+    lv_obj_set_style_text_font(hold_toast, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(hold_toast, lv_color_white(), 0);
+    lv_obj_set_style_bg_color(hold_toast, lv_color_hex(0x1f3a5f), 0);
+    lv_obj_set_style_bg_opa(hold_toast, LV_OPA_90, 0);
+    lv_obj_set_style_pad_hor(hold_toast, 10, 0);
+    lv_obj_set_style_pad_ver(hold_toast, 5, 0);
+    lv_obj_set_style_radius(hold_toast, 10, 0);
+    lv_obj_align(hold_toast, LV_ALIGN_CENTER, 0, 0);
+}
+
 void arrow_handler_trampoline(int dir, void* ctx) {
     auto* shell = static_cast<ShellViewModel*>(ctx);
     if (dir < 0) shell->on_up();
@@ -164,6 +190,7 @@ int run_app(ShellViewModel& shell,
     platform::set_quit_handler(quit_handler_trampoline, &shell);
     platform::set_tab_handler(tab_handler_trampoline, &shell);
     platform::set_arrow_handler(arrow_handler_trampoline, &shell);
+    platform::set_home_handler(home_handler_trampoline, hold_hint_trampoline, &shell);
     HelpState help{&shell, &assets, nullptr};
     platform::set_help_handler(help_handler_trampoline, &help);
 
@@ -201,6 +228,8 @@ int run_app(ShellViewModel& shell,
     platform::set_quit_handler(nullptr, nullptr);
     platform::set_tab_handler(nullptr, nullptr);
     platform::set_arrow_handler(nullptr, nullptr);
+    platform::set_home_handler(nullptr, nullptr, nullptr);
+    hold_hint_trampoline(false, nullptr);
     platform::set_help_handler(nullptr, nullptr);
     help.viewer.reset();
     platform::set_key_capture(nullptr, nullptr);
@@ -225,7 +254,7 @@ int run_app(ShellViewModel& shell,
         lv_display_delete(display);
     }
 
-    return 0;
+    return shell.exit_code();
 }
 
 } // namespace toolkit

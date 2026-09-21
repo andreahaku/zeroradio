@@ -37,6 +37,12 @@ public:
     // --- lifecycle ---
     void request_quit();
 
+    // Exit code asking the Radio hub to close too: the user held ESC 3 s to go
+    // straight back to the system launcher.
+    static constexpr int kExitHome = 42;
+    void request_home() { exit_code_ = kExitHome; request_quit(); }
+    int exit_code() const { return exit_code_; }
+
     // Quit, then replace this process with a sibling app (same PID, so a hub
     // waiting on it keeps waiting): main() calls toolkit::run_handoff() once
     // run_app has released the display. `app_dir` finds the binary in the dev
@@ -89,6 +95,7 @@ private:
     NavProvider* nav_provider_{nullptr};
     Handoff handoff_;
     std::string help_doc_;
+    int exit_code_ = 0;
 
     reactive::BoolSubject       dark_mode_subject_{true};
     reactive::IntSubject        current_page_subject_{0};

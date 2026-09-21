@@ -27,6 +27,12 @@ void set_arrow_handler(void (*handler)(int dir, void* ctx), void* ctx);
 // H outside a key capture: open the app's help page.
 void set_help_handler(void (*handler)(void* ctx), void* ctx);
 
+// ESC outside a key capture follows the CardputerZero convention: a short press
+// is the normal quit/back (set_quit_handler), holding it 3 s returns to the
+// system launcher (`home`). `hint(true)` fires once the hold passes 0.5 s so the
+// UI can show "Hold ESC 3s to return home"; `hint(false)` clears it.
+void set_home_handler(void (*home)(void* ctx), void (*hint)(bool show, void* ctx), void* ctx);
+
 // While a capture handler is set (e.g. a modal frequency dialog), every key
 // is delivered to it raw and the normal nav/quit routing is bypassed. Pass
 // nullptr to release the capture. `text` (device keyboard) delivers letters,
