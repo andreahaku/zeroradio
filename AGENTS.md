@@ -1,108 +1,60 @@
-# AGENTS.md — cardputer-radio
+# AGENTS.md — ZeroRadio (cardputer-radio)
 
-Context for any coding session working in this repo (auto-loaded by Claude Code and
-Pi). Read this first, then the relevant per-app `README.md` and `docs/architecture.md`.
+Context for any coding session in this repository. Read this first, then the README of the app you touch and `docs/architecture.md`.
 
 ## What this is
 
-A family of radio apps for the **M5Stack CardputerZero** (a Pi-class Linux ARM64
-handheld, 320x170 RGB565 screen, 5 keys). One shared **toolkit** (LVGL MVVM,
-reactive subjects, 5-key NavBar, resilient TCP/HTTP sources) + thin per-app
-viewers. Unifying thesis: **decode on a host, view on the device** — each app is a
-parser + a field mapping over the shared toolkit.
+ZeroRadio is a suite of radio apps for the M5Stack CardputerZero: a Linux ARM64 handheld (Raspberry Pi CM0, Debian 13 trixie) with a 320x170 RGB565 screen and a keyboard. An RTL-SDR dongle in the USB-A port feeds every app. Each app starts its own decoder on the device and stops it on exit.
 
-- `toolkit/` — the reusable library (app shell, reactive, platform, view + shared `view::raster`
-  primitives, Mercator vector `map`, net, geo, model, logger, config). See `toolkit/README.md`.
-- `apps/radio` — the hub launcher (one home-screen entry, spawns the apps below).
-- `apps/sdr`  — SDR spectrum/waterfall + audio (data: `rtl_tcp`, mock synthetic).
-- `apps/survey` — wide-band spectrum survey + peaks (data: `rtl_power`/`hackrf_sweep` CSV).
-- `apps/adsb` — ADS-B aircraft radar/list (data: dump1090 `aircraft.json`, mock bundled).
-- `apps/ais`  — AIS vessel radar/list, on-device AIVDM decoder (data: NMEA over UDP/TCP or file).
-- `apps/ism`  — ISM 433/868 device sniffer, list/detail (data: `rtl_433 -F json`, mock/file/dongle).
-- `apps/meshtastic` — Meshtastic mesh client (data: Client API TCP to a local `meshtasticd`;
-  on the device a native `meshtasticd` drives the Cap LoRa-1262 — see `docs/cap-lora-1262.md`
-  and `device/meshtasticd/`).
-- In-repo docs index: `docs/` (architecture, cap-lora-1262, sdr-device-profile, mapdata-design,
-  distribution-gap-check, m5stack-usb-host-*). `scripts/` holds operator scripts (flash, wifi-diag,
-  sdr-profile, cap-lora-accept, usb-host-diag) — see `scripts/README.md`.
+- `toolkit/`: the shared library. App shell and run loop, reactive subjects (MVVM), key routing, NavBar, themes, vector map, geo, location, sources, text viewer. See `toolkit/README.md`.
+- `apps/radio`: the hub (the single launcher entry "ZeroRadio"). It lists the installed apps, launches one at a time and shows About.
+- `apps/sdr`: spectrum, waterfall and audio. Decoder: `rtl_tcp` (Debian `rtl-sdr`).
+- `apps/survey`: shown as "Scanner". Wide-band sweep and peaks. Decoder: `rtl_power` / `hackrf_sweep`.
+- `apps/ism`: 433/868 MHz device sniffer. Decoder: `rtl_433`.
+- `apps/adsb`: aircraft list, radar and map. Decoder: bundled `readsb`.
+- `apps/ais`: ship list, radar and map. Decoder: bundled `AIS-catcher`.
+- `apps/meshtastic`: Meshtastic client over `meshtasticd`. Not in the 1.0.0 package.
+- `docs/help/<app>.md`: the in-app help pages (key H). `CHANGELOG.md` and `CREDITS.md` feed the hub About page.
 
-## Build & run
+## Build and run
 
 ```bash
-# desktop (X1) — LVGL SDL simulator
+# Desktop simulator (SDL window, 320x170)
 cmake --preset linux-x86-64 && cmake --build --preset linux-x86-64-dbg
-./build/linux-x86-64/apps/adsb/Debug/adsb_app      # SDL window
+./build/linux-x86-64/apps/adsb/Debug/adsb_app          # ADSB_SOURCE=mock for sample data
 
-# device (CardputerZero cross build) — needs the BSP sysroot
-cmake --preset cp0-cross && cmake --build --preset cp0-cross-rel
+# Device build and package, in a Debian trixie container (needs Docker)
+scripts/cp0-docker-build.sh                             # binaries: build/cp0-trixie
+scripts/cp0-docker-build.sh --package                   # zeroradio_<version>_arm64.deb
 ```
 
-## Tests — run them before declaring a change done
+Build for the device with the container, not with a host cross toolchain: the binaries must match the device's glibc and libstdc++ (trixie). `cmake/decoders.cmake` builds the bundled readsb and AIS-catcher from pinned tags.
 
-Six CTest targets on the desktop preset; the decoder tests are **frozen parity tests** (never edit
-the vectors to make code pass):
+## Tests: run them before a change is done
 
 ```bash
 ctest --test-dir build/linux-x86-64 -C Debug --output-on-failure
-# aircraft_parse_test · ais_decoder_test · nmea_net_test · meshtastic_decoder_test · sweep_parser_test · ism_parse_test
 ```
 
-The LVGL display backend is chosen in `toolkit/src/app/run_app.cpp` `init_display()`:
-SDL (desktop) / DRM / fbdev (device) / **remote-fb** (headless streaming, see below).
+Nine tests: waterfall_scroll, map_render (culling must not change a pixel), location (city search, coordinates, NMEA, USB GPS on a pseudo-terminal, save/load), and the decoder parity tests aircraft_parse, meshtastic_decoder, ais_decoder, nmea_net, sweep_parser, ism_parse. The parity tests are frozen: never edit their vectors to make code pass.
 
-## Feature: remote-fb (Path B) — run on the device, view/drive from the desktop
+## How the pieces fit
 
-**Purpose.** Run an app **headless on the device** (e.g. a Raspberry Pi Zero 2 W
-with the RTL-SDR) and **see + drive its 320x170 screen from the X1** over TCP,
-before the physical SPI display arrives. Full docs + protocol:
-[`tools/remote-fb/README.md`](tools/remote-fb/README.md).
+- Keys (`toolkit/src/platform/linux_input.cpp`): digits 4-8 drive the NavBar. Esc goes back, holding Esc 3 s returns to the system launcher (exit code `ShellViewModel::kExitHome`, the hub then closes too). F/X (up/down) call `on_up()`/`on_down()`, TAB calls `on_tab()`, H opens the help set with `set_help_doc()`. A dialog takes the keyboard with `platform::set_key_capture()`; pass `text=true` only for free-text entry, because menus rely on F/X/Z/C as arrows.
+- Decoders: `toolkit::ChildService` starts a helper tool, drains its stdout, respawns it and stops it with the app. `toolkit::find_tool()` prefers a copy bundled next to the executable. Children get `PR_SET_PDEATHSIG`, so a killed app never leaves a tool holding the dongle.
+- App switches: `ShellViewModel::request_handoff()` plus `toolkit::run_handoff()` exec a sibling app in place (same PID), after `run_app` has released the display. The hub waits on that PID, so only one process draws at a time. Scanner "Open in SDR" and TAB use it.
+- Location: `toolkit::location` holds the shared position (`~/.config/zeroradio/location`), the offline city list (`assets/geodata/cities.tsv`, GeoNames) and `GnssReader` (USB GPS or the Cap LoRa-1262-GPS shield). `toolkit::LocationDialog` is the UI.
+- Map: `toolkit/src/map` draws the Natural Earth base map. `draw_base()` culls geometry outside the view and `BaseMapCache` replays an unchanged view. The Light theme uses `MapStyle::day()`.
+- Settings live in `~/.config/zeroradio/<app>/`.
 
-**How it works.** The app renders headless and streams each flushed framebuffer
-region over TCP (app = server); a desktop SDL2 viewer blits it and forwards
-keystrokes back into a keypad indev (same `attach_key_router()` path as the
-physical keys). Wire format RGB565; protocol in `tools/remote-fb/remote_fb_proto.h`.
+## Remote framebuffer (optional)
 
-**Enable it** on ANY build with the env var:
-
-```bash
-REMOTE_FB=<port>   # or REMOTE_FB=1 for the default 5800
-```
-
-`init_display()` honours it (`toolkit/src/app/run_app.cpp`); the driver is
-`toolkit/src/platform/remote_fb.{h,cpp}` (compiled into the toolkit automatically).
-
-**Run it (one command):**
-
-```bash
-./tools/remote-fb/demo.sh            # ADS-B, mock data, no dongle
-./tools/remote-fb/demo.sh sdr        # SDR app
-# viewer scale: REMOTE_FB_SCALE=2|3 (default 1 = real panel size)
-```
-
-**Real RTL-SDR data** (the apps default to mock):
-
-```bash
-rtl_tcp -a 127.0.0.1 ;            REMOTE_FB_PORT=5800 ./tools/remote-fb/demo.sh sdr
-dump1090 --net --write-json /tmp/dump1090 --write-json-every 1 --lat <LAT> --lon <LON>
-ADSB_JSON=/tmp/dump1090/aircraft.json REMOTE_FB_PORT=5800 ./tools/remote-fb/demo.sh adsb
-```
-
-**Develop with no Pi / no display:** `remote-fb-mock` (test pattern) +
-`remote-fb-selftest` (headless protocol check) under `tools/remote-fb/`.
-
-**Critical gotcha (already handled — don't regress).** Headless mode skips the
-SDL/driver init that normally registers LVGL's tick + delay source, so without one
-LVGL's clock never advances (timers freeze, only the first frame renders).
-`remote_fb_create()` installs `lv_tick_set_cb` / `lv_delay_set_cb` itself. Any new
-headless/no-backend path must do the same.
-
-**Open future-work** (see the README's Future work): auto-start the RTL-SDR
-background processes (rtl_tcp/dump1090/AIS-catcher), verify/bundle/auto-download
-dependencies, optional emulator-window integration of the stream.
+`REMOTE_FB=<port>` runs any app headless and streams its screen to the desktop viewer in `tools/remote-fb/` (keys are forwarded back). See `tools/remote-fb/README.md`. A new headless path must install its own LVGL tick and delay callbacks, as `remote_fb_create()` does.
 
 ## Conventions
 
-- Commit messages: plain Conventional Commits.
-- Keep the desktop build green; the `remote_fb` driver compiles on desktop too.
-- Match existing patterns (MVVM reactive subjects, the toolkit's source-over-a-TCP
-  boundary) — a new app should be mostly a parser + a field mapping.
+- English everywhere: code, comments, docs, commits.
+- Commit messages: Conventional Commits.
+- Keep the desktop build and the tests green; build the package in the container before a release.
+- Follow the existing patterns (MVVM with reactive subjects, a source feeding an `EntityStore`). A new app should be mostly a parser plus a field mapping.
+- Files started from the M5Stack template keep the M5Stack copyright line; new files carry One Small Step Apps Ltd. Every C/C++ file has an SPDX header.

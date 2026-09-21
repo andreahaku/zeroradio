@@ -1,23 +1,24 @@
-# survey — Spectrum Survey
+# Scanner (`apps/survey`) — wide-band spectrum sweep
 
-A wide-band spectrum survey for the CardputerZero (design note `10a` in the companion planning
-repo): sweep tens-to-hundreds of MHz,
-see **what is transmitting**, and hand a signal off to the SDR app to listen. Where `sdr_app` is
-a *microscope* (one ≤2.4 MHz tune you already know), Survey is the *panorama* — the "survey the
-band, find the peaks, drill in" tool the suite was missing. Built on the shared `radio_toolkit`,
-it reuses the toolkit's waterfall pipeline (the `view::raster` colormap and chart machinery shared
-with the SDR app); the only new engine is the sweep source.
+The **Scanner** app is part of **ZeroRadio 1.0.0** for the CardputerZero. It sweeps tens to hundreds
+of MHz, shows **what is transmitting**, and hands a signal to the SDR app for listening. The SDR app
+is a *microscope* on one tune of up to 2.4 MHz. The Scanner is the *panorama*: survey the band, find
+the peaks, drill in. The source directory and binary keep the name `survey` (`apps/survey`,
+`survey_app`). The UI and the hub show it as **Scanner**.
+
+It is built on the shared `radio_toolkit` and reuses the SDR app's waterfall pipeline (the
+`view::raster` colormap and the chart code). The only new engine is the sweep source.
 
 | Waterfall (FM band, real RTL-SDR) | Peaks list |
 | --- | --- |
-| ![Survey waterfall over the FM band](docs/media/waterfall.png) | ![Survey peaks list](docs/media/peaks.png) |
+| ![Scanner waterfall over the FM band](docs/media/waterfall.png) | ![Scanner peaks list](docs/media/peaks.png) |
 
 ## How it works
 
-A **sweep** produces a wide frequency-axis magnitude frame — far wider than one tuner sees — by
-shelling out to `rtl_power` (RTL-SDR, ≤~1.7 GHz) or `hackrf_sweep` (HackRF, →6 GHz) and parsing
-their CSV stdout. That frame has the same shape as the SDR app's FFT frame, so the waterfall,
-colormap, chart and S-meter are reused unchanged.
+A **sweep** builds one wide magnitude frame, far wider than a single tuner sees. The app runs
+`rtl_power` (RTL-SDR, up to ~1.7 GHz) or `hackrf_sweep` (HackRF, up to 6 GHz) and parses their CSV
+output. It starts the tool when it opens and stops it on exit. The frame has the same shape as the
+SDR app's FFT frame, so the waterfall, colormap, chart and S-meter work unchanged.
 
 ```
 rtl_power / hackrf_sweep  ──CSV stdout──▶  SweepAccumulator (pure parser + stitch)
@@ -27,30 +28,37 @@ rtl_power / hackrf_sweep  ──CSV stdout──▶  SweepAccumulator (pure pars
                     CsvSweepSource (worker thread, respawn) ─▶ SurveyScreen (waterfall / peaks)
 ```
 
-The parser (`src/sweep/sweep_accumulator.{h,cpp}`) is a **pure** library — no subprocess, sockets
-or LVGL — covered by a frozen two-source parity test (`test/sweep_parser_test.cpp`, 13 vectors
-including a real captured FM-band sweep; the python oracle `test/gen_sweep_vectors.py` implements
-the same contract independently). The live `CsvSweepSource` mirrors the SDR app's resilient
-`RtlTcpSource`: a worker thread owns the child process and pipe, publishes the latest frame under
-a mutex, and respawns with backoff if the tool dies.
+The parser (`src/sweep/sweep_accumulator.{h,cpp}`) is a **pure** library with no subprocess,
+sockets or LVGL. A frozen two-source parity test covers it (`test/sweep_parser_test.cpp`, 13 vectors
+including a real captured FM-band sweep). The python oracle `test/gen_sweep_vectors.py` implements
+the same contract on its own. The live `CsvSweepSource` owns the child process and pipe on a worker
+thread. It publishes the latest frame under a mutex and respawns the tool with backoff if it dies.
 
 ## Screens
 
-- **Waterfall** (page 1) — the wide-band scope: spectrum chart + scrolling RGB565 waterfall over
-  the swept range, with **vertical reference lines** at ¼ / ½ / ¾ of the span (frequency labels
-  on those ticks and on the band edges) and a **yellow dot on every detected peak**; the currently selected
-  peak's dot is drawn larger in the accent colour. Keys: `5`/`7` zoom out/in, `6` opens the
-  **tune dialog** (type a centre frequency then a total span in MHz — `Enter` advances then
-  commits, `Esc` cancels; the window becomes centre ± span/2), `8` toggles theme. The range
-  persists across runs.
-- **Peaks** (page 2) — "who is transmitting": a themed table **FREQ MHz | POWER | AGE** with an
-  accent selection band (keys `5`/`6` move the cursor). Key `8` **cycles the sort** through the
-  three columns ascending/descending (the header shows e.g. `PWR v`, the nav button the short
-  code). Key `7` — **Open in SDR** — launches `sdr_app` tuned to the selected peak via `SDR_FREQ`
-  (the rest of the environment passes through, so `SDR_RTLTCP` etc. still apply) and **quits
-  Survey**, releasing the framebuffer and the RTL-SDR dongle to the SDR app.
+- **Waterfall** (page 1) — the wide-band scope: a spectrum chart and a scrolling RGB565 waterfall
+  over the swept range. **Vertical reference lines** mark ¼, ½ and ¾ of the span, with frequency
+  labels on those lines and on the band edges. A **yellow dot marks every detected peak**, and the
+  selected peak's dot is larger, in the accent colour. Keys: `5`/`7` zoom out/in, `8` toggles the
+  theme. Key `6` opens the **tune dialog**: type a centre frequency, then a total span in MHz.
+  `Enter` advances and then commits, `Esc` cancels. The window becomes centre ± span/2, and the app
+  saves it for the next run.
+- **Peaks** (page 2) — "who is transmitting": a table **FREQ MHz | POWER | AGE** with an accent
+  selection band. Keys `5`/`6` move the cursor. Key `8` **cycles the sort** through the three columns,
+  descending and ascending. The header shows the full name (e.g. `PWR v`) and the nav button a short
+  code. Key `7` (**Open in SDR**) quits the Scanner and starts `sdr_app` tuned to the selected peak
+  through `SDR_FREQ`. The rest of the environment passes through, and the dongle moves to the SDR app.
 
-## Build & run (desktop SDL simulator)
+Global keys, shared by every ZeroRadio app:
+
+- `Esc` — back to the hub. Hold `Esc` for 3 s to return to the system launcher.
+- `H` — open the in-app help ([`docs/help/survey.md`](../../docs/help/survey.md)).
+- `F`/`X` (up/down) — move the Peaks cursor.
+- `TAB` — switch to the SDR app.
+
+## Build & run
+
+Desktop SDL simulator:
 
 ```bash
 cmake --preset linux-x86-64
@@ -58,14 +66,21 @@ cmake --build --preset linux-x86-64-dbg --target survey_app
 ./build/linux-x86-64/apps/survey/Debug/survey_app     # SDL window, native 320x170
 ```
 
-Needs `rtl_power` (from `rtl-sdr`) or `hackrf_sweep` (from `hackrf`) on `PATH` and a dongle.
+It needs `rtl_power` (from `rtl-sdr`) or `hackrf_sweep` (from `hackrf`) on `PATH`, and a dongle. On
+the CardputerZero the dongle plugs into the USB-A port, and the `zeroradio` `.deb` pulls in both
+tools. Device builds use `scripts/cp0-docker-build.sh` (Debian trixie container, preset
+`cp0-trixie`). `scripts/cp0-docker-build.sh --package` produces the `.deb`, which installs to
+`/usr/share/zeroradio`.
+
 Environment:
 
-- `SURVEY_SOURCE=mock` — synthetic sweep (drifting carriers), no tools/hardware needed.
+- `SURVEY_SOURCE=mock` — a synthetic sweep (drifting carriers), with no tools or hardware.
 - `SURVEY_SOURCE=hackrf` — use `hackrf_sweep` instead of the default `rtl_power`.
 
-> The RTL-SDR is opened by the survey process while it runs — do not run a second `rtl_power`
-> against the same dongle at the same time (double-open resets some RTL2838 units off the USB bus).
+> The Scanner holds the RTL-SDR while it runs. Do not run a second `rtl_power` against the same
+> dongle at the same time: a double open resets some RTL2838 units off the USB bus.
+
+The app saves its state in `~/.config/zeroradio/survey/`.
 
 ## Testing
 
@@ -73,11 +88,10 @@ Environment:
 ctest --test-dir build/linux-x86-64 -C Debug -R sweep_parser_test
 ```
 
-The parser test is the frozen reward: it is not edited to make code pass. Regenerate the vectors
-(e.g. to add a new captured sweep at `test/fm_capture.csv`) with `python3 test/gen_sweep_vectors.py`.
+The parser test is the frozen reward: nobody edits it to make code pass. To add a new captured sweep
+at `test/fm_capture.csv`, regenerate the vectors with `python3 test/gen_sweep_vectors.py`.
 
-## Status / next
+## Next
 
-V1 ships the sweep source, the waterfall, the PEAKS list with sort, and the SDR handoff, verified
-on a real RTL-SDR V4 over the FM broadcast band. Not yet: an in-process step-sweep backend (faster
-narrow RTL surveys, `SweepSource` stays the interface), a DF-meter mode, and on-device packaging.
+An in-process step-sweep backend for faster narrow RTL surveys (`SweepSource` stays the interface),
+and a DF-meter mode.

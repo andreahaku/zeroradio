@@ -1,0 +1,37 @@
+{
+  "package_name": "zeroradio",
+  "version": "1.0.0",
+  "app_name": "ZeroRadio",
+  "bin_name": "radio_app",
+  "description": "SDR, ADS-B, AIS, spectrum scanner and ISM radio tools for CardputerZero",
+  "store": {
+    "summary": "Pocket radio lab: SDR, scanner, ADS-B, AIS and ISM with an RTL-SDR dongle",
+    "description": "ZeroRadio turns the CardputerZero into a pocket receiver. Plug an RTL-SDR dongle (for example the RTL-SDR Blog V4) into the USB-A port and open the hub.\n\n- SDR: spectrum, waterfall and WFM/FM/AM/USB/LSB/CW audio on the speaker.\n- Scanner: sweep a wide band, list the strongest signals, open one in the SDR.\n- ISM: 433/868 MHz weather sensors, tyre pressure sensors and remotes.\n- ADS-B: aircraft list, radar and world map at 1090 MHz.\n- AIS: ship list, radar and world map at 162 MHz.\n\nEvery decoder runs on the device, with no computer or network. Set your position by city, coordinates or GPS (Cap LoRa-1262-GPS or a USB GPS). Press H in any app for its help. The package bundles readsb and AIS-catcher (GPL-3.0); see Credits in the app.",
+    "categories": ["Radio & Comms"],
+    "screenshots": [
+      "docs/media/hub.png",
+      "docs/media/sdr.png",
+      "docs/media/scanner.png",
+      "docs/media/ism.png",
+      "docs/media/adsb.png",
+      "docs/media/ais.png"
+    ],
+    "icon": "assets/images/zeroradio.png",
+    "license": "MIT",
+    "source_repo": "https://github.com/andreahaku/cardputer-radio",
+    "author": {
+      "github": "andreahaku",
+      "display_name": "Andrea Salvatore (IU4APC)"
+    },
+    "share_code": "ZRAD",
+    "permissions": {
+      "camera": false,
+      "microphone": false,
+      "imu": false,
+      "network": false,
+      "additional_hardware": true,
+      "background_service": false,
+      "external_display": false
+    }
+  }
+}
