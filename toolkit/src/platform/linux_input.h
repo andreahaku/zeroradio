@@ -19,7 +19,10 @@ void set_quit_handler(void (*handler)(void* ctx), void* ctx);
 
 // While a capture handler is set (e.g. a modal frequency dialog), every key
 // is delivered to it raw and the normal nav/quit routing is bypassed. Pass
-// nullptr to release the capture.
-void set_key_capture(void (*handler)(uint32_t key, void* ctx), void* ctx);
+// nullptr to release the capture. `text` (device keyboard) delivers letters,
+// space, comma and minus as characters, so F/X/Z/C type letters instead of
+// acting as arrows: only for free-text entry, since menus that capture keys
+// (the Radio hub) rely on F/X/Z/C as arrows.
+void set_key_capture(void (*handler)(uint32_t key, void* ctx), void* ctx, bool text = false);
 
 } // namespace platform

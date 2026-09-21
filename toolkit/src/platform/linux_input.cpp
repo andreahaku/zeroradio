@@ -28,6 +28,7 @@ void (*quit_handler)(void*) = nullptr;
 void* quit_ctx = nullptr;
 void (*key_capture)(uint32_t, void*) = nullptr;
 void* capture_ctx = nullptr;
+bool capture_text = false;
 
 size_t nav_key_to_index(uint32_t key) {
     switch (key) {
@@ -120,9 +121,9 @@ uint32_t map_evdev_text(uint16_t code) {
 }
 
 uint32_t map_evdev_key(uint16_t code) {
-    // While a dialog captures the keyboard, F/X/Z/C are letters again (the Fn
+    // While a text-entry capture is active, F/X/Z/C are letters again (the Fn
     // layer still sends real arrows).
-    if (key_capture) {
+    if (capture_text) {
         if (const uint32_t ch = map_evdev_text(code)) return ch;
     }
     switch (code) {
@@ -136,8 +137,8 @@ uint32_t map_evdev_key(uint16_t code) {
         case KEY_RIGHT:      return LV_KEY_RIGHT;
         // CardputerZero keyboard: the arrows live on the Fn layer of F/X/Z/C.
         // Mirror those physical keys (pressed WITHOUT Fn) onto the same nav so
-        // the menu/lists can be driven either way. Text entry (key capture)
-        // takes them as letters instead, see map_evdev_text().
+        // the menu/lists can be driven either way. A text-entry capture takes
+        // them as letters instead, see map_evdev_text().
         case KEY_F:          return LV_KEY_UP;
         case KEY_X:          return LV_KEY_DOWN;
         case KEY_Z:          return LV_KEY_LEFT;
@@ -314,9 +315,10 @@ void set_quit_handler(void (*handler)(void* ctx), void* ctx) {
     quit_ctx = ctx;
 }
 
-void set_key_capture(void (*handler)(uint32_t key, void* ctx), void* ctx) {
+void set_key_capture(void (*handler)(uint32_t key, void* ctx), void* ctx, bool text) {
     key_capture = handler;
     capture_ctx = ctx;
+    capture_text = handler != nullptr && text;
 }
 
 void register_nav_button(size_t index, lv_obj_t* button) {

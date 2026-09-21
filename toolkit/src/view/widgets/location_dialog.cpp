@@ -84,7 +84,7 @@ LocationDialog::LocationDialog(app::AssetManager& assets, bool dark_mode, OnAppl
     lv_obj_set_style_text_color(hint, pal.text_disabled, 0);
 
     rebuild_options();
-    platform::set_key_capture(key_cb, this);
+    platform::set_key_capture(key_cb, this, /*text=*/true);
     timer_ = lv_timer_create(timer_cb, 500, this);
 }
 
