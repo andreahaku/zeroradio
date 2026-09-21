@@ -343,6 +343,12 @@ void SurveyScreen::update_peaks_table() {
         lv_table_set_cell_value(peaks_table_, r, 1, rows[i].power.c_str());
         lv_table_set_cell_value(peaks_table_, r, 2, rows[i].age.c_str());
     }
+    // Keep the cursor on screen: set_selected_cell scrolls the table to the row
+    // (same as the ADS-B/AIS/ISM lists).
+    const int sel = vm_.selected_peak();
+    if (sel >= 0 && sel < static_cast<int>(rows.size())) {
+        lv_table_set_selected_cell(peaks_table_, static_cast<uint16_t>(sel), 0);
+    }
     lv_obj_invalidate(peaks_table_);
 }
 
