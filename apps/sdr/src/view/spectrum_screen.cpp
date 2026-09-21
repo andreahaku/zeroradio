@@ -60,14 +60,19 @@ constexpr int64_t kDefaultCenterHz = 145500000;
 
 // Picks the spectrum backend. Defaults to the live RTL-SDR (via rtl_tcp) when
 // built with SDR_HAVE_RTLTCP; `SDR_SOURCE=mock` forces the synthetic source.
-// The rtl_tcp endpoint can be overridden with `SDR_RTLTCP=host:port`.
+// By default it starts a local rtl_tcp on 127.0.0.1:1234 for the attached dongle;
+// `SDR_RTLTCP=host:port` instead connects to an existing (e.g. remote) server.
 std::unique_ptr<SpectrumSource> make_source() {
 #ifdef SDR_HAVE_RTLTCP
     const char* want = std::getenv("SDR_SOURCE");
     if (!want || std::strcmp(want, "mock") != 0) {
         std::string host = "127.0.0.1";
         uint16_t    port = 1234;
+        // No SDR_RTLTCP: the dongle is on this device, so the source runs its own
+        // local rtl_tcp. With SDR_RTLTCP we only connect to the given server.
+        bool spawn_local = true;
         if (const char* ep = std::getenv("SDR_RTLTCP"); ep && ep[0] != '\0') {
+            spawn_local = false;
             const std::string s = ep;
             const auto colon = s.find(':');
             if (colon != std::string::npos) {
@@ -77,7 +82,7 @@ std::unique_ptr<SpectrumSource> make_source() {
                 host = s;
             }
         }
-        return std::make_unique<RtlTcpSource>(host, port, kDefaultCenterHz);
+        return std::make_unique<RtlTcpSource>(host, port, kDefaultCenterHz, spawn_local);
     }
 #endif
     return std::make_unique<MockSpectrumSource>();

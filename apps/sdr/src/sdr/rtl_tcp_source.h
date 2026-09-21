@@ -25,9 +25,14 @@ namespace sdr {
 // Connection is resilient: if rtl_tcp is down the thread retries and the frame
 // stays blank, so the UI never blocks or crashes. All FFT/socket state lives in
 // the .cpp (pImpl) to keep fftw out of this header.
+//
+// With `spawn_local_server` the source also owns the server: it starts
+// `rtl_tcp -a <host> -p <port>` itself (dongle on this device), respawns it if it
+// dies, and stops it on destruction so the dongle is released when the app exits.
 class RtlTcpSource final : public SpectrumSource {
 public:
-    RtlTcpSource(std::string host, uint16_t port, int64_t initial_center_hz);
+    RtlTcpSource(std::string host, uint16_t port, int64_t initial_center_hz,
+                 bool spawn_local_server = false);
     ~RtlTcpSource() override;
 
     RtlTcpSource(const RtlTcpSource&) = delete;
