@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fcntl.h>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <termios.h>
@@ -172,7 +173,7 @@ std::optional<int> parse_gga_satellites(const std::string& sentence) {
     return std::atoi(f[7].c_str());
 }
 
-GnssReader::GnssReader(std::string device) : device_(std::move(device)) {
+GnssReader::GnssReader(std::string shield_device) : shield_device_(std::move(shield_device)) {
     thread_ = std::thread([this] { run(); });
 }
 
@@ -186,8 +187,141 @@ GnssReader::Status GnssReader::status() const {
     return status_;
 }
 
+namespace {
+
+speed_t baud_constant(int baud) {
+    switch (baud) {
+        case 4800: return B4800;
+        case 19200: return B19200;
+        case 38400: return B38400;
+        case 57600: return B57600;
+        case 115200: return B115200;
+        default: return B9600;
+    }
+}
+
+int open_serial(const std::string& path, int baud) {
+    const int fd = ::open(path.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK | O_CLOEXEC);
+    if (fd < 0) return -1;
+    termios tio{};
+    if (::tcgetattr(fd, &tio) == 0) {
+        ::cfmakeraw(&tio);
+        ::cfsetispeed(&tio, baud_constant(baud));
+        ::cfsetospeed(&tio, baud_constant(baud));
+        tio.c_cflag |= CLOCAL | CREAD;
+        ::tcsetattr(fd, TCSANOW, &tio);
+    }
+    return fd;
+}
+
+std::vector<std::string> usb_serial_ports() {
+    std::vector<std::string> ports;
+    std::error_code ec;
+    for (const auto& e : std::filesystem::directory_iterator("/dev", ec)) {
+        const std::string name = e.path().filename().string();
+        if (name.rfind("ttyACM", 0) == 0 || name.rfind("ttyUSB", 0) == 0) {
+            ports.push_back(e.path().string());
+        }
+    }
+    std::sort(ports.begin(), ports.end());
+    return ports;
+}
+
+} // namespace
+
+void GnssReader::consume(const std::string& sentence) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    status_.data = true;
+    if (const auto sats = parse_gga_satellites(sentence)) status_.satellites = *sats;
+    if (const auto fix = parse_rmc(sentence)) status_.fix = fix;
+}
+
+bool GnssReader::probe(int fd, int timeout_ms) {
+    const auto deadline =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+    char buf[256];
+    bool nmea = false;
+    line_.clear();
+    while (running_.load() && std::chrono::steady_clock::now() < deadline) {
+        const ssize_t n = ::read(fd, buf, sizeof(buf));
+        if (n <= 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            continue;
+        }
+        for (ssize_t i = 0; i < n; ++i) {
+            if (buf[i] != '\n') {
+                if (line_.size() < 256) line_.push_back(buf[i]);
+                continue;
+            }
+            const std::string s = trim(line_.substr(0, line_.find('\r')));
+            line_.clear();
+            if (s.size() > 6 && s[0] == '$' && s[1] == 'G') {
+                nmea = true;
+                consume(s);
+            }
+        }
+        if (nmea) return true;
+    }
+    return false;
+}
+
+void GnssReader::read_loop(int fd) {
+    char buf[256];
+    while (running_.load()) {
+        const ssize_t n = ::read(fd, buf, sizeof(buf));
+        if (n <= 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            continue;
+        }
+        for (ssize_t i = 0; i < n; ++i) {
+            if (buf[i] != '\n') {
+                if (line_.size() < 256) line_.push_back(buf[i]);
+                continue;
+            }
+            consume(trim(line_.substr(0, line_.find('\r'))));
+            line_.clear();
+        }
+    }
+}
+
 void GnssReader::run() {
-    // Power the shield from the HAT 5 V rail if it is off; put it back after.
+    auto found = [this](const char* source) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        status_.searching = false;
+        status_.port_ok = true;
+        status_.source = source;
+    };
+
+    // 1. Explicit device (power users, tests).
+    if (const char* dev = std::getenv("ZERORADIO_GPS_DEVICE"); dev && dev[0] != '\0') {
+        const char* baud = std::getenv("ZERORADIO_GPS_BAUD");
+        const int fd = open_serial(dev, baud ? std::atoi(baud) : 9600);
+        if (fd >= 0) {
+            found("USB");
+            read_loop(fd);
+            ::close(fd);
+        } else {
+            std::lock_guard<std::mutex> lock(mutex_);
+            status_.searching = false;
+        }
+        return;
+    }
+
+    // 2. A USB GPS: listen only, never write to an unknown serial device.
+    for (const auto& port : usb_serial_ports()) {
+        if (!running_.load()) return;
+        const int fd = open_serial(port, 9600);
+        if (fd < 0) continue;
+        if (probe(fd, 3000)) {
+            found("USB");
+            read_loop(fd);
+            ::close(fd);
+            return;
+        }
+        ::close(fd);
+    }
+
+    // 3. The HAT shield, powered from the HAT 5 V rail.
     const int rail_before = read_int_file(kExt5v);
     const bool powered_here = rail_before == 0;
     if (powered_here) {
@@ -197,52 +331,22 @@ void GnssReader::run() {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
     }
-
-    const int fd = running_.load()
-                       ? ::open(device_.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK | O_CLOEXEC)
-                       : -1;
+    const int fd = running_.load() ? open_serial(shield_device_, 115200) : -1;
     if (fd >= 0) {
-        termios tio{};
-        if (::tcgetattr(fd, &tio) == 0) {
-            ::cfmakeraw(&tio);
-            ::cfsetispeed(&tio, B115200);
-            ::cfsetospeed(&tio, B115200);
-            tio.c_cflag |= CLOCAL | CREAD;
-            ::tcsetattr(fd, TCSANOW, &tio);
-        }
         // Harmless CASIC query: wakes a module the Meshtastic firmware may have
         // put to sleep with $PCAS12 (see docs/cap-lora-1262.md).
         static const char kWake[] = "$PCAS06,0*1B\r\n";
         (void)!::write(fd, kWake, sizeof(kWake) - 1);
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            status_.port_ok = true;
-        }
-
-        std::string line;
-        char buf[256];
-        while (running_.load()) {
-            const ssize_t n = ::read(fd, buf, sizeof(buf));
-            if (n <= 0) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                continue;
-            }
-            for (ssize_t i = 0; i < n; ++i) {
-                if (buf[i] != '\n') {
-                    if (line.size() < 256) line.push_back(buf[i]);
-                    continue;
-                }
-                const std::string sentence = trim(line.substr(0, line.find('\r')));
-                line.clear();
-                std::lock_guard<std::mutex> lock(mutex_);
-                status_.data = true;
-                if (const auto sats = parse_gga_satellites(sentence)) status_.satellites = *sats;
-                if (const auto fix = parse_rmc(sentence)) status_.fix = fix;
-            }
+        if (probe(fd, 5000)) {
+            found("shield");
+            read_loop(fd);
         }
         ::close(fd);
     }
-
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        status_.searching = false;
+    }
     if (powered_here) write_int_file(kExt5v, rail_before);
 }
 

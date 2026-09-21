@@ -14,6 +14,10 @@
 #include <cstdlib>
 #include <string>
 
+#include <cstring>
+#include <fcntl.h>
+#include <unistd.h>
+
 #ifndef CITIES_TSV
 #define CITIES_TSV "assets/geodata/cities.tsv"
 #endif
@@ -65,6 +69,32 @@ int main() {
     const auto sats = location::parse_gga_satellites("$GNGGA,,,,,,0,07,25.5,,,,,,*64");
     check(sats && *sats == 7, "GGA satellites");
     check(!location::parse_gga_satellites("$GNRMC,,V,,,,,,,,,,N,V*37"), "GGA parser ignores RMC");
+
+    // GnssReader on a pseudo-terminal standing in for a USB GPS dongle.
+    {
+        const int master = posix_openpt(O_RDWR | O_NOCTTY);
+        check(master >= 0 && grantpt(master) == 0 && unlockpt(master) == 0, "pty");
+        const char* slave = master >= 0 ? ptsname(master) : nullptr;
+        check(slave != nullptr, "pty name");
+        if (slave) {
+            setenv("ZERORADIO_GPS_DEVICE", slave, 1);
+            location::GnssReader reader;
+            const char* nmea =
+                "$GNGGA,123519.00,3554.000,N,01430.900,E,1,06,1.0,10.0,M,,,,*00\r\n"
+                "$GNRMC,123519.00,A,3554.000,N,01430.900,E,0.1,0.0,210926,,,A*6A\r\n";
+            location::GnssReader::Status st;
+            for (int i = 0; i < 40 && !st.fix; ++i) {
+                (void)!write(master, nmea, std::strlen(nmea));
+                usleep(50000);
+                st = reader.status();
+            }
+            check(st.port_ok && st.source == "USB", "USB GPS opened");
+            check(st.satellites == 6, "USB GPS satellites");
+            check(st.fix && std::fabs(st.fix->lat - 35.9) < 1e-6, "USB GPS fix");
+            unsetenv("ZERORADIO_GPS_DEVICE");
+        }
+        if (master >= 0) close(master);
+    }
 
     // Save / load via a private config dir.
     char tmpl[] = "/tmp/zeroradio-loc-XXXXXX";

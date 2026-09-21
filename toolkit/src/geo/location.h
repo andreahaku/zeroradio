@@ -54,22 +54,27 @@ private:
     std::vector<City> cities_;
 };
 
-// GNSS receiver on the Cap LoRa-1262-GPS shield (HAT port: /dev/ttyS0, 115200
-// 8N1, powered by the HAT 5 V rail). While alive a background thread powers the
-// rail if it was off, wakes the CASIC module, and parses NMEA ($--GGA for the
-// satellite count, $--RMC for the fix). The destructor stops it and restores
-// the rail to its previous state, as M5's own GPS app does. A cold start can
-// take minutes, so the UI polls status() rather than waiting.
+// GNSS receiver, found by a background thread in this order:
+//  1. $ZERORADIO_GPS_DEVICE if set (baud $ZERORADIO_GPS_BAUD, default 9600);
+//  2. a USB GPS (/dev/ttyACM*, /dev/ttyUSB*: u-blox and similar) that sends
+//     NMEA within 3 s at 9600 baud (nothing is written to USB ports);
+//  3. the Cap LoRa-1262-GPS shield on `shield_device` (HAT port, 115200 8N1,
+//     powered by the HAT 5 V rail): the rail is switched on if it was off and
+//     restored afterwards, as M5's own GPS app does, and the CASIC module woken.
+// NMEA $--GGA gives the satellite count, $--RMC the fix. The destructor stops
+// the thread. A cold start can take minutes, so the UI polls status().
 class GnssReader {
 public:
     struct Status {
-        bool port_ok = false; // serial port opened
-        bool data = false;    // NMEA sentences arriving
-        int satellites = 0;   // in use, from the last GGA
+        bool searching = true; // still looking for a receiver
+        bool port_ok = false;  // a receiver port is open
+        std::string source;    // "USB" or "shield" once found
+        bool data = false;     // NMEA sentences arriving
+        int satellites = 0;    // in use, from the last GGA
         std::optional<geo::LatLon> fix;
     };
 
-    explicit GnssReader(std::string device = "/dev/ttyS0");
+    explicit GnssReader(std::string shield_device = "/dev/ttyS0");
     ~GnssReader();
     GnssReader(const GnssReader&) = delete;
     GnssReader& operator=(const GnssReader&) = delete;
@@ -78,8 +83,12 @@ public:
 
 private:
     void run();
+    bool probe(int fd, int timeout_ms); // true once a NMEA sentence arrives
+    void read_loop(int fd);
+    void consume(const std::string& sentence);
 
-    std::string device_;
+    std::string shield_device_;
+    std::string line_;
     mutable std::mutex mutex_;
     Status status_;
     std::atomic<bool> running_{true};

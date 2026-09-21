@@ -12,7 +12,6 @@
 #include "ui_const.h"
 
 #include <cstdio>
-#include <unistd.h>
 
 namespace toolkit {
 
@@ -33,10 +32,9 @@ std::string coords_text(geo::LatLon p) {
 LocationDialog::LocationDialog(app::AssetManager& assets, bool dark_mode, OnApply on_apply)
     : on_apply_(std::move(on_apply)), dark_(dark_mode) {
     cities_ = location::CityIndex::load(assets.resolve("geodata/cities.tsv").string());
-    // Start the GPS right away so it searches while the user types.
-    if (::access(kGnssDevice, R_OK | W_OK) == 0) {
-        gnss_ = std::make_unique<location::GnssReader>(kGnssDevice);
-    }
+    // Start the GPS right away (USB receiver or the HAT shield) so it searches
+    // while the user types.
+    gnss_ = std::make_unique<location::GnssReader>(kGnssDevice);
 
     const auto pal = view::palette(dark_);
     auto* title_font = assets.load_font("inter-semibold.ttf", 14);
@@ -151,14 +149,17 @@ void LocationDialog::rebuild_options() {
         gps.text = "GPS: no receiver";
     } else {
         const auto st = gnss_->status();
+        const std::string name = st.source.empty() ? "GPS" : "GPS (" + st.source + ")";
         if (st.fix) {
-            gps.text = "GPS: " + coords_text(*st.fix);
+            gps.text = name + ": " + coords_text(*st.fix);
             gps.usable = true;
             gps.place = {*st.fix, "GPS " + coords_text(*st.fix)};
         } else if (st.data) {
-            gps.text = "GPS: searching... " + std::to_string(st.satellites) + " sats";
+            gps.text = name + ": searching... " + std::to_string(st.satellites) + " sats";
+        } else if (st.searching) {
+            gps.text = "GPS: looking for a receiver...";
         } else {
-            gps.text = st.port_ok ? "GPS: waiting for the receiver" : "GPS: starting";
+            gps.text = "GPS: no receiver";
         }
     }
     options_.push_back(gps);
