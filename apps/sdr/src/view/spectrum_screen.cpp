@@ -182,6 +182,9 @@ void SpectrumScreen::build_content(lv_obj_t* content) {
     lv_chart_set_point_count(chart_, kBins);
     lv_chart_set_range(chart_, LV_CHART_AXIS_PRIMARY_Y, 0, kChartMax);
     lv_obj_set_style_size(chart_, 0, 0, LV_PART_INDICATOR); // hide point markers
+    // Hairline traces: the theme default (2-3 px, rounded caps) smears the peaks.
+    lv_obj_set_style_line_width(chart_, 1, LV_PART_ITEMS);
+    lv_obj_set_style_line_rounded(chart_, false, LV_PART_ITEMS);
     lv_obj_remove_flag(chart_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(chart_, LV_OBJ_FLAG_CLICKABLE);
     series_ = lv_chart_add_series(chart_, view::palette(false).primary, LV_CHART_AXIS_PRIMARY_Y);
