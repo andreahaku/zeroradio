@@ -5,15 +5,12 @@
  */
 
 #include "asset_manager.h"
+#include "handoff.h"
 #include "run_app.h"
 #include "survey_viewmodel.h"
 #include "survey_screen.h"
 
-#include <cstdio>
-#include <cstdlib>
 #include <memory>
-#include <string>
-#include <unistd.h>
 
 int main() {
     survey::SurveyViewModel view_model; // also the NavProvider (set on itself in ctor)
@@ -24,7 +21,7 @@ int main() {
         std::unique_ptr<survey::SurveyScreen> screen;
         // The teardown callback makes run_app release the display and input
         // after the loop; dropping the screen stops the sweep (rtl_power) and
-        // frees the dongle. Both must be free before an SDR hand-off.
+        // frees the dongle. Both must be free before a hand-off.
         rc = toolkit::run_app(
             view_model, assets,
             [&]() -> lv_obj_t* {
@@ -34,16 +31,7 @@ int main() {
             [&]() { screen.reset(); });
     }
 
-    // "Open in SDR": become the SDR app (same PID, so a waiting hub keeps
-    // waiting), tuned to the selected peak. Only returns if exec fails.
-    const std::string& sdr = view_model.handoff_sdr_path();
-    if (!sdr.empty()) {
-        const std::string freq = std::to_string(view_model.handoff_freq_hz());
-        ::setenv("SDR_FREQ", freq.c_str(), 1);
-        std::fflush(nullptr);
-        ::execl(sdr.c_str(), sdr.c_str(), static_cast<char*>(nullptr));
-        std::perror("[survey] exec sdr_app");
-        return 1;
-    }
+    // Open in SDR / TAB: become the SDR app. Only returns on no hand-off or failure.
+    if (view_model.handoff().pending()) return toolkit::run_handoff(view_model);
     return rc;
 }

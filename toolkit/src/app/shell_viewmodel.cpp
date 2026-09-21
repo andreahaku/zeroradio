@@ -26,6 +26,12 @@ void ShellViewModel::request_quit() {
     quit_requested_subject_.set(true);
 }
 
+void ShellViewModel::request_handoff(std::string bin, std::string app_dir,
+                                     std::vector<std::pair<std::string, std::string>> env) {
+    handoff_ = {std::move(bin), std::move(app_dir), std::move(env)};
+    request_quit();
+}
+
 void ShellViewModel::cycle_toolbar() {
     const int count = nav_page_count();
     const int next = count > 0 ? (toolbar_page_subject_.value() + 1) % count : 0;

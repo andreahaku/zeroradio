@@ -26,6 +26,8 @@ uint32_t last_key = 0;
 bool last_key_pressed = false;
 void (*quit_handler)(void*) = nullptr;
 void* quit_ctx = nullptr;
+void (*tab_handler)(void*) = nullptr;
+void* tab_ctx = nullptr;
 void (*key_capture)(uint32_t, void*) = nullptr;
 void* capture_ctx = nullptr;
 bool capture_text = false;
@@ -61,6 +63,10 @@ void dispatch_nav_key(uint32_t key) {
         if (quit_handler) {
             quit_handler(quit_ctx);
         }
+        return;
+    }
+    if (key == LV_KEY_NEXT) {
+        if (tab_handler) tab_handler(tab_ctx);
         return;
     }
 
@@ -128,6 +134,7 @@ uint32_t map_evdev_key(uint16_t code) {
     }
     switch (code) {
         case KEY_ESC:        return LV_KEY_ESC;
+        case KEY_TAB:        return LV_KEY_NEXT;
         // Arrow keys + enter drive list navigation (the Radio hub menu and the
         // aircraft/node/ship lists): a portable selection scheme alongside the
         // 4-8 nav bar. Ignored by screens that don't consume them.
@@ -308,6 +315,11 @@ void attach_key_router(lv_indev_t* indev) {
     }
 
     lv_indev_add_event_cb(indev, key_event_cb, LV_EVENT_KEY, nullptr);
+}
+
+void set_tab_handler(void (*handler)(void* ctx), void* ctx) {
+    tab_handler = handler;
+    tab_ctx = ctx;
 }
 
 void set_quit_handler(void (*handler)(void* ctx), void* ctx) {

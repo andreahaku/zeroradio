@@ -63,7 +63,7 @@ lv_display_t* init_display() {
         return nullptr;
     }
 
-    lv_sdl_window_set_title(display, "CardputerZero Radio");
+    lv_sdl_window_set_title(display, "ZeroRadio");
     lv_sdl_window_set_resizeable(display, false);
     lv_sdl_mouse_create();
     lv_sdl_mousewheel_create();
@@ -106,6 +106,10 @@ void quit_handler_trampoline(void* ctx) {
     static_cast<ShellViewModel*>(ctx)->request_quit();
 }
 
+void tab_handler_trampoline(void* ctx) {
+    static_cast<ShellViewModel*>(ctx)->on_tab();
+}
+
 } // namespace
 
 int run_app(ShellViewModel& shell,
@@ -131,6 +135,7 @@ int run_app(ShellViewModel& shell,
 
     // ESC quits from any tool page (decoupled from nav key '4').
     platform::set_quit_handler(quit_handler_trampoline, &shell);
+    platform::set_tab_handler(tab_handler_trampoline, &shell);
 
     // PLUGIN HOOK: the UI is constructed here independently of how the display
     // was created above. For the CardputerZero emulator (which dlopen()s a
@@ -164,6 +169,7 @@ int run_app(ShellViewModel& shell,
     // Release global input handlers that point at the soon-to-be-destroyed
     // shell / screen (matters if run_app() is ever re-entered, e.g. as a plugin).
     platform::set_quit_handler(nullptr, nullptr);
+    platform::set_tab_handler(nullptr, nullptr);
     platform::set_key_capture(nullptr, nullptr);
 
     // Re-entrant teardown (the Radio hub): give the display back so a spawned

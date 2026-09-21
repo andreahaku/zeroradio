@@ -87,12 +87,6 @@ public:
     void cycle_sort();           // advance sort field/direction, re-sort the list
     void open_selected_in_sdr(); // hand the selected peak off to the sibling sdr_app
 
-    // Pending "Open in SDR" hand-off, set by open_selected_in_sdr() before it
-    // requests quit. main() execs it once run_app has released the display and
-    // the dongle (empty path = plain exit).
-    const std::string& handoff_sdr_path() const { return handoff_sdr_path_; }
-    int64_t handoff_freq_hz() const { return handoff_freq_hz_; }
-
     // Short label of the active sort for the Peaks-page nav slot (e.g. "PWR v").
     const char* sort_label() const { return sort_label_; }
 
@@ -100,6 +94,9 @@ public:
     int nav_page_count() const override { return 2; }
     void nav_fill(int page, NavProvider::NavSlot out[5]) const override;
     void nav_activate(int page, int slot) override;
+
+    // TAB: switch to the SDR app at its own frequency (see toolkit::run_handoff).
+    void on_tab() override { request_handoff("sdr_app", "sdr"); }
 
 private:
     void publish_range();
@@ -127,8 +124,6 @@ private:
 
     std::vector<PeakRow> rows_;
 
-    std::string handoff_sdr_path_;
-    int64_t     handoff_freq_hz_ = 0;
 
     // How long each transmission has been on the air: first/last-seen wall
     // times keyed by 10 kHz frequency bucket (stable across sweep jitter).

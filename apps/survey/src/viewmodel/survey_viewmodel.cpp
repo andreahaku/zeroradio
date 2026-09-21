@@ -6,6 +6,8 @@
 
 #include "survey_viewmodel.h"
 
+#include "handoff.h"
+
 #include "ui_const.h"
 
 #include <unistd.h>
@@ -40,22 +42,6 @@ std::string format_age(std::chrono::seconds age) {
         std::snprintf(buf, sizeof(buf), "%lldm", static_cast<long long>(age.count() / 60));
     }
     return buf;
-}
-
-// The sibling sdr_app: same directory as this binary (device install and the
-// per-app build tree both colocate the executables per app dir, so also try
-// the build layout ../../sdr/<config>/sdr_app).
-std::filesystem::path find_sdr_app() {
-    std::error_code ec;
-    const auto self = std::filesystem::read_symlink("/proc/self/exe", ec);
-    if (ec) return {};
-    const auto dir = self.parent_path();
-    const auto sibling = dir / "sdr_app";
-    if (std::filesystem::exists(sibling, ec)) return sibling;
-    // build tree: .../apps/survey/<config>/survey_app -> .../apps/sdr/<config>/sdr_app
-    const auto build = dir.parent_path().parent_path() / "sdr" / dir.filename() / "sdr_app";
-    if (std::filesystem::exists(build, ec)) return build;
-    return {};
 }
 
 } // namespace
@@ -235,19 +221,14 @@ void SurveyViewModel::open_selected_in_sdr() {
     if (sel < 0 || sel >= static_cast<int>(rows_.size())) return;
     const int64_t freq_hz = rows_[static_cast<size_t>(sel)].freq_hz;
 
-    const auto sdr_app = find_sdr_app();
-    if (sdr_app.empty()) {
+    if (toolkit::find_sibling("sdr_app", "sdr").empty()) {
         std::fprintf(stderr, "[survey] sdr_app not found next to this binary\n");
         return;
     }
-    // Hand OFF by exec'ing sdr_app in place of this process once run_app has
-    // released the framebuffer and the RTL-SDR (see main.cpp). Same PID, so the
-    // Radio hub, which waits on it, keeps waiting until the SDR app exits: only
-    // one process ever draws to the display. (A detached child let the hub
-    // re-open its menu while the SDR app ran, and both fought over the screen.)
-    handoff_sdr_path_ = sdr_app.string();
-    handoff_freq_hz_ = freq_hz;
-    request_quit();
+    // Exec'd in place of this process once run_app has released the display and
+    // the sweep the dongle (see main.cpp): same PID, so the Radio hub keeps
+    // waiting and only one process ever draws to the screen.
+    request_handoff("sdr_app", "sdr", {{"SDR_FREQ", std::to_string(freq_hz)}});
 }
 
 void SurveyViewModel::publish_range() {

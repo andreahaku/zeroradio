@@ -17,6 +17,9 @@ void unregister_nav_button(size_t index, lv_obj_t* button);
 // key still maps to nav button 0; ESC no longer does.
 void set_quit_handler(void (*handler)(void* ctx), void* ctx);
 
+// TAB (LV_KEY_NEXT) outside a key capture: app switch (SDR <-> Survey).
+void set_tab_handler(void (*handler)(void* ctx), void* ctx);
+
 // While a capture handler is set (e.g. a modal frequency dialog), every key
 // is delivered to it raw and the normal nav/quit routing is bypassed. Pass
 // nullptr to release the capture. `text` (device keyboard) delivers letters,
