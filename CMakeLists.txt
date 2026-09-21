@@ -6,7 +6,7 @@
 
 cmake_minimum_required(VERSION 3.31)
 
-project(cardputer_radio VERSION 0.1.0 LANGUAGES C CXX)
+project(cardputer_radio VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -428,6 +428,7 @@ endif()
 target_compile_definitions(radio_toolkit
     PUBLIC
         APP_NAME="zeroradio"
+        APP_VERSION="${PROJECT_VERSION}"
         APP_CMAKE_ASSETS_ROOT="${RADIO_RUNTIME_ASSETS_ROOT}"
         APP_SOURCE_ASSETS_ROOT="${RADIO_RUNTIME_ASSETS_ROOT}"
         APP_FRAMEBUFFER_DEVICE="${APP_FRAMEBUFFER_DEVICE}"

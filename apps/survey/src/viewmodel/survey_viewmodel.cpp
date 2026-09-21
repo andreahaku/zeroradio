@@ -11,14 +11,11 @@
 #include <unistd.h>
 
 #include <algorithm>
-#include <cinttypes>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
-#include <sys/wait.h>
 
-extern char** environ;
 
 namespace survey {
 namespace {
@@ -243,37 +240,13 @@ void SurveyViewModel::open_selected_in_sdr() {
         std::fprintf(stderr, "[survey] sdr_app not found next to this binary\n");
         return;
     }
-    const std::string path = sdr_app.string();
-
-    // Build argv + envp in the PARENT: between fork and exec the child may only
-    // call async-signal-safe functions (no setenv / heap allocation). envp is
-    // this process's environment plus SDR_FREQ (SDR_RTLTCP etc. pass through).
-    char freq[32];
-    std::snprintf(freq, sizeof(freq), "SDR_FREQ=%" PRId64, freq_hz);
-    std::vector<char*> envp;
-    for (char** e = environ; *e; ++e) {
-        if (std::strncmp(*e, "SDR_FREQ=", 9) != 0) envp.push_back(*e);
-    }
-    envp.push_back(freq);
-    envp.push_back(nullptr);
-    char* argv[] = {const_cast<char*>(path.c_str()), nullptr};
-
-    // Double fork so the SDR app is reparented to init (no zombie). The grandchild
-    // detaches with setsid() and execve()s — both async-signal-safe.
-    const pid_t pid = ::fork();
-    if (pid < 0) return;
-    if (pid == 0) {
-        if (::fork() == 0) {
-            ::setsid();
-            ::execve(path.c_str(), argv, envp.data());
-            _exit(127); // exec failed
-        }
-        _exit(0);
-    }
-    ::waitpid(pid, nullptr, 0);
-
-    // Hand OFF: release the framebuffer and the RTL-SDR (our rtl_power worker)
-    // so the SDR app owns the screen and the dongle, instead of both contending.
+    // Hand OFF by exec'ing sdr_app in place of this process once run_app has
+    // released the framebuffer and the RTL-SDR (see main.cpp). Same PID, so the
+    // Radio hub, which waits on it, keeps waiting until the SDR app exits: only
+    // one process ever draws to the display. (A detached child let the hub
+    // re-open its menu while the SDR app ran, and both fought over the screen.)
+    handoff_sdr_path_ = sdr_app.string();
+    handoff_freq_hz_ = freq_hz;
     request_quit();
 }
 

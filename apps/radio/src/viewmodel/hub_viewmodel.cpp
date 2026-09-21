@@ -9,7 +9,7 @@
 namespace radio {
 
 HubViewModel::HubViewModel(const std::vector<AppEntry>& apps) : apps_(apps) {
-    set_title("Radio");
+    set_title("ZeroRadio " APP_VERSION);
 }
 
 int HubViewModel::count() const {
