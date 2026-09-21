@@ -4,7 +4,7 @@
 > Cap LoRa-1262 hardware, so the `.deb` leaves it out and the hub hides it. Build it from source
 > to use it (see below).
 
-A Meshtastic LoRa-mesh client for the CardputerZero, built on the shared `radio_toolkit`. It is a
+A Meshtastic LoRa-mesh client for the [CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero), built on the shared `radio_toolkit`. It is a
 **client of a local `meshtasticd` daemon** (Client API over `127.0.0.1:4403`) and does not
 reimplement the radio (design notes `09`–`09c` in the companion planning repo).
 

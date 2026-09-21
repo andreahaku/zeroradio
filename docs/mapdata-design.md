@@ -2,7 +2,7 @@
 
 The ADS-B, AIS and Meshtastic apps draw their entities over an offline vector base map: land,
 coastlines and national borders from Natural Earth. The map runs the same on the SDL desktop
-simulator and on the CardputerZero (320×170, RGB565). Each app toggles between a radar view and a
+simulator and on the [CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero) (320×170, RGB565). Each app toggles between a radar view and a
 map view with a NavBar key and a persisted "Map view" Settings row.
 
 ## Why vector, not raster

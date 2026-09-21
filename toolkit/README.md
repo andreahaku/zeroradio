@@ -29,7 +29,7 @@ lifecycle. An app adds a **parser, a field mapping and a NavProvider** on top of
 | `platform/linux_input` | Key routing from the keyboard to LVGL: NavBar keys 4-8, the ESC handler (short press quits, a 0.5 s hold shows a hint, a 3 s hold goes home), TAB, H, and the up/down arrow handler (arrows or F/X). `set_key_capture()` hands every key to a dialog. Its `text` flag turns F/X/Z/C into letters for free-text entry. |
 | `platform/subprocess` | `Subprocess`: fork/exec of a child tool with a non-blocking stdout pipe. Every child gets `PR_SET_PDEATHSIG`, so it dies with the app. ISM (`rtl_433`) and Scanner (`rtl_power` / `hackrf_sweep`) use it directly. |
 | `platform/child_service` | `ChildService`: keeps a decoder running for the app's lifetime. It drains the tool's stdout, restarts it after a fixed pause when it exits, and stops it in the destructor. `find_tool()` prefers a binary bundled next to the executable, else uses `PATH`. SDR (`rtl_tcp`), ADS-B (`readsb`) and AIS (`AIS-catcher`) use it. |
-| `platform/battery` | `read_battery()`: level and charging state from the first battery under `/sys/class/power_supply` (the CardputerZero's BQ27220 gauge). |
+| `platform/battery` | `read_battery()`: level and charging state from the first battery under `/sys/class/power_supply` (the [CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero)'s BQ27220 gauge). |
 | `platform/remote_fb` | The headless streaming display and input driver (see [`tools/remote-fb/README.md`](../tools/remote-fb/README.md)). |
 | `logger/` | A small file/stderr logger. |
 | `config/` | `app_config.h` (config-file path helper) and the LVGL configs (`lv_conf_desktop.h` for the SDL simulator, `lv_conf_cm0.h` for the device). |

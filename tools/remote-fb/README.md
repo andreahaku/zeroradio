@@ -93,5 +93,5 @@ SDR_RTLTCP=<host>:1234 ./tools/remote-fb/demo.sh sdr      # uses an existing rtl
 ## Future work
 
 - **Forward the remaining keys** (TAB, H, F/X/Z/C, arrows) so every app action works remotely.
-- **Emulator integration (optional).** Feed the streamed framebuffer into the CardputerZero emulator
+- **Emulator integration (optional).** Feed the streamed framebuffer into the [CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero) emulator
   window instead of the standalone viewer.

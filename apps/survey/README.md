@@ -1,6 +1,6 @@
 # Scanner (`apps/survey`) — wide-band spectrum sweep
 
-The **Scanner** app is part of **ZeroRadio 1.0.0** for the CardputerZero. It sweeps tens to hundreds
+The **Scanner** app is part of **ZeroRadio 1.0.0** for the [CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero). It sweeps tens to hundreds
 of MHz, shows **what is transmitting**, and hands a signal to the SDR app for listening. The SDR app
 is a *microscope* on one tune of up to 2.4 MHz. The Scanner is the *panorama*: survey the band, find
 the peaks, drill in. The source directory and binary keep the name `survey` (`apps/survey`,

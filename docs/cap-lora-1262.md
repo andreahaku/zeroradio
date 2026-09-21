@@ -1,7 +1,7 @@
 # Cap LoRa-1262 on the CardputerZero — native meshtasticd integration
 
 The [M5Stack Cap LoRa-1262](https://docs.m5stack.com/en/cap/Cap_LoRa-1262) (SX1262 LoRa
-transceiver + ATGM336H GNSS) attaches to the CardputerZero's HAT port. Rather than driving the
+transceiver + ATGM336H GNSS) attaches to the [CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero)'s HAT port. Rather than driving the
 radio from the app (RadioLib/TinyGPSPlus are Arduino libraries for the ESP32-based
 Cardputer-Adv), the CardputerZero runs a **native `meshtasticd`** (Linux portduino build) that
 owns the radio and GPS; our `meshtastic_app` stays what it already is — a Client-API client on

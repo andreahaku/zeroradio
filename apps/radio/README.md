@@ -1,7 +1,7 @@
 # ZeroRadio hub — the launcher for the CardputerZero radio suite (`apps/radio`)
 
 The hub is the entry point of **ZeroRadio 1.0.0** on the
-[M5Stack CardputerZero](https://docs.m5stack.com/). Its title bar reads "ZeroRadio 1.0.0". It lists
+[M5Stack CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero). Its title bar reads "ZeroRadio 1.0.0". It lists
 the suite apps (**SDR**, **Scanner**, **ISM**, **ADS-B**, **AIS**, and **Meshtastic** when its
 binary is present) plus an **About** row. When you pick an app, the hub hands the display to that
 app's binary (a separate process) and takes it back when the app exits.

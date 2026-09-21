@@ -1,7 +1,7 @@
 # AIS — marine traffic viewer for the M5Stack CardputerZero (`apps/ais`)
 
 The **AIS** app is part of **ZeroRadio 1.0.0**. It shows nearby ships on the
-[M5Stack CardputerZero](https://docs.m5stack.com/) from their **AIS** (Automatic Identification
+[M5Stack CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero) from their **AIS** (Automatic Identification
 System) broadcasts, the way `apps/adsb` shows aircraft. It shares the toolkit with ADS-B (reactive
 MVVM shell, `EntityStore`, SDL simulator / device backends) and adds its own decoder and field
 mapping. It has the same **List / Radar (PPI) / Mercator map / Detail / Settings** screens.

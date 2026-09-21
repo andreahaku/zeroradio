@@ -4,7 +4,7 @@ All notable changes to ZeroRadio. Versions follow semantic versioning.
 
 ## 1.0.0
 
-First public release: a suite of radio tools for the M5Stack CardputerZero, driven by an RTL-SDR dongle in the USB-A port. Every decoder runs on the device, and the package installs everything it needs.
+First public release: a suite of radio tools for the [M5Stack CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero), driven by an RTL-SDR dongle in the USB-A port. Every decoder runs on the device, and the package installs everything it needs.
 
 - SDR: live spectrum and waterfall, WFM, FM, AM, USB, LSB and CW audio on the speaker, frequency entry, zoom, band presets.
 - Scanner: wide-band sweep with rtl_power, peaks list with sort; a peak opens in the SDR app.

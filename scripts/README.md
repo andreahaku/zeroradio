@@ -1,6 +1,6 @@
 # scripts/
 
-Helper scripts for building ZeroRadio and for checking a CardputerZero. None of them is part of the app at runtime. Read the header comment of a script before you run it.
+Helper scripts for building ZeroRadio and for checking a [CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero). None of them is part of the app at runtime. Read the header comment of a script before you run it.
 
 | Script | What it does | Safety |
 | --- | --- | --- |

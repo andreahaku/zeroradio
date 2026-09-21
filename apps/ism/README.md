@@ -54,7 +54,7 @@ come from a real RTL-SDR V4 at 433.92 MHz.
 
 ## Run
 
-On the CardputerZero, plug the RTL-SDR into the USB-A port and open **ISM** from the ZeroRadio hub.
+On the [CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero), plug the RTL-SDR into the USB-A port and open **ISM** from the ZeroRadio hub.
 The `zeroradio` `.deb` pulls in `rtl_433`.
 
 On the desktop SDL simulator:

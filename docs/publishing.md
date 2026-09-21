@@ -8,7 +8,7 @@ The version lives in one place: `project(zeroradio VERSION x.y.z)` in `CMakeList
 
 ## 2. Build the package
 
-The package builds in a Debian trixie container, so its binaries need the same glibc and libstdc++ as the CardputerZero. It needs Docker.
+The package builds in a Debian trixie container, so its binaries need the same glibc and libstdc++ as the [CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero). It needs Docker.
 
 ```bash
 scripts/cp0-docker-build.sh --package

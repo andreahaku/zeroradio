@@ -1,7 +1,7 @@
 # ADS-B — a live aircraft radar for the M5Stack CardputerZero (`apps/adsb`)
 
 The **ADS-B** app is part of **ZeroRadio 1.0.0**. It turns the
-[M5Stack CardputerZero](https://docs.m5stack.com/) (a Linux ARM64 handheld with a 320×170 RGB565
+[M5Stack CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero) (a Linux ARM64 handheld with a 320×170 RGB565
 display and a physical keyboard) into a pocket **live aircraft viewer**. It has a sortable traffic
 **list**, a north-up **radar** scope, a per-aircraft **detail** view and saved **settings**. A bundled
 [readsb](https://github.com/wiedehopf/readsb) decoder reads an RTL-SDR dongle on 1090 MHz.

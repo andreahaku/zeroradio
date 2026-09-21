@@ -1,6 +1,6 @@
 # SDR on-device profile — CardputerZero (CM0) @ 1.024 Msps
 
-CPU, RAM and thermal profile of `sdr_app` on the CardputerZero, measured on 2026-06-30.
+CPU, RAM and thermal profile of `sdr_app` on the [CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero), measured on 2026-06-30.
 
 ## Setup
 

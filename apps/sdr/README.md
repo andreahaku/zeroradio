@@ -1,7 +1,7 @@
 # SDR — a live SDR receiver for the M5Stack CardputerZero (`apps/sdr`)
 
 The **SDR** app is part of **ZeroRadio 1.0.0**. It turns the
-[M5Stack CardputerZero](https://docs.m5stack.com/) (a Linux ARM64 handheld with a 320×170 RGB565
+[M5Stack CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero) (a Linux ARM64 handheld with a 320×170 RGB565
 display and a physical keyboard) into a pocket **software-defined-radio terminal**. It draws a live
 FFT **spectrum** and a scrolling **waterfall**, and plays **demodulated audio** from an RTL-SDR dongle.
 
