@@ -8,6 +8,7 @@
 #include "ais_viewmodel.h"
 #include "app_config.h"
 #include "asset_manager.h"
+#include "child_service.h"
 #include "entity_store.h"
 #include "file_json_source.h"
 #include "nmea_net_source.h"
@@ -16,6 +17,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <functional>
 #include <memory>
 #include <string>
@@ -29,6 +31,20 @@
 // rtl_ais / AIS-catcher; the on-device decode (parse_aivdm) turns each sentence
 // into a Vessel and merges it into the shared EntityStore. AIS_NMEA overrides the
 // bundled mock file; AIS_HOME_LAT/LON/AIS_TTL re-centre/age the radar.
+namespace {
+
+bool env_set(const char* name) {
+    const char* v = std::getenv(name);
+    return v && v[0] != '\0';
+}
+
+bool source_is_mock() {
+    const char* v = std::getenv("AIS_SOURCE");
+    return v && std::strcmp(v, "mock") == 0;
+}
+
+} // namespace
+
 int main() {
     app::AssetManager assets;
 
@@ -62,10 +78,14 @@ int main() {
         ais::apply_nmea(reassembler, store, nmea);
     };
 
-    // Source selection (live feed from rtl_ais / AIS-catcher, else the mock file):
-    //   AIS_UDP=<port>          -> bind a UDP port (rtl_ais default: 10110)
-    //   AIS_TCP=<host>:<port>   -> connect TCP (AIS-catcher / aggregators)
-    //   AIS_NMEA=<file> / unset -> poll a file of !AIVDM lines (bundled mock)
+    // Source selection:
+    //   unset                 -> the dongle on this device: our own AIS-catcher
+    //                            sends NMEA to UDP 127.0.0.1:10110 (stopped on exit)
+    //   AIS_UDP=<port>        -> bind a UDP port fed by an external decoder
+    //   AIS_TCP=<host>:<port> -> connect TCP (AIS-catcher / aggregators)
+    //   AIS_NMEA=<file>       -> poll a file of !AIVDM lines
+    //   AIS_SOURCE=mock       -> the bundled sample file
+    std::unique_ptr<toolkit::ChildService> decoder;
     std::unique_ptr<toolkit::NmeaNetSource> net_source;
     std::unique_ptr<toolkit::FileJsonSource> file_source;
     std::function<bool()> conn_state;
@@ -86,6 +106,14 @@ int main() {
         }
         net_source = std::make_unique<toolkit::NmeaNetSource>(
             toolkit::NmeaNetSource::Protocol::Tcp, host, port, on_nmea);
+    } else if (!env_set("AIS_NMEA") && !source_is_mock()) {
+        constexpr uint16_t kLocalPort = 10110;
+        // -X off: never share received data with the aiscatcher.org feed.
+        decoder = std::make_unique<toolkit::ChildService>(std::vector<std::string>{
+            toolkit::find_tool("AIS-catcher"), "-d:0", "-X", "off",
+            "-u", "127.0.0.1", std::to_string(kLocalPort)});
+        net_source = std::make_unique<toolkit::NmeaNetSource>(
+            toolkit::NmeaNetSource::Protocol::Udp, "", kLocalPort, on_nmea);
     }
 
     if (net_source) {
