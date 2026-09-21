@@ -365,7 +365,7 @@ void MeshtasticViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const 
             out[1] = {view::ICON_MINUS, false, true};       // range -
             out[2] = {view::ICON_PLUS, false, true};        // range +
             out[3] = {view::ICON_BROADCAST, false, true};   // cycle selection
-            out[4] = {view::ICON_MAP_TOGGLE, map_mercator_, true}; // radar <-> map toggle (icon provisional)
+            out[4] = {view::ICON_MAP_TOGGLE, false, true}; // radar <-> map toggle (globe)
             break;
         case Page::Tools:
             out[1] = {view::ICON_CARET_UP,   false, true};  // up

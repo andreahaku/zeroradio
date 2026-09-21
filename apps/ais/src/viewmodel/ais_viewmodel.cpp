@@ -310,7 +310,7 @@ void AisViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
             out[1] = {view::ICON_PLUS, false, true};
             out[2] = {view::ICON_MINUS, false, true};
             out[3] = {view::ICON_CHART_LINE, false, true};
-            out[4] = {view::ICON_MAP_TOGGLE, map_mercator_, true};
+            out[4] = {view::ICON_MAP_TOGGLE, false, true}; // radar <-> map (globe)
             break;
         case Screen::Detail:
             out[1] = {view::ICON_PLUS, false, true};

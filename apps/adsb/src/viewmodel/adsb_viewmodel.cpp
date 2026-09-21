@@ -355,7 +355,7 @@ void AdsbViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
             out[1] = {view::ICON_PLUS, false, true};         // zoom in
             out[2] = {view::ICON_MINUS, false, true};        // zoom out
             out[3] = {view::ICON_CHART_LINE, false, true};   // trails on/off
-            out[4] = {view::ICON_MAP_TOGGLE, map_mercator_, true}; // radar <-> map (icon provisional)
+            out[4] = {view::ICON_MAP_TOGGLE, false, true}; // radar <-> map (globe)
             break;
         case Screen::Detail:
             out[1] = {view::ICON_PLUS, false, true};         // zoom in
