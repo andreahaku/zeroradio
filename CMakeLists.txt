@@ -458,6 +458,16 @@ if(USE_DESKTOP)
     add_test(NAME waterfall_scroll_test COMMAND waterfall_scroll_test)
 endif()
 
+# Base-map renderer: culling must not change a pixel; also times a frame, so the
+# cross-built binary benchmarks a dataset on the device (argv[1] = .rmap path).
+add_executable(map_render_test ${CMAKE_CURRENT_SOURCE_DIR}/toolkit/test/map_render_test.cpp)
+target_link_libraries(map_render_test PRIVATE radio_toolkit)
+target_compile_definitions(map_render_test PRIVATE
+    MAP_TEST_DEFAULT="${RADIO_ASSETS_ROOT}/mapdata/world.rmap")
+if(USE_DESKTOP)
+    add_test(NAME map_render_test COMMAND map_render_test)
+endif()
+
 # nlohmann/json — header-only, used by the ADS-B and ISM parsers. Resolved here,
 # not in an app subdirectory: a system package yields an IMPORTED target that is
 # only visible in the directory that found it (the FetchContent fallback is global).

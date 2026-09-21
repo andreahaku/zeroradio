@@ -10,6 +10,7 @@
 #include "vector_map.h"
 
 #include <cstdint>
+#include <vector>
 
 namespace toolkit::map {
 
@@ -48,6 +49,9 @@ struct MapStyle {
     uint16_t coast_color = rgb565(0x3c, 0x4b, 0x5a); // faint grey-blue coastline
     uint16_t border_color = rgb565(0x42, 0x42, 0x4a); // dim slate borders, dashed
     bool border_dashed = true;
+    // Skip geometry outside the view before projecting it. Output is identical
+    // either way (checked by map_render_test); off only for that comparison.
+    bool cull = true;
 };
 
 // Draw the coastline + national-border layers of `map` onto an RGB565 buffer.
@@ -57,5 +61,22 @@ struct MapStyle {
 // Azimuthal: the radius circle). A no-op if the map is invalid.
 void draw_base(uint16_t* buf, const MapViewport& vp,
                const VectorMap& map, const MapStyle& style);
+
+// draw_base() for a view that is redrawn every tick but rarely moves: the base
+// map only changes with home, range, size or projection, so the pixels of the
+// last render are replayed while the viewport is unchanged. One cache per
+// canvas. The caller must prepare the same background before every call (the
+// radar views clear to black), since a hit replays the whole buffer.
+class BaseMapCache {
+public:
+    void draw(uint16_t* buf, const MapViewport& vp, const VectorMap& map,
+              const MapStyle& style = MapStyle{});
+
+private:
+    std::vector<uint16_t> pixels_;
+    MapViewport last_{};
+    const VectorMap* map_ = nullptr;
+    bool valid_ = false;
+};
 
 } // namespace toolkit::map

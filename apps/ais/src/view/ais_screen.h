@@ -129,6 +129,9 @@ private:
     std::vector<uint16_t> ppi_buf_merc_;
     std::vector<uint16_t> detail_buf_;
     toolkit::map::VectorMap base_map_;
+    // Base-map pixels per canvas, replayed while the view is unchanged.
+    toolkit::map::BaseMapCache scope_map_cache_;
+    toolkit::map::BaseMapCache detail_map_cache_;
 
     const lv_font_t* font_small_ = nullptr;
     const lv_font_t* font_mono_  = nullptr;

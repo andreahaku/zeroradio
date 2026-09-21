@@ -12,6 +12,7 @@
 #include "meshtastic_client_source.h"
 #include "message_log.h"
 #include "meshtastic_viewmodel.h"
+#include "map_renderer.h"
 #include "vector_map.h"
 
 #include "lvgl.h"
@@ -133,6 +134,7 @@ private:
     std::vector<uint16_t> map_buf_;          // RGB565 backing for the radar canvas
     std::vector<uint16_t> map_buf_merc_;     // RGB565 backing for the Mercator canvas
     toolkit::map::VectorMap base_map_;       // coastline/border layer (Mercator view)
+    toolkit::map::BaseMapCache map_cache_;   // base-map pixels, replayed while the view is unchanged
 
     bool compose_active_ = false;
     std::string compose_buf_;

@@ -109,7 +109,8 @@ void AisScreen::render_scope(uint16_t* buf, int width, int height, lv_obj_t* can
         vp.home = config_.home;
         vp.range_nm = max_nm;
         vp.projection = toolkit::map::Projection::Mercator;
-        toolkit::map::draw_base(buf, vp, base_map_, toolkit::map::MapStyle{});
+        auto& cache = (canvas == detail_canvas_) ? detail_map_cache_ : scope_map_cache_;
+        cache.draw(buf, vp, base_map_);
         for (lv_obj_t* lbl : ring_labels)
             if (lbl) lv_obj_add_flag(lbl, LV_OBJ_FLAG_HIDDEN);
     } else {

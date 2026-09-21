@@ -6,6 +6,8 @@
 
 #include "vector_map.h"
 
+#include <algorithm>
+
 #include <cstring>
 #include <fstream>
 
@@ -115,6 +117,10 @@ VectorMap VectorMap::load(const std::string& path) {
                 q.x = r.u16();
                 q.y = r.u16();
                 poly.points.push_back(q);
+                poly.lo.x = std::min(poly.lo.x, q.x);
+                poly.lo.y = std::min(poly.lo.y, q.y);
+                poly.hi.x = std::max(poly.hi.x, q.x);
+                poly.hi.y = std::max(poly.hi.y, q.y);
             }
             if (poly.points.size() >= 2) {
                 layer.polylines.push_back(std::move(poly));

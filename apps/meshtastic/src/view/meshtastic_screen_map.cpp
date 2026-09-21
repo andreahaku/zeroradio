@@ -149,7 +149,7 @@ void MeshtasticScreen::update_map(const std::vector<toolkit::Entity>& snap) {
         vp.home = home;
         vp.range_nm = range_nm;
         vp.projection = toolkit::map::Projection::Mercator;
-        toolkit::map::draw_base(buf, vp, base_map_, toolkit::map::MapStyle{});
+        map_cache_.draw(buf, vp, base_map_);
     }
 
     // Range-ring scale labels (km), one per ring on the north axis — radar only.
