@@ -183,7 +183,7 @@ void IsmViewModel::nav_activate(int page, int slot) {
 }
 
 void IsmViewModel::load_settings() {
-    const auto path = toolkit::config_file("cardputer_radio/ism", "settings");
+    const auto path = toolkit::config_file("zeroradio/ism", "settings");
     if (path.empty()) return;
     std::ifstream in(path);
     if (!in) return;
@@ -198,7 +198,7 @@ void IsmViewModel::load_settings() {
 }
 
 void IsmViewModel::save_settings() const {
-    const auto path = toolkit::config_file("cardputer_radio/ism", "settings");
+    const auto path = toolkit::config_file("zeroradio/ism", "settings");
     if (!toolkit::ensure_parent_dir(path)) return;
     std::filesystem::path tmp = path;
     tmp += ".tmp";

@@ -15,8 +15,8 @@
 namespace sdr {
 namespace {
 
-// Per-app config location (reused toolkit helper): ~/.config/cardputer_radio/sdr/state.
-constexpr const char* kStateSubdir = "cardputer_radio/sdr";
+// Per-app config location (reused toolkit helper): ~/.config/zeroradio/sdr/state.
+constexpr const char* kStateSubdir = "zeroradio/sdr";
 constexpr const char* kStateFile   = "state";
 
 // State file format version (matches SDRTerminal's v4 layout: vfo, mode, volume,

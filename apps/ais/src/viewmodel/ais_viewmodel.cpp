@@ -242,7 +242,7 @@ std::string AisViewModel::setting_value(int i) const {
 }
 
 void AisViewModel::load_settings() {
-    const auto path = toolkit::config_file("cardputer_radio/ais", "settings");
+    const auto path = toolkit::config_file("zeroradio/ais", "settings");
     if (path.empty()) return;
     std::ifstream in(path);
     if (!in) return;
@@ -265,7 +265,7 @@ void AisViewModel::load_settings() {
 }
 
 void AisViewModel::save_settings() const {
-    const auto path = toolkit::config_file("cardputer_radio/ais", "settings");
+    const auto path = toolkit::config_file("zeroradio/ais", "settings");
     if (!toolkit::ensure_parent_dir(path)) return;
     std::filesystem::path tmp = path;
     tmp += ".tmp";

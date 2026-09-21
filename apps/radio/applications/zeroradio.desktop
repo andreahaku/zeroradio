@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=ZeroRadio
+Comment=SDR, ADS-B, AIS, spectrum survey and ISM radio tools
+Exec=/usr/share/zeroradio/bin/radio-launch.sh
+Icon=share/images/zeroradio.png
+Terminal=false
+Type=Application

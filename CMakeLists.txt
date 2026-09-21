@@ -6,7 +6,7 @@
 
 cmake_minimum_required(VERSION 3.31)
 
-project(cardputer_radio VERSION 0.0.1 LANGUAGES C CXX)
+project(cardputer_radio VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -418,11 +418,18 @@ target_include_directories(radio_toolkit
 )
 
 # The AssetManager bakes in the app name and the shared assets root (fonts).
+# The device build resolves assets from the installed package only, so no
+# build-machine path ends up in the shipped binaries.
+if(CMAKE_CROSSCOMPILING)
+    set(RADIO_RUNTIME_ASSETS_ROOT "/usr/share/zeroradio")
+else()
+    set(RADIO_RUNTIME_ASSETS_ROOT "${RADIO_ASSETS_ROOT}")
+endif()
 target_compile_definitions(radio_toolkit
     PUBLIC
-        APP_NAME="cardputer_radio"
-        APP_CMAKE_ASSETS_ROOT="${RADIO_ASSETS_ROOT}"
-        APP_SOURCE_ASSETS_ROOT="${RADIO_ASSETS_ROOT}"
+        APP_NAME="zeroradio"
+        APP_CMAKE_ASSETS_ROOT="${RADIO_RUNTIME_ASSETS_ROOT}"
+        APP_SOURCE_ASSETS_ROOT="${RADIO_RUNTIME_ASSETS_ROOT}"
         APP_FRAMEBUFFER_DEVICE="${APP_FRAMEBUFFER_DEVICE}"
         APP_DRM_DEVICE="${APP_DRM_DEVICE}"
         APP_DRM_CONNECTOR_ID=${APP_DRM_CONNECTOR_ID}
@@ -475,16 +482,17 @@ add_subdirectory(apps/survey)
 add_subdirectory(apps/ism)
 
 # ====================================================
-# Packaging — Phase 1: self-contained Debian package for a stock CardputerZero
+# Packaging: the `zeroradio` Debian package (ZeroRadio in the AppStore)
 # ====================================================
-# Lays out everything under /usr/share/cardputer_radio (the five app binaries +
-# the launch wrapper + the runtime assets the AssetManager resolves from
-# /usr/share/<app_name>), plus the APPLaunch tile + icon. A `dpkg -i` on a clean
-# device then yields a working "Radio" launcher entry. Only meaningful for the
-# aarch64 cross build; skipped for desktop/SDL builds.
+# Lays out everything under /usr/share/zeroradio (the hub + app binaries, the
+# bundled decoders, the launch wrapper, and the runtime assets the AssetManager
+# resolves from /usr/share/<app_name>), plus the single APPLaunch entry + icon.
+# Installing it on a stock CardputerZero (AppStore, or `apt install ./x.deb`)
+# pulls every Debian dependency, so nothing has to be installed by hand.
+# Only meaningful for the aarch64 cross build; skipped for desktop/SDL builds.
 if(CMAKE_CROSSCOMPILING)
-    set(RADIO_PKG_BINDIR  "share/cardputer_radio/bin")
-    set(RADIO_PKG_DATADIR "share/cardputer_radio")
+    set(RADIO_PKG_BINDIR  "share/zeroradio/bin")
+    set(RADIO_PKG_DATADIR "share/zeroradio")
     set(RADIO_APPLAUNCH   "share/APPLaunch")
 
     # Bundled decoders (built from source, see cmake/decoders.cmake).
@@ -492,35 +500,48 @@ if(CMAKE_CROSSCOMPILING)
     install(PROGRAMS "${RADIO_READSB_BIN}" "${RADIO_AISCATCHER_BIN}" DESTINATION "${RADIO_PKG_BINDIR}")
 
     # App binaries + the hub, colocated so the hub can posix_spawn() its siblings.
-    install(TARGETS radio_app sdr_app adsb_app meshtastic_app ais_app survey_app ism_app
+    # Meshtastic is not shipped yet: it needs meshtasticd, a root system service
+    # from a third-party repo, plus the optional Cap LoRa hardware. The hub hides
+    # apps whose binary is absent.
+    install(TARGETS radio_app sdr_app adsb_app ais_app survey_app ism_app
             RUNTIME DESTINATION "${RADIO_PKG_BINDIR}")
 
     # Launch wrapper — carries the SDR runtime env (sample-rate cap, pipewire audio).
     install(PROGRAMS "${CMAKE_CURRENT_SOURCE_DIR}/apps/radio/applications/radio-launch.sh"
             DESTINATION "${RADIO_PKG_BINDIR}")
 
-    # Runtime assets — resolved via the AssetManager fallback /usr/share/cardputer_radio.
+    # Runtime assets — resolved via the AssetManager root /usr/share/zeroradio.
     install(DIRECTORY "${RADIO_ASSETS_ROOT}/fonts" "${RADIO_ASSETS_ROOT}/mapdata"
             DESTINATION "${RADIO_PKG_DATADIR}")
+    # Sample data for the *_SOURCE=mock modes (demos, screenshots).
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/apps/adsb/assets/mock/aircraft.json"
+                  "${CMAKE_CURRENT_SOURCE_DIR}/apps/ais/assets/mock/ais.nmea"
+            DESTINATION "${RADIO_PKG_DATADIR}/mock")
 
-    # APPLaunch integration: the launcher tile + its icon.
-    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/apps/radio/applications/Radio.desktop"
-            DESTINATION "${RADIO_APPLAUNCH}/applications" RENAME radio.desktop)
-    install(FILES "${RADIO_ASSETS_ROOT}/images/radio.png"
+    # APPLaunch integration: the single launcher entry + its icon.
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/apps/radio/applications/zeroradio.desktop"
+            DESTINATION "${RADIO_APPLAUNCH}/applications")
+    install(FILES "${RADIO_ASSETS_ROOT}/images/zeroradio.png"
             DESTINATION "${RADIO_APPLAUNCH}/share/images")
 
     # ---- CPack: Debian package ----
     set(CPACK_GENERATOR "DEB")
-    set(CPACK_PACKAGE_NAME "cardputer-radio")
+    set(CPACK_PACKAGE_NAME "zeroradio")
     set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
     set(CPACK_PACKAGE_CONTACT "Andrea Salvatore <andreahaku@gmail.com>")
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
-        "SDR, ADS-B, AIS and Meshtastic radio apps for CardputerZero")
+        "SDR, ADS-B, AIS, spectrum survey and ISM radio tools for CardputerZero")
+    set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/andreahaku/cardputer-radio")
     set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
     set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "arm64")
     set(CPACK_DEBIAN_PACKAGE_SECTION "hamradio")
-    # pipewire-alsa: routes the SDR ALSA sink through PipeWire (see docs/sdr-device-profile.md).
-    set(CPACK_DEBIAN_PACKAGE_DEPENDS "pipewire-alsa")
+    # Shared-library dependencies of every shipped binary (apps + bundled
+    # decoders) are computed by dpkg-shlibdeps against the trixie arm64 libs.
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+    # Tools the apps spawn, from Debian: rtl_tcp/rtl_power (rtl-sdr), rtl_433
+    # (rtl-433), hackrf_sweep (hackrf). pipewire-alsa routes the SDR audio
+    # through PipeWire (docs/sdr-device-profile.md).
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "rtl-sdr, rtl-433, hackrf, pipewire-alsa")
     set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
     include(CPack)
 endif()

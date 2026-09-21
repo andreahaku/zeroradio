@@ -89,7 +89,10 @@ lv_display_t* init_display() {
         return nullptr;
     }
 
-    if (lv_linux_fbdev_set_file(display, APP_FRAMEBUFFER_DEVICE) != LV_RESULT_OK) {
+    // LV_LINUX_FBDEV_DEVICE (set by the launcher/platform) wins over the build default.
+    const char* fbdev = std::getenv("LV_LINUX_FBDEV_DEVICE");
+    if (!fbdev || fbdev[0] == '\0') fbdev = APP_FRAMEBUFFER_DEVICE;
+    if (lv_linux_fbdev_set_file(display, fbdev) != LV_RESULT_OK) {
         lv_display_delete(display);
         return nullptr;
     }
@@ -110,7 +113,7 @@ int run_app(ShellViewModel& shell,
             const std::function<lv_obj_t*()>& build_root,
             const std::function<void()>& on_teardown) {
     logger::Logger::init();
-    logger::Logger::set_tag("cardputer-radio");
+    logger::Logger::set_tag("zeroradio");
 
     lv_init();
 

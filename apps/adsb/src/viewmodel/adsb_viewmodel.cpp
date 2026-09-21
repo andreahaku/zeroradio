@@ -269,7 +269,7 @@ std::string AdsbViewModel::setting_value(int i) const {
 }
 
 void AdsbViewModel::load_settings() {
-    const auto path = toolkit::config_file("cardputer_radio/adsb", "settings");
+    const auto path = toolkit::config_file("zeroradio/adsb", "settings");
     if (path.empty()) return;
     std::ifstream in(path);
     if (!in) return;
@@ -307,7 +307,7 @@ void AdsbViewModel::load_settings() {
 }
 
 void AdsbViewModel::save_settings() const {
-    const auto path = toolkit::config_file("cardputer_radio/adsb", "settings");
+    const auto path = toolkit::config_file("zeroradio/adsb", "settings");
     if (!toolkit::ensure_parent_dir(path)) return;
     // Write to a sibling temp file and rename into place so a crash mid-write
     // can't leave a truncated settings file (which load_settings would reject).

@@ -54,7 +54,7 @@ target_include_directories(ais_app
 
 target_compile_definitions(ais_app
     PRIVATE
-        APP_MOCK_NMEA_PATH="${CMAKE_CURRENT_SOURCE_DIR}/assets/mock/ais.nmea"
+        APP_MOCK_NMEA_PATH="$<IF:$<BOOL:${CMAKE_CROSSCOMPILING}>,/usr/share/zeroradio/mock/ais.nmea,${CMAKE_CURRENT_SOURCE_DIR}/assets/mock/ais.nmea>"
 )
 
 target_link_libraries(ais_app

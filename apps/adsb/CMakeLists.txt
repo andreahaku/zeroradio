@@ -51,7 +51,7 @@ target_include_directories(adsb_app
 # at runtime overrides it.
 target_compile_definitions(adsb_app
     PRIVATE
-        APP_MOCK_JSON_PATH="${CMAKE_CURRENT_SOURCE_DIR}/assets/mock/aircraft.json"
+        APP_MOCK_JSON_PATH="$<IF:$<BOOL:${CMAKE_CROSSCOMPILING}>,/usr/share/zeroradio/mock/aircraft.json,${CMAKE_CURRENT_SOURCE_DIR}/assets/mock/aircraft.json>"
 )
 
 target_link_libraries(adsb_app

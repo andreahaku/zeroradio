@@ -17,6 +17,7 @@
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <vector>
 #include <unistd.h>
 
 namespace {
@@ -49,9 +50,17 @@ int main(int /*argc*/, char** argv) {
     std::string target_id;
     const radio::AppEntry* target_entry = nullptr;
 
+    // Only list apps whose binary is actually present, so a package that ships
+    // a subset of the suite (e.g. without Meshtastic) shows no dead entries.
+    // Outlives the menu scope: the view model and target_entry point into it.
+    std::vector<radio::AppEntry> installed;
+    for (const auto& entry : radio::app_catalog()) {
+        if (!radio::resolve_app_binary(entry).empty()) installed.push_back(entry);
+    }
+
     {
         app::AssetManager assets;
-        radio::HubViewModel view_model(radio::app_catalog());
+        radio::HubViewModel view_model(installed);
         std::unique_ptr<radio::HubScreen> screen;
 
         toolkit::run_app(
