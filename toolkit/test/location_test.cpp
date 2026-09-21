@@ -53,7 +53,7 @@ int main() {
     bool ny = false;
     for (const auto& p : r) ny = ny || p.label == "New York City, US";
     check(ny, "word prefix: york -> New York City");
-    r = idx.search("CESE", 3);
+    r = idx.search("BOLO", 3);
     check(!r.empty() && r[0].label == "Bologna, IT", "case-insensitive prefix");
     check(idx.search("", 5).empty(), "empty query");
     check(idx.search("zzzzqqq", 5).empty(), "no match");

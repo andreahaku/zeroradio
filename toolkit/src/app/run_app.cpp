@@ -52,7 +52,7 @@ lv_display_t* init_display() {
     // Path B: if REMOTE_FB is set (a port, or "1" for the default 5800), run
     // headless and stream the framebuffer to a desktop viewer over TCP, with key
     // forwarding back. Works in ANY build (desktop or device), so the app can be
-    // driven with no physical display attached (e.g. a Pi Zero 2 W + RTL-SDR).
+    // driven with no physical display attached.
     if (const char* env = std::getenv("REMOTE_FB")) {
         int port = std::atoi(env);
         if (port <= 0) {

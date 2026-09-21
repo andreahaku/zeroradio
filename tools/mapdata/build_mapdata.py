@@ -9,11 +9,14 @@ Douglas-Peucker, quantizes coordinates to uint16, and writes the `RMAP` binary
 format consumed by toolkit::geo::VectorMap.
 
 Run from anywhere:
-    python3 tools/mapdata/build_mapdata.py            # default: whole world (50m)
-    python3 tools/mapdata/build_mapdata.py --bbox 6.5,39,19.5,47 --scale 10m --out assets/mapdata/adriatic.rmap
+    python3 tools/mapdata/build_mapdata.py --out assets/mapdata/world.rmap
+        # default: the shipped map, whole world at 10m, tolerance 0.005 deg
+    python3 tools/mapdata/build_mapdata.py --bbox 6.5,39,19.5,47 --out region.rmap
+        # a regional cut
 
-Natural Earth is public domain. Source data is cached under a scratch dir so
-re-runs are offline after the first fetch. This tool never runs on-device.
+Natural Earth is public domain. Source data is cached in $MAPDATA_CACHE or
+tools/mapdata/cache/, so re-runs are offline after the first fetch. This tool
+never runs on the device.
 """
 
 from __future__ import annotations
@@ -78,14 +81,7 @@ def cache_dir() -> str:
     base = os.environ.get("MAPDATA_CACHE")
     if base:
         return base
-    scratch = (
-        "<scratch-dir>"
-        "CardputerZero-cardputer-radio/05c46d00-3345-4358-ae04-e195d391ea36/"
-        "scratchpad/mapdata-cache"
-    )
-    return scratch if os.path.isdir(os.path.dirname(scratch)) else os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "cache"
-    )
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache")
 
 
 def fetch_geojson(filename: str) -> dict:
@@ -306,9 +302,9 @@ def main():
     ap = argparse.ArgumentParser(description="Build a compact .rmap vector-map asset.")
     ap.add_argument("--bbox", default="-180,-90,180,90",
                     help="lon_min,lat_min,lon_max,lat_max (default: whole world)")
-    ap.add_argument("--scale", choices=["10m", "50m"], default="50m")
-    ap.add_argument("--tol", type=float, default=0.02,
-                    help="Douglas-Peucker tolerance in degrees (default 0.02 ~ 2km, world overview)")
+    ap.add_argument("--scale", choices=["10m", "50m"], default="10m")
+    ap.add_argument("--tol", type=float, default=0.005,
+                    help="Douglas-Peucker tolerance in degrees (default 0.005 ~ 500 m, the shipped map)")
     ap.add_argument("--out", default=None, help="output .rmap path")
     args = ap.parse_args()
 

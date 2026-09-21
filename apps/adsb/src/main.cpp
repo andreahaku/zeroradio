@@ -51,7 +51,7 @@ int main() {
     adsb::AdsbViewModel view_model; // also the NavProvider (set on itself in ctor)
 
     toolkit::EntityStore store;
-    toolkit::Config config; // HOME (Bologna, IT) + TTL; override via env below.
+    toolkit::Config config; // home + TTL; the saved location and env vars below override them.
     // The suite's shared position (Settings > Location); the env vars below win.
     if (const auto place = toolkit::location::load()) {
         config.home = place->pos;
