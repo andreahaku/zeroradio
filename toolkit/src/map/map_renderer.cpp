@@ -210,13 +210,15 @@ void BaseMapCache::draw(uint16_t* buf, const MapViewport& vp, const VectorMap& m
                         const MapStyle& style) {
     if (!buf || vp.width <= 0 || vp.height <= 0) return;
     const size_t n = static_cast<size_t>(vp.width) * vp.height;
-    if (valid_ && map_ == &map && same_view(last_, vp) && pixels_.size() == n) {
+    if (valid_ && map_ == &map && same_view(last_, vp) && last_style_ == style &&
+        pixels_.size() == n) {
         std::copy(pixels_.begin(), pixels_.end(), buf);
         return;
     }
     draw_base(buf, vp, map, style);
     pixels_.assign(buf, buf + n);
     last_ = vp;
+    last_style_ = style;
     map_ = &map;
     valid_ = true;
 }

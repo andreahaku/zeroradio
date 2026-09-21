@@ -52,6 +52,22 @@ struct MapStyle {
     // Skip geometry outside the view before projecting it. Output is identical
     // either way (checked by map_render_test); off only for that comparison.
     bool cull = true;
+
+    // Daylight variant for the Light theme: pale sea, near-white land and dark
+    // coast/border lines, readable in direct sunlight.
+    static MapStyle day() {
+        MapStyle s;
+        s.sea_color = rgb565(0xd6, 0xe4, 0xee);
+        s.land_color = rgb565(0xfb, 0xfa, 0xf6);
+        s.coast_color = rgb565(0x2b, 0x40, 0x55);
+        s.border_color = rgb565(0x78, 0x7e, 0x88);
+        return s;
+    }
+    bool operator==(const MapStyle& o) const {
+        return sea_color == o.sea_color && land_color == o.land_color &&
+               coast_color == o.coast_color && border_color == o.border_color &&
+               border_dashed == o.border_dashed && cull == o.cull;
+    }
 };
 
 // Draw the coastline + national-border layers of `map` onto an RGB565 buffer.
@@ -75,6 +91,7 @@ public:
 private:
     std::vector<uint16_t> pixels_;
     MapViewport last_{};
+    MapStyle last_style_{};
     const VectorMap* map_ = nullptr;
     bool valid_ = false;
 };
