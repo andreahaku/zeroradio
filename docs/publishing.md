@@ -4,7 +4,7 @@ How to build the `zeroradio` package, check it against the AppStore rules and su
 
 ## 1. Set the version
 
-The version lives in one place: `project(cardputer_radio VERSION x.y.z)` in `CMakeLists.txt`. It feeds the package, the hub title ("ZeroRadio x.y.z") and the About page. Copy the same value into `app-builder.json` (`version`) and add a section to `CHANGELOG.md`.
+The version lives in one place: `project(zeroradio VERSION x.y.z)` in `CMakeLists.txt`. It feeds the package, the hub title ("ZeroRadio x.y.z") and the About page. Copy the same value into `app-builder.json` (`version`) and add a section to `CHANGELOG.md`.
 
 ## 2. Build the package
 
@@ -33,6 +33,8 @@ Check the manifest with the validator of the CardputerZero Template:
 cmake -DPACKAGE_FILE=build/cp0-trixie/zeroradio_<version>_arm64.deb \
     -P <Template>/.agents/skills/cardputerzero-package-release/scripts/validate_app_builder.cmake
 ```
+
+The Template validator also expects a Debian revision in the file name (`name_version_revision_arm64.deb`). The store CI instead requires `name_version_arch.deb`, the Debian default that CPack produces. Keep the CPack name, and ignore that single validator message.
 
 The store rules the manifest must meet: a summary of 80 characters or less, 1 or 2 categories from the fixed list, 1 to 6 screenshots of 320x170 PNG, a square icon of 128 to 512 px, all 7 permission flags, a unique 4-character share code, and no template placeholder text.
 
