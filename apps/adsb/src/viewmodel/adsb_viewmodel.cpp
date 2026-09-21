@@ -198,7 +198,7 @@ int    AdsbViewModel::trail_len() const       { return trail_len_; }
 bool   AdsbViewModel::show_ground() const     { return show_ground_; }
 bool   AdsbViewModel::emergency_only() const  { return emergency_only_; }
 
-int AdsbViewModel::settings_count() const { return 8; }
+int AdsbViewModel::settings_count() const { return 9; }
 
 bool AdsbViewModel::map_mercator() const { return map_mercator_; }
 
@@ -242,6 +242,7 @@ void AdsbViewModel::settings_activate() {
         case 5: show_ground_ = !show_ground_; break;              // Ground
         case 6: emergency_only_ = !emergency_only_; break;        // Emergency only
         case 7: map_mercator_ = !map_mercator_; break;            // Map view (Radar/Map)
+        case 8: location_request_ = true; return; // Location: the screen opens the dialog
         default: break;
     }
     save_settings();
@@ -249,7 +250,7 @@ void AdsbViewModel::settings_activate() {
 
 std::string AdsbViewModel::setting_name(int i) const {
     static const char* kNames[] = {"Theme", "Units", "TTL", "Range",
-                                   "Trails", "Ground", "Emerg only", "Map view"};
+                                   "Trails", "Ground", "Emerg only", "Map view", "Location"};
     return (i >= 0 && i < settings_count()) ? kNames[i] : "";
 }
 
@@ -264,6 +265,7 @@ std::string AdsbViewModel::setting_value(int i) const {
         case 5: return show_ground_ ? "Show" : "Hide";
         case 6: return emergency_only_ ? "On" : "Off";
         case 7: return map_mercator_ ? "Map" : "Radar";
+        case 8: return location_label_;
         default: return "";
     }
 }
@@ -392,6 +394,16 @@ void AdsbViewModel::nav_activate(int page, int slot) {
             else if (slot == 4) request_quit();
             break;
     }
+}
+
+bool AdsbViewModel::take_location_request() {
+    const bool req = location_request_;
+    location_request_ = false;
+    return req;
+}
+
+void AdsbViewModel::set_location_label(std::string label) {
+    location_label_ = label.empty() ? std::string("Not set") : std::move(label);
 }
 
 } // namespace adsb

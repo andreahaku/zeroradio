@@ -468,6 +468,15 @@ if(USE_DESKTOP)
     add_test(NAME map_render_test COMMAND map_render_test)
 endif()
 
+# Shared location: coordinate parsing, city search on the shipped list, save/load.
+if(USE_DESKTOP)
+    add_executable(location_test ${CMAKE_CURRENT_SOURCE_DIR}/toolkit/test/location_test.cpp)
+    target_link_libraries(location_test PRIVATE radio_toolkit)
+    target_compile_definitions(location_test PRIVATE
+        CITIES_TSV="${RADIO_ASSETS_ROOT}/geodata/cities.tsv")
+    add_test(NAME location_test COMMAND location_test)
+endif()
+
 # nlohmann/json — header-only, used by the ADS-B and ISM parsers. Resolved here,
 # not in an app subdirectory: a system package yields an IMPORTED target that is
 # only visible in the directory that found it (the FetchContent fallback is global).
@@ -523,6 +532,7 @@ if(CMAKE_CROSSCOMPILING)
 
     # Runtime assets — resolved via the AssetManager root /usr/share/zeroradio.
     install(DIRECTORY "${RADIO_ASSETS_ROOT}/fonts" "${RADIO_ASSETS_ROOT}/mapdata"
+                      "${RADIO_ASSETS_ROOT}/geodata"
             DESTINATION "${RADIO_PKG_DATADIR}")
     # Sample data for the *_SOURCE=mock modes (demos, screenshots).
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/apps/adsb/assets/mock/aircraft.json"

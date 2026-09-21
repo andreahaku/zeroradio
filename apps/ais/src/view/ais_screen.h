@@ -10,6 +10,7 @@
 #include "app_config.h"
 #include "base_screen.h"
 #include "entity_store.h"
+#include "location_dialog.h"
 #include "map_renderer.h"
 #include "vector_map.h"
 
@@ -20,6 +21,7 @@
 #include <functional>
 #include <map>
 #include <string>
+#include <memory>
 #include <vector>
 
 namespace ais {
@@ -46,6 +48,7 @@ protected:
 private:
     static void tick_cb(lv_timer_t* timer);
     void tick();
+    void open_location_dialog();
     static void list_draw_event_cb(lv_event_t* event);
 
     // A compact, sorted view row built from the store snapshot each tick.
@@ -129,6 +132,7 @@ private:
     std::vector<uint16_t> ppi_buf_merc_;
     std::vector<uint16_t> detail_buf_;
     toolkit::map::VectorMap base_map_;
+    std::unique_ptr<toolkit::LocationDialog> location_dialog_; // Settings > Location
     // Base-map pixels per canvas, replayed while the view is unchanged.
     toolkit::map::BaseMapCache scope_map_cache_;
     toolkit::map::BaseMapCache detail_map_cache_;

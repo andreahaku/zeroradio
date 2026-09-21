@@ -176,7 +176,7 @@ double AisViewModel::ttl_seconds() const       { return ttl_seconds_; }
 void   AisViewModel::set_ttl_seconds(double s) { if (s > 0.0) ttl_seconds_ = s; }
 int    AisViewModel::trail_len() const         { return trail_len_; }
 
-int AisViewModel::settings_count() const { return 6; }
+int AisViewModel::settings_count() const { return 7; }
 
 bool AisViewModel::map_mercator() const { return map_mercator_; }
 
@@ -218,13 +218,14 @@ void AisViewModel::settings_activate() {
             break;
         }
         case 5: map_mercator_ = !map_mercator_; break;            // Map view (Radar/Map)
+        case 6: location_request_ = true; return; // Location: the screen opens the dialog
         default: break;
     }
     save_settings();
 }
 
 std::string AisViewModel::setting_name(int i) const {
-    static const char* kNames[] = {"Theme", "Units", "TTL", "Range", "Trails", "Map view"};
+    static const char* kNames[] = {"Theme", "Units", "TTL", "Range", "Trails", "Map view", "Location"};
     return (i >= 0 && i < settings_count()) ? kNames[i] : "";
 }
 
@@ -237,6 +238,7 @@ std::string AisViewModel::setting_value(int i) const {
                                     : (std::to_string(range_nm()) + "NM");
         case 4: return trail_len_ == 0 ? std::string("All") : std::to_string(trail_len_);
         case 5: return map_mercator_ ? "Map" : "Radar";
+        case 6: return location_label_;
         default: return "";
     }
 }
@@ -347,6 +349,16 @@ void AisViewModel::nav_activate(int page, int slot) {
             else if (slot == 4) request_quit();
             break;
     }
+}
+
+bool AisViewModel::take_location_request() {
+    const bool req = location_request_;
+    location_request_ = false;
+    return req;
+}
+
+void AisViewModel::set_location_label(std::string label) {
+    location_label_ = label.empty() ? std::string("Not set") : std::move(label);
 }
 
 } // namespace ais

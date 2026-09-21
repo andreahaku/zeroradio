@@ -11,6 +11,7 @@
 #include "child_service.h"
 #include "entity_store.h"
 #include "file_json_source.h"
+#include "location.h"
 #include "nmea_net_source.h"
 #include "run_app.h"
 #include "vessel_store.h"
@@ -52,6 +53,11 @@ int main() {
 
     toolkit::EntityStore store;
     toolkit::Config config; // HOME + TTL; override via env below.
+    // The suite's shared position (Settings > Location); the env vars below win.
+    if (const auto place = toolkit::location::load()) {
+        config.home = place->pos;
+        view_model.set_location_label(place->label);
+    }
 
     if (const char* lat = std::getenv("AIS_HOME_LAT"); lat && lat[0] != '\0') {
         char* end = nullptr;

@@ -12,6 +12,7 @@
 #include "child_service.h"
 #include "entity_store.h"
 #include "file_json_source.h"
+#include "location.h"
 #include "run_app.h"
 
 #include <cstdlib>
@@ -51,6 +52,11 @@ int main() {
 
     toolkit::EntityStore store;
     toolkit::Config config; // HOME (Bologna, IT) + TTL; override via env below.
+    // The suite's shared position (Settings > Location); the env vars below win.
+    if (const auto place = toolkit::location::load()) {
+        config.home = place->pos;
+        view_model.set_location_label(place->label);
+    }
 
     // Home position / TTL overrides so the radar centres on the user's location
     // without a rebuild: ADSB_HOME_LAT, ADSB_HOME_LON, ADSB_TTL.

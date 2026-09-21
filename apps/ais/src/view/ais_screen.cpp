@@ -314,12 +314,22 @@ void AisScreen::update_header() {
     }
 }
 
+void AisScreen::open_location_dialog() {
+    location_dialog_ = std::make_unique<toolkit::LocationDialog>(
+        assets(), vm_.is_dark_mode(), [this](const toolkit::location::Place& place) {
+            config_.home = place.pos; // the radar/map recentre on the next tick
+            toolkit::location::save(place);
+            vm_.set_location_label(place.label);
+        });
+}
+
 void AisScreen::tick_cb(lv_timer_t* timer) {
     auto* self = static_cast<AisScreen*>(lv_timer_get_user_data(timer));
     if (self) self->tick();
 }
 
 void AisScreen::tick() {
+    if (vm_.take_location_request()) open_location_dialog();
     store_.sweep(vm_.ttl_seconds());
     auto rows = build_all_rows();
     record_trails(rows);

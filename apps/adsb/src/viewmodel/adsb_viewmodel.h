@@ -85,6 +85,11 @@ public:
     std::string setting_name(int i) const;
     std::string setting_value(int i) const;
 
+    // Location row (last): activating it asks the screen to open the shared
+    // location dialog; the label is what the row shows ("Valletta, MT").
+    bool take_location_request();
+    void set_location_label(std::string label);
+
     // Applied settings, read by the screen.
     bool   units_km() const;
     double ttl_seconds() const;
@@ -119,6 +124,8 @@ private:
     bool   emergency_only_{false};
     bool   detail_show_others_{true}; // Detail radar: show all traffic vs selected only
     bool   map_mercator_{false};      // Radar screen: false = PPI radar, true = Mercator map
+    bool        location_request_{false};
+    std::string location_label_{"Not set"};
     void load_settings();
     void save_settings() const;
 

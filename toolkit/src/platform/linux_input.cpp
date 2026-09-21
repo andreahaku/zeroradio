@@ -102,7 +102,29 @@ struct EvdevKeypad {
     uint32_t key{0};
 };
 
+// Text entry for a modal capture (e.g. the location search): letters, space,
+// comma and minus as characters. Returns 0 for anything else, which then goes
+// through the normal nav mapping below.
+uint32_t map_evdev_text(uint16_t code) {
+    static constexpr struct { uint16_t code; char ch; } kText[] = {
+        {KEY_A, 'a'}, {KEY_B, 'b'}, {KEY_C, 'c'}, {KEY_D, 'd'}, {KEY_E, 'e'}, {KEY_F, 'f'},
+        {KEY_G, 'g'}, {KEY_H, 'h'}, {KEY_I, 'i'}, {KEY_J, 'j'}, {KEY_K, 'k'}, {KEY_L, 'l'},
+        {KEY_M, 'm'}, {KEY_N, 'n'}, {KEY_O, 'o'}, {KEY_P, 'p'}, {KEY_Q, 'q'}, {KEY_R, 'r'},
+        {KEY_S, 's'}, {KEY_T, 't'}, {KEY_U, 'u'}, {KEY_V, 'v'}, {KEY_W, 'w'}, {KEY_X, 'x'},
+        {KEY_Y, 'y'}, {KEY_Z, 'z'}, {KEY_SPACE, ' '}, {KEY_COMMA, ','}, {KEY_MINUS, '-'},
+    };
+    for (const auto& t : kText) {
+        if (t.code == code) return static_cast<uint32_t>(t.ch);
+    }
+    return 0;
+}
+
 uint32_t map_evdev_key(uint16_t code) {
+    // While a dialog captures the keyboard, F/X/Z/C are letters again (the Fn
+    // layer still sends real arrows).
+    if (key_capture) {
+        if (const uint32_t ch = map_evdev_text(code)) return ch;
+    }
     switch (code) {
         case KEY_ESC:        return LV_KEY_ESC;
         // Arrow keys + enter drive list navigation (the Radio hub menu and the
@@ -114,8 +136,8 @@ uint32_t map_evdev_key(uint16_t code) {
         case KEY_RIGHT:      return LV_KEY_RIGHT;
         // CardputerZero keyboard: the arrows live on the Fn layer of F/X/Z/C.
         // Mirror those physical keys (pressed WITHOUT Fn) onto the same nav so
-        // the menu/lists can be driven either way. The apps are menu-driven and
-        // never type these letters, so there's no conflict with text entry.
+        // the menu/lists can be driven either way. Text entry (key capture)
+        // takes them as letters instead, see map_evdev_text().
         case KEY_F:          return LV_KEY_UP;
         case KEY_X:          return LV_KEY_DOWN;
         case KEY_Z:          return LV_KEY_LEFT;
