@@ -57,4 +57,4 @@ Nine tests: waterfall_scroll, map_render (culling must not change a pixel), loca
 - Commit messages: Conventional Commits.
 - Keep the desktop build and the tests green; build the package in the container before a release.
 - Follow the existing patterns (MVVM with reactive subjects, a source feeding an `EntityStore`). A new app should be mostly a parser plus a field mapping.
-- Files started from the M5Stack template keep the M5Stack copyright line; new files carry One Small Step Apps Ltd. Every C/C++ file has an SPDX header.
+- Files started from the [M5Stack template](https://github.com/CardputerZero/Template) keep the M5Stack copyright line; new files carry One Small Step Apps Ltd. Every C/C++ file has an SPDX header.

@@ -121,4 +121,4 @@ New apps are mostly a parser plus a field mapping over the toolkit. Candidates: 
 
 ## Credits and license
 
-ZeroRadio is made by Andrea Salvatore (IU4APC) and released under the MIT License. It started from the M5Stack CardputerZero app template. The package bundles readsb and AIS-catcher (GPL-3.0) as separate programs. [`CREDITS.md`](CREDITS.md) lists every third-party component, data set and font with its license.
+ZeroRadio is made by Andrea Salvatore (IU4APC) and released under the MIT License. It started from the [M5Stack CardputerZero app template](https://github.com/CardputerZero/Template). The package bundles readsb and AIS-catcher (GPL-3.0) as separate programs. [`CREDITS.md`](CREDITS.md) lists every third-party component, data set and font with its license.

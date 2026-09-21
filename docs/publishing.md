@@ -27,7 +27,7 @@ python3 packages/.github/scripts/install_path_policy.py zeroradio \
 # /tmp/rejected.txt stays empty when every path is allowed
 ```
 
-Check the manifest with the validator of the CardputerZero Template:
+Check the manifest with the validator of the [CardputerZero Template](https://github.com/CardputerZero/Template):
 
 ```bash
 cmake -DPACKAGE_FILE=build/cp0-trixie/zeroradio_<version>_arm64.deb \

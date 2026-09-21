@@ -6,7 +6,7 @@ Made by Andrea Salvatore (IU4APC), One Small Step Apps Ltd.
 
 Source code: github.com/andreahaku/zeroradio
 
-ZeroRadio is released under the MIT License. It started from the M5Stack CardputerZero app template (MIT), and the files derived from it keep the M5Stack copyright.
+ZeroRadio is released under the MIT License. It started from the [M5Stack CardputerZero app template](https://github.com/CardputerZero/Template) (MIT), and the files derived from it keep the M5Stack copyright.
 
 ## Bundled programs
 
