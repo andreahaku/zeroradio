@@ -45,9 +45,12 @@ void TitleBar::build() {
         auto* subtitle = lv_label_create(core_obj_);
         lv_label_bind_text(subtitle, subtitle_subject_, nullptr);
         lv_obj_set_style_text_font(subtitle, &lv_font_montserrat_12, 0);
-        lv_obj_align(subtitle, LV_ALIGN_RIGHT_MID, -6, 0);
+        lv_obj_align(subtitle, LV_ALIGN_RIGHT_MID, -72, 0); // left of the battery
         reactive::bind_theme(subtitle, dark_mode_subject_, reactive::ThemeRole::Text);
     }
+
+    battery_ = std::make_unique<BatteryBadge>(core_obj_);
+    lv_obj_align(battery_->obj(), LV_ALIGN_RIGHT_MID, -6, 0);
 }
 
 } // namespace view::widgets

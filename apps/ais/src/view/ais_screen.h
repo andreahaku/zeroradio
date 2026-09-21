@@ -7,6 +7,7 @@
 #pragma once
 
 #include "ais_viewmodel.h"
+#include "battery_badge.h"
 #include "app_config.h"
 #include "base_screen.h"
 #include "entity_store.h"
@@ -98,6 +99,7 @@ private:
     lv_obj_t* header_title_ = nullptr;
     lv_obj_t* header_count_ = nullptr;
     lv_obj_t* conn_dot_     = nullptr;
+    std::unique_ptr<view::widgets::BatteryBadge> battery_; // header, right
 
     // Body containers (one shown at a time).
     lv_obj_t* body_            = nullptr;

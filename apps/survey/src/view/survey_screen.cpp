@@ -138,6 +138,9 @@ void SurveyScreen::build_waterfall_view(lv_obj_t* content) {
     lv_obj_set_style_pad_column(smeter_box, 3, 0);
     lv_obj_align(smeter_box, LV_ALIGN_RIGHT_MID, -4, 0);
 
+    battery_ = std::make_unique<view::widgets::BatteryBadge>(smeter_box);
+    lv_obj_set_style_margin_right(battery_->obj(), 6, 0);
+
     auto* s_label = lv_label_create(smeter_box);
     lv_label_set_text(s_label, "S");
     lv_obj_set_style_text_font(s_label, small_font ? small_font : &lv_font_montserrat_12, 0);

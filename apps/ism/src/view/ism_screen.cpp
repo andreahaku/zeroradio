@@ -87,6 +87,9 @@ void IsmScreen::build_content(lv_obj_t* content) {
     lv_obj_clear_flag(conn_dot_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_align(conn_dot_, LV_ALIGN_RIGHT_MID, -6, 0);
 
+    battery_ = std::make_unique<view::widgets::BatteryBadge>(header_);
+    lv_obj_align(battery_->obj(), LV_ALIGN_RIGHT_MID, -20, 0);
+
     // --- Body: the three interchangeable views ---
     body_ = lv_obj_create(content);
     lv_obj_remove_style_all(body_);

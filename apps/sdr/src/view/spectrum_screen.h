@@ -7,6 +7,7 @@
 #pragma once
 
 #include "base_screen.h"
+#include "battery_badge.h"
 #include "sdr_viewmodel.h"
 #include "spectrum_source.h"
 
@@ -89,6 +90,7 @@ private:
     std::vector<uint16_t> wf_buf_;  // RGB565 canvas backing store (W*H)
 
     lv_obj_t*           chart_       = nullptr;
+    std::unique_ptr<view::widgets::BatteryBadge> battery_; // header, left of the S-meter
     lv_chart_series_t*  series_      = nullptr;
     lv_chart_series_t*  peak_series_ = nullptr; // decaying peak-hold trace
     std::vector<float>  peak_;                  // per-bin held peak [0,1]

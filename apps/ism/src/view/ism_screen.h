@@ -7,6 +7,7 @@
 #pragma once
 
 #include "base_screen.h"
+#include "battery_badge.h"
 #include "entity_store.h"
 #include "ism_viewmodel.h"
 
@@ -14,6 +15,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -69,6 +71,7 @@ private:
     lv_obj_t* header_count_ = nullptr;
     lv_obj_t* header_title_ = nullptr;
     lv_obj_t* conn_dot_     = nullptr;
+    std::unique_ptr<view::widgets::BatteryBadge> battery_; // header, right
 
     lv_obj_t* body_         = nullptr;
     lv_obj_t* list_view_    = nullptr;

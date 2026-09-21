@@ -144,7 +144,8 @@ void SpectrumScreen::build_content(lv_obj_t* content) {
     lv_label_bind_text(vfo, vm_.vfo_text_subject(), nullptr);
     lv_obj_set_style_text_font(vfo, mono_font ? mono_font : &lv_font_montserrat_12, 0);
     reactive::bind_theme(vfo, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
-    lv_obj_align(vfo, LV_ALIGN_CENTER, 0, 0);
+    // Left of centre: the right side holds the battery badge + S-meter.
+    lv_obj_align(vfo, LV_ALIGN_CENTER, -24, 0);
 
     auto* smeter_box = lv_obj_create(header);
     lv_obj_remove_style_all(smeter_box);
@@ -155,13 +156,16 @@ void SpectrumScreen::build_content(lv_obj_t* content) {
     lv_obj_set_style_pad_column(smeter_box, 3, 0);
     lv_obj_align(smeter_box, LV_ALIGN_RIGHT_MID, -4, 0);
 
+    battery_ = std::make_unique<view::widgets::BatteryBadge>(smeter_box);
+    lv_obj_set_style_margin_right(battery_->obj(), 6, 0);
+
     auto* s_label = lv_label_create(smeter_box);
     lv_label_set_text(s_label, "S");
     lv_obj_set_style_text_font(s_label, small_font ? small_font : &lv_font_montserrat_12, 0);
     reactive::bind_theme(s_label, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
 
     auto* smeter = lv_bar_create(smeter_box);
-    lv_obj_set_size(smeter, 60, 8);
+    lv_obj_set_size(smeter, 44, 8);
     lv_bar_set_range(smeter, 0, 100);
     lv_obj_set_style_bg_color(smeter, view::palette(false).primary, LV_PART_INDICATOR);
     lv_obj_remove_flag(smeter, LV_OBJ_FLAG_CLICKABLE);
