@@ -155,6 +155,7 @@ private:
     // Coastline/border base layer for the Mercator map view.
     toolkit::map::VectorMap base_map_;
     std::unique_ptr<toolkit::LocationDialog> location_dialog_; // Settings > Location
+    bool location_prompted_ = false;                            // first-run prompt shown
     // Base-map pixels per canvas, replayed while the view is unchanged.
     toolkit::map::BaseMapCache scope_map_cache_;
     toolkit::map::BaseMapCache detail_map_cache_;

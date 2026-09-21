@@ -377,6 +377,12 @@ void AdsbScreen::tick_cb(lv_timer_t* timer) {
 }
 
 void AdsbScreen::tick() {
+    // First launch without a saved position: ask for one instead of centring
+    // on a default place. Once per run.
+    if (!location_prompted_ && !vm_.location_set()) {
+        location_prompted_ = true;
+        open_location_dialog();
+    }
     if (vm_.take_location_request()) open_location_dialog();
     // Drop stale entries (TTL from settings), then snapshot.
     store_.sweep(vm_.ttl_seconds());

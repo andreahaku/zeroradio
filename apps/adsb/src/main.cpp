@@ -62,6 +62,7 @@ int main() {
     // without a rebuild: ADSB_HOME_LAT, ADSB_HOME_LON, ADSB_TTL.
     // strtod (not atof) so a typo like "abc" is rejected instead of silently
     // moving home to lat/lon 0 (the equator); also range-check the value.
+    if (std::getenv("ADSB_HOME_LAT")) view_model.set_location_label("from ADSB_HOME_LAT/LON");
     if (const char* lat = std::getenv("ADSB_HOME_LAT"); lat && lat[0] != '\0') {
         char* end = nullptr;
         const double v = std::strtod(lat, &end);

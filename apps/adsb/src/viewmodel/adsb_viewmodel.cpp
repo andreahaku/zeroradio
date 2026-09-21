@@ -404,6 +404,7 @@ bool AdsbViewModel::take_location_request() {
 }
 
 void AdsbViewModel::set_location_label(std::string label) {
+    location_set_ = !label.empty();
     location_label_ = label.empty() ? std::string("Not set") : std::move(label);
 }
 

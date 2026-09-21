@@ -27,11 +27,11 @@
 #define APP_MOCK_NMEA_PATH "apps/ais/assets/mock/ais.nmea"
 #endif
 
-// AIS viewer (port of apps/adsb). Like ADS-B reading dump1090's decoded
-// aircraft.json, this reads decoded !AIVDM sentences produced on a host by
-// rtl_ais / AIS-catcher; the on-device decode (parse_aivdm) turns each sentence
-// into a Vessel and merges it into the shared EntityStore. AIS_NMEA overrides the
-// bundled mock file; AIS_HOME_LAT/LON/AIS_TTL re-centre/age the radar.
+// AIS viewer (port of apps/adsb). By default it starts the bundled AIS-catcher on
+// the local dongle and reads its !AIVDM sentences over UDP; parse_aivdm turns
+// each sentence into a Vessel and merges it into the shared EntityStore.
+// AIS_UDP/AIS_TCP/AIS_NMEA/AIS_SOURCE=mock pick another source (see below);
+// AIS_HOME_LAT/LON/AIS_TTL re-centre/age the radar.
 namespace {
 
 bool env_set(const char* name) {
@@ -59,6 +59,7 @@ int main() {
         view_model.set_location_label(place->label);
     }
 
+    if (std::getenv("AIS_HOME_LAT")) view_model.set_location_label("from AIS_HOME_LAT/LON");
     if (const char* lat = std::getenv("AIS_HOME_LAT"); lat && lat[0] != '\0') {
         char* end = nullptr;
         const double v = std::strtod(lat, &end);

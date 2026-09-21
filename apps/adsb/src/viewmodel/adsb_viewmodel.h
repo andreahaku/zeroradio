@@ -89,6 +89,9 @@ public:
     // location dialog; the label is what the row shows ("Valletta, MT").
     bool take_location_request();
     void set_location_label(std::string label);
+    // False until a position is saved (or given by env): the screen then opens
+    // the location dialog once, so a fresh install never centres on a default.
+    bool location_set() const { return location_set_; }
 
     // Applied settings, read by the screen.
     bool   units_km() const;
@@ -130,6 +133,7 @@ private:
     bool   map_mercator_{false};      // Radar screen: false = PPI radar, true = Mercator map
     bool        location_request_{false};
     std::string location_label_{"Not set"};
+    bool        location_set_{false};
     void move_cursor(int dir);
     void load_settings();
     void save_settings() const;

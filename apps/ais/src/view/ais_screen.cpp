@@ -332,6 +332,12 @@ void AisScreen::tick_cb(lv_timer_t* timer) {
 }
 
 void AisScreen::tick() {
+    // First launch without a saved position: ask for one instead of centring
+    // on a default place. Once per run.
+    if (!location_prompted_ && !vm_.location_set()) {
+        location_prompted_ = true;
+        open_location_dialog();
+    }
     if (vm_.take_location_request()) open_location_dialog();
     store_.sweep(vm_.ttl_seconds());
     auto rows = build_all_rows();
