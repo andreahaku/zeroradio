@@ -7,6 +7,7 @@
 #pragma once
 
 #include "hub_viewmodel.h"
+#include "text_viewer.h"
 #include "titlebar.h"
 
 #include "lvgl.h"
@@ -43,11 +44,13 @@ private:
 
     static void selected_cb(lv_observer_t* observer, lv_subject_t* subject);
     static void key_cb(uint32_t key, void* ctx);
+    void open_about();
 
     HubViewModel& vm_;
     app::AssetManager& assets_;
     lv_obj_t* root_{nullptr};
     std::unique_ptr<view::widgets::TitleBar> title_bar_;
+    std::unique_ptr<view::widgets::TextViewer> about_;
     std::vector<lv_obj_t*> rows_;
 };
 

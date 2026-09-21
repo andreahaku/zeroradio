@@ -40,6 +40,7 @@ std::string format_step(int32_t hz) {
 } // namespace
 
 SdrViewModel::SdrViewModel() {
+    set_help_doc("docs/help/sdr.md"); // H
     set_nav_provider(this);
     set_title("SDR");
 

@@ -47,9 +47,10 @@ std::string format_age(std::chrono::seconds age) {
 } // namespace
 
 SurveyViewModel::SurveyViewModel() {
+    set_help_doc("docs/help/survey.md"); // H
     set_nav_provider(this);
     set_dark_mode(model_.dark_mode());
-    set_title("SURVEY");
+    set_title("SCANNER");
     publish_range();
     refresh_sort_label();
 }

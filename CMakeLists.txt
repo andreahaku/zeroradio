@@ -8,6 +8,9 @@ cmake_minimum_required(VERSION 3.31)
 
 project(cardputer_radio VERSION 1.0.0 LANGUAGES C CXX)
 
+# Public source repository: the hub About page (text + QR) and the package homepage.
+set(RADIO_REPO_URL "https://github.com/andreahaku/cardputer-radio")
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -429,6 +432,7 @@ target_compile_definitions(radio_toolkit
     PUBLIC
         APP_NAME="zeroradio"
         APP_VERSION="${PROJECT_VERSION}"
+        ZERORADIO_DOCS_ROOT="$<IF:$<BOOL:${CMAKE_CROSSCOMPILING}>,/usr/share/zeroradio,${CMAKE_CURRENT_SOURCE_DIR}>"
         APP_CMAKE_ASSETS_ROOT="${RADIO_RUNTIME_ASSETS_ROOT}"
         APP_SOURCE_ASSETS_ROOT="${RADIO_RUNTIME_ASSETS_ROOT}"
         APP_FRAMEBUFFER_DEVICE="${APP_FRAMEBUFFER_DEVICE}"
@@ -534,6 +538,12 @@ if(CMAKE_CROSSCOMPILING)
     install(DIRECTORY "${RADIO_ASSETS_ROOT}/fonts" "${RADIO_ASSETS_ROOT}/mapdata"
                       "${RADIO_ASSETS_ROOT}/geodata"
             DESTINATION "${RADIO_PKG_DATADIR}")
+    # In-app help pages, changelog and credits (toolkit::read_doc), same
+    # relative paths as in the repository.
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/CHANGELOG.md" "${CMAKE_CURRENT_SOURCE_DIR}/CREDITS.md"
+            DESTINATION "${RADIO_PKG_DATADIR}")
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs/help"
+            DESTINATION "${RADIO_PKG_DATADIR}/docs")
     # Sample data for the *_SOURCE=mock modes (demos, screenshots).
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/apps/adsb/assets/mock/aircraft.json"
                   "${CMAKE_CURRENT_SOURCE_DIR}/apps/ais/assets/mock/ais.nmea"
@@ -552,7 +562,7 @@ if(CMAKE_CROSSCOMPILING)
     set(CPACK_PACKAGE_CONTACT "Andrea Salvatore <andreahaku@gmail.com>")
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
         "SDR, ADS-B, AIS, spectrum survey and ISM radio tools for CardputerZero")
-    set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/andreahaku/cardputer-radio")
+    set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "${RADIO_REPO_URL}")
     set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
     set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "arm64")
     set(CPACK_DEBIAN_PACKAGE_SECTION "hamradio")

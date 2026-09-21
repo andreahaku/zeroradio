@@ -27,6 +27,7 @@ constexpr std::array<double, 4> kTtlLadder = {30, 60, 120, 300};
 } // namespace
 
 IsmViewModel::IsmViewModel() {
+    set_help_doc("docs/help/ism.md"); // H
     set_nav_provider(this);
     set_title("ISM");
     load_settings();

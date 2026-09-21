@@ -24,6 +24,9 @@ void set_tab_handler(void (*handler)(void* ctx), void* ctx);
 // capture: move the cursor of the visible list. `dir` is -1 (up) or +1 (down).
 void set_arrow_handler(void (*handler)(int dir, void* ctx), void* ctx);
 
+// H outside a key capture: open the app's help page.
+void set_help_handler(void (*handler)(void* ctx), void* ctx);
+
 // While a capture handler is set (e.g. a modal frequency dialog), every key
 // is delivered to it raw and the normal nav/quit routing is bypassed. Pass
 // nullptr to release the capture. `text` (device keyboard) delivers letters,

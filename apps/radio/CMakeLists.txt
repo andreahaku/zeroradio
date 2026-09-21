@@ -30,3 +30,6 @@ target_link_libraries(radio_app
         radio_toolkit
         lvgl
 )
+
+# About page: link + QR code to the public source repository.
+target_compile_definitions(radio_app PRIVATE ZERORADIO_REPO_URL="${RADIO_REPO_URL}")

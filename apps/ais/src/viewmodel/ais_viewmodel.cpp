@@ -37,6 +37,7 @@ int nice_range(double nm) {
 } // namespace
 
 AisViewModel::AisViewModel() {
+    set_help_doc("docs/help/ais.md"); // H
     set_nav_provider(this);
     set_title("AIS");
     load_settings();

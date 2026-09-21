@@ -57,6 +57,8 @@ int main(int /*argc*/, char** argv) {
     for (const auto& entry : radio::app_catalog()) {
         if (!radio::resolve_app_binary(entry).empty()) installed.push_back(entry);
     }
+    // Last row: About opens in the hub itself (developer, changelog, credits).
+    installed.push_back(radio::about_entry());
 
     {
         app::AssetManager assets;

@@ -7,13 +7,16 @@
 #include "run_app.h"
 
 #include "asset_manager.h"
+#include "docs.h"
 #include "linux_input.h"
 #include "logger.h"
 #include "remote_fb.h"
+#include "text_viewer.h"
 #include "theme.h"
 #include "ui_const.h"
 
 #include <cstdlib>
+#include <memory>
 
 #if !USE_DESKTOP
 #if APP_USE_DRM
@@ -110,6 +113,24 @@ void tab_handler_trampoline(void* ctx) {
     static_cast<ShellViewModel*>(ctx)->on_tab();
 }
 
+// H: the app's help page in a full-screen reader. Lives until closed or until
+// run_app ends (then it is dropped before the display is released).
+struct HelpState {
+    ShellViewModel* shell;
+    app::AssetManager* assets;
+    std::unique_ptr<view::widgets::TextViewer> viewer;
+};
+
+void help_handler_trampoline(void* ctx) {
+    auto* st = static_cast<HelpState*>(ctx);
+    if (st->shell->help_doc().empty()) return;
+    std::string text = read_doc(st->shell->help_doc());
+    if (text.empty()) text = "The help page is not installed.";
+    st->viewer = std::make_unique<view::widgets::TextViewer>(
+        *st->assets, st->shell->is_dark_mode(),
+        std::vector<view::widgets::TextViewer::Page>{{"Help", text, {}}});
+}
+
 void arrow_handler_trampoline(int dir, void* ctx) {
     auto* shell = static_cast<ShellViewModel*>(ctx);
     if (dir < 0) shell->on_up();
@@ -143,6 +164,8 @@ int run_app(ShellViewModel& shell,
     platform::set_quit_handler(quit_handler_trampoline, &shell);
     platform::set_tab_handler(tab_handler_trampoline, &shell);
     platform::set_arrow_handler(arrow_handler_trampoline, &shell);
+    HelpState help{&shell, &assets, nullptr};
+    platform::set_help_handler(help_handler_trampoline, &help);
 
     // PLUGIN HOOK: the UI is constructed here independently of how the display
     // was created above. For the CardputerZero emulator (which dlopen()s a
@@ -178,6 +201,8 @@ int run_app(ShellViewModel& shell,
     platform::set_quit_handler(nullptr, nullptr);
     platform::set_tab_handler(nullptr, nullptr);
     platform::set_arrow_handler(nullptr, nullptr);
+    platform::set_help_handler(nullptr, nullptr);
+    help.viewer.reset();
     platform::set_key_capture(nullptr, nullptr);
 
     // Re-entrant teardown (the Radio hub): give the display back so a spawned

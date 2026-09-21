@@ -42,6 +42,7 @@ int nice_range(double nm) {
 } // namespace
 
 AdsbViewModel::AdsbViewModel() {
+    set_help_doc("docs/help/adsb.md"); // H
     set_nav_provider(this);
     set_title("ADSB");
     load_settings();

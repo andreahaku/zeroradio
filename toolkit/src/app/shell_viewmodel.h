@@ -59,6 +59,11 @@ public:
     virtual void on_up() {}
     virtual void on_down() {}
 
+    // Help page opened with H (run_app shows it), as a path relative to the
+    // repository root, e.g. "docs/help/sdr.md"; empty = no help.
+    void set_help_doc(std::string relative_path) { help_doc_ = std::move(relative_path); }
+    const std::string& help_doc() const { return help_doc_; }
+
     // --- NavBar tool page ---
     void cycle_toolbar();   // slot 0: next tool page (wraps), then bump nav_refresh
     void bump_nav_refresh(); // force a NavBar re-render after slot labels change
@@ -83,6 +88,7 @@ public:
 private:
     NavProvider* nav_provider_{nullptr};
     Handoff handoff_;
+    std::string help_doc_;
 
     reactive::BoolSubject       dark_mode_subject_{true};
     reactive::IntSubject        current_page_subject_{0};
