@@ -487,6 +487,10 @@ if(CMAKE_CROSSCOMPILING)
     set(RADIO_PKG_DATADIR "share/cardputer_radio")
     set(RADIO_APPLAUNCH   "share/APPLaunch")
 
+    # Bundled decoders (built from source, see cmake/decoders.cmake).
+    include(cmake/decoders.cmake)
+    install(PROGRAMS "${RADIO_READSB_BIN}" DESTINATION "${RADIO_PKG_BINDIR}")
+
     # App binaries + the hub, colocated so the hub can posix_spawn() its siblings.
     install(TARGETS radio_app sdr_app adsb_app meshtastic_app ais_app survey_app ism_app
             RUNTIME DESTINATION "${RADIO_PKG_BINDIR}")

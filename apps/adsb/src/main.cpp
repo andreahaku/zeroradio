@@ -9,17 +9,40 @@
 #include "aircraft.h"
 #include "app_config.h"
 #include "asset_manager.h"
+#include "child_service.h"
 #include "entity_store.h"
 #include "file_json_source.h"
 #include "run_app.h"
 
 #include <cstdlib>
+#include <cstring>
 #include <memory>
 #include <string>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #ifndef APP_MOCK_JSON_PATH
 #define APP_MOCK_JSON_PATH "apps/adsb/assets/mock/aircraft.json"
 #endif
+
+namespace {
+
+// Private directory where the app's own readsb writes aircraft.json:
+// $XDG_RUNTIME_DIR/zeroradio/adsb (tmpfs, per user), else /tmp/zeroradio-adsb-<uid>.
+std::string readsb_json_dir() {
+    std::string dir;
+    if (const char* rt = std::getenv("XDG_RUNTIME_DIR"); rt && rt[0] != '\0') {
+        dir = std::string(rt) + "/zeroradio";
+        ::mkdir(dir.c_str(), 0700);
+        dir += "/adsb";
+    } else {
+        dir = "/tmp/zeroradio-adsb-" + std::to_string(::getuid());
+    }
+    ::mkdir(dir.c_str(), 0700);
+    return dir;
+}
+
+} // namespace
 
 int main() {
     app::AssetManager assets;
@@ -53,10 +76,24 @@ int main() {
         }
     }
 
-    // Resolve the JSON source: ADSB_JSON env overrides the bundled mock file.
-    std::string json_path = APP_MOCK_JSON_PATH;
+    // Resolve the JSON source. Default: the dongle on this device, decoded by our
+    // own readsb (kept alive for the app's lifetime, stopped on exit).
+    // ADSB_JSON=<file> reads an existing aircraft.json (e.g. a remote dump1090);
+    // ADSB_SOURCE=mock uses the bundled sample file.
+    std::string json_path;
+    std::unique_ptr<toolkit::ChildService> readsb;
+    const char* want = std::getenv("ADSB_SOURCE");
     if (const char* env = std::getenv("ADSB_JSON"); env && env[0] != '\0') {
         json_path = env;
+    } else if (want && std::strcmp(want, "mock") == 0) {
+        json_path = APP_MOCK_JSON_PATH;
+    } else {
+        const std::string dir = readsb_json_dir();
+        json_path = dir + "/aircraft.json";
+        ::unlink(json_path.c_str()); // never show a previous session's aircraft
+        readsb = std::make_unique<toolkit::ChildService>(std::vector<std::string>{
+            toolkit::find_tool("readsb"), "--device-type", "rtlsdr", "--gain", "auto",
+            "--write-json", dir, "--write-json-every", "1", "--quiet"});
     }
 
     // Background poller: parse aircraft.json on the reader thread and merge into

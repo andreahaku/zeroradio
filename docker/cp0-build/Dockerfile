@@ -29,3 +29,12 @@ RUN dpkg --add-architecture arm64 \
         libasound2-dev:arm64 \
         libfmt-dev:arm64 \
  && rm -rf /var/lib/apt/lists/*
+
+# Decoders bundled in the package because Debian's builds don't fit (see
+# cmake/decoders.cmake): readsb needs RTL-SDR support, which Debian's lacks.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+        librtlsdr-dev:arm64 \
+        libzstd-dev:arm64 \
+        libncurses-dev:arm64 \
+ && rm -rf /var/lib/apt/lists/*
