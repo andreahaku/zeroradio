@@ -4,7 +4,7 @@ Context for any coding session in this repository. Read this first, then the REA
 
 ## What this is
 
-ZeroRadio is a suite of radio apps for the [M5Stack CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero): a Linux ARM64 handheld (Raspberry Pi CM0, Debian 13 trixie) with a 320x170 RGB565 screen and a keyboard. An RTL-SDR dongle in the USB-A port feeds every app. Each app starts its own decoder on the device and stops it on exit.
+ZeroRadio is a suite of radio apps for the [M5Stack CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero): a Linux ARM64 handheld (Raspberry Pi CM0, Debian 13 trixie) with a 320x170 RGB565 screen and a keyboard. An RTL-SDR dongle in the USB-A port feeds every app. Each app starts its own decoder on the device and stops it on exit. Hardware reference: [M5Stack documentation](https://docs.m5stack.com/en/CardputerZero).
 
 - `toolkit/`: the shared library. App shell and run loop, reactive subjects (MVVM), key routing, NavBar, themes, vector map, geo, location, sources, text viewer. See `toolkit/README.md`.
 - `apps/radio`: the hub (the single launcher entry "ZeroRadio"). It lists the installed apps, launches one at a time and shows About.

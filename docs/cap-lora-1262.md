@@ -10,7 +10,7 @@ detected`, region `EU_868`, real GNSS fix shown by the app on the device.
 
 ## Hardware map (probed on the real device, schematic v0.3)
 
-The CardputerZero HAT port (JP5) exposes SPI0 (kernel CS1), I2C1, the mini-UART, GPIO22/23 and
+The CardputerZero hardware is described in the [M5Stack documentation](https://docs.m5stack.com/en/CardputerZero). Its HAT port (JP5) exposes SPI0 (kernel CS1), I2C1, the mini-UART, GPIO22/23 and
 a gated 5 V rail (`G5_HAT_5VOUT_EN`, high by default). The cap's signals land as:
 
 | Cap signal | CardputerZero | Notes |

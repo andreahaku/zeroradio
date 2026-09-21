@@ -1,7 +1,7 @@
 # Architecture — ZeroRadio
 
 ZeroRadio is a family of radio apps for the **[M5Stack CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero)**: a Linux ARM64 handheld
-(Raspberry Pi CM0, Debian 13 trixie) with a 320×170 RGB565 screen and a keyboard. One shared
+(Raspberry Pi CM0, Debian 13 trixie) with a 320×170 RGB565 screen and a keyboard ([hardware documentation](https://docs.m5stack.com/en/CardputerZero)). One shared
 **toolkit** carries the shell, widgets, maps and data sources. Each app adds a parser, a field
 mapping and its screens.
 

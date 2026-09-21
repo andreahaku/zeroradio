@@ -26,7 +26,7 @@ Each app starts its decoder when it opens and stops it when it closes, so the ne
 
 ## Hardware
 
-- An M5Stack CardputerZero, hardware V0.6 or later (USB host on the USB-A port).
+- An M5Stack CardputerZero, hardware V0.6 or later (USB host on the USB-A port). Specifications: [M5Stack documentation](https://docs.m5stack.com/en/CardputerZero).
 - An RTL-SDR dongle, for example the RTL-SDR Blog V4, with an antenna for the band you use.
 - Optional: a GPS for your position, either the M5Stack Cap LoRa-1262-GPS or a USB GPS receiver.
 
