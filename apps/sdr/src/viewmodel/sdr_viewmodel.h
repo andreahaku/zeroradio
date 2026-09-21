@@ -27,7 +27,7 @@ public:
     enum class Page : int {
         Tuning   = 0, // < / freq-entry / >  + fine-step toggle
         Zoom     = 1, // zoom- / band / zoom+ / mode
-        Visual   = 2, // theme / freq grid / time grid / peak hold
+        Visual   = 2, // theme / freq grid / waterfall split / peak hold
         Audio    = 3, // mute / vol- / vol+ / vol readout
         Settings = 4, // gain- / gain+ / gain auto / exit
     };

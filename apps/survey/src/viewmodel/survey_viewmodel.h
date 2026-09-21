@@ -29,8 +29,8 @@ class SurveyViewModel : public toolkit::ShellViewModel, public toolkit::NavProvi
 public:
     // NavBar tool pages; the screen shows the matching view per page.
     enum class Page : int {
-        Waterfall = 0, // zoom- / range preset / zoom+ / theme
-        Peaks     = 1, // cursor up / cursor down / open in SDR / exit
+        Waterfall = 0, // zoom- / tune dialog / zoom+ / theme
+        Peaks     = 1, // cursor up / cursor down / open in SDR / cycle sort
     };
 
     SurveyViewModel();

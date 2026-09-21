@@ -75,6 +75,11 @@ void IsmViewModel::select_prev() {
     const int i = cursor_index();
     const int n = static_cast<int>(visible_order_.size());
     cursor_key_ = visible_order_[(i <= 0 ? n : i) - 1];
+    // On Detail the locked device follows the cursor, so prev/next browse the
+    // devices instead of moving a cursor Detail doesn't show.
+    if (screen() == static_cast<int>(Screen::Detail) && !selected_key_.empty()) {
+        selected_key_ = cursor_key_;
+    }
 }
 
 void IsmViewModel::select_next() {
@@ -82,6 +87,11 @@ void IsmViewModel::select_next() {
     const int i = cursor_index();
     const int n = static_cast<int>(visible_order_.size());
     cursor_key_ = visible_order_[(i + 1) % n];
+    // On Detail the locked device follows the cursor, so prev/next browse the
+    // devices instead of moving a cursor Detail doesn't show.
+    if (screen() == static_cast<int>(Screen::Detail) && !selected_key_.empty()) {
+        selected_key_ = cursor_key_;
+    }
 }
 
 void IsmViewModel::toggle_select() {
