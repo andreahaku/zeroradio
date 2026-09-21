@@ -406,4 +406,14 @@ void AdsbViewModel::set_location_label(std::string label) {
     location_label_ = label.empty() ? std::string("Not set") : std::move(label);
 }
 
+void AdsbViewModel::move_cursor(int dir) {
+    if (screen() == static_cast<int>(Screen::List)) {
+        if (dir < 0) select_prev();
+        else select_next();
+    } else if (screen() == static_cast<int>(Screen::Settings)) {
+        if (dir < 0) settings_up();
+        else settings_down();
+    }
+}
+
 } // namespace adsb

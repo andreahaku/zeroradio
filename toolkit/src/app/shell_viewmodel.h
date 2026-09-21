@@ -54,6 +54,11 @@ public:
     // TAB key: nothing by default; an app overrides it (e.g. SDR <-> Survey).
     virtual void on_tab() {}
 
+    // Up/down keys (arrows, F/X): move the cursor of the visible list, like the
+    // NavBar up/down slots. Nothing by default; list pages override it.
+    virtual void on_up() {}
+    virtual void on_down() {}
+
     // --- NavBar tool page ---
     void cycle_toolbar();   // slot 0: next tool page (wraps), then bump nav_refresh
     void bump_nav_refresh(); // force a NavBar re-render after slot labels change

@@ -110,6 +110,12 @@ void tab_handler_trampoline(void* ctx) {
     static_cast<ShellViewModel*>(ctx)->on_tab();
 }
 
+void arrow_handler_trampoline(int dir, void* ctx) {
+    auto* shell = static_cast<ShellViewModel*>(ctx);
+    if (dir < 0) shell->on_up();
+    else shell->on_down();
+}
+
 } // namespace
 
 int run_app(ShellViewModel& shell,
@@ -136,6 +142,7 @@ int run_app(ShellViewModel& shell,
     // ESC quits from any tool page (decoupled from nav key '4').
     platform::set_quit_handler(quit_handler_trampoline, &shell);
     platform::set_tab_handler(tab_handler_trampoline, &shell);
+    platform::set_arrow_handler(arrow_handler_trampoline, &shell);
 
     // PLUGIN HOOK: the UI is constructed here independently of how the display
     // was created above. For the CardputerZero emulator (which dlopen()s a
@@ -170,6 +177,7 @@ int run_app(ShellViewModel& shell,
     // shell / screen (matters if run_app() is ever re-entered, e.g. as a plugin).
     platform::set_quit_handler(nullptr, nullptr);
     platform::set_tab_handler(nullptr, nullptr);
+    platform::set_arrow_handler(nullptr, nullptr);
     platform::set_key_capture(nullptr, nullptr);
 
     // Re-entrant teardown (the Radio hub): give the display back so a spawned

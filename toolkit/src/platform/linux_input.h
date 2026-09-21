@@ -20,6 +20,10 @@ void set_quit_handler(void (*handler)(void* ctx), void* ctx);
 // TAB (LV_KEY_NEXT) outside a key capture: app switch (SDR <-> Survey).
 void set_tab_handler(void (*handler)(void* ctx), void* ctx);
 
+// Up/down (arrows, or F/X on the CardputerZero keyboard) outside a key
+// capture: move the cursor of the visible list. `dir` is -1 (up) or +1 (down).
+void set_arrow_handler(void (*handler)(int dir, void* ctx), void* ctx);
+
 // While a capture handler is set (e.g. a modal frequency dialog), every key
 // is delivered to it raw and the normal nav/quit routing is bypassed. Pass
 // nullptr to release the capture. `text` (device keyboard) delivers letters,

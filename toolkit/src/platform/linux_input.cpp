@@ -28,6 +28,8 @@ void (*quit_handler)(void*) = nullptr;
 void* quit_ctx = nullptr;
 void (*tab_handler)(void*) = nullptr;
 void* tab_ctx = nullptr;
+void (*arrow_handler)(int, void*) = nullptr;
+void* arrow_ctx = nullptr;
 void (*key_capture)(uint32_t, void*) = nullptr;
 void* capture_ctx = nullptr;
 bool capture_text = false;
@@ -67,6 +69,10 @@ void dispatch_nav_key(uint32_t key) {
     }
     if (key == LV_KEY_NEXT) {
         if (tab_handler) tab_handler(tab_ctx);
+        return;
+    }
+    if (key == LV_KEY_UP || key == LV_KEY_DOWN) {
+        if (arrow_handler) arrow_handler(key == LV_KEY_UP ? -1 : 1, arrow_ctx);
         return;
     }
 
@@ -315,6 +321,11 @@ void attach_key_router(lv_indev_t* indev) {
     }
 
     lv_indev_add_event_cb(indev, key_event_cb, LV_EVENT_KEY, nullptr);
+}
+
+void set_arrow_handler(void (*handler)(int dir, void* ctx), void* ctx) {
+    arrow_handler = handler;
+    arrow_ctx = ctx;
 }
 
 void set_tab_handler(void (*handler)(void* ctx), void* ctx) {

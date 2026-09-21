@@ -98,6 +98,14 @@ public:
     // TAB: switch to the SDR app at its own frequency (see toolkit::run_handoff).
     void on_tab() override { request_handoff("sdr_app", "sdr"); }
 
+    // F/X (arrows): the Peaks cursor (no list on the waterfall page).
+    void on_up() override {
+        if (lv_subject_get_int(toolbar_page_subject()) == static_cast<int>(Page::Peaks)) peaks_cursor_up();
+    }
+    void on_down() override {
+        if (lv_subject_get_int(toolbar_page_subject()) == static_cast<int>(Page::Peaks)) peaks_cursor_down();
+    }
+
 private:
     void publish_range();
     void clamp_selection();

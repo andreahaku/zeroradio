@@ -214,4 +214,14 @@ void IsmViewModel::save_settings() const {
     if (ec) std::filesystem::remove(tmp, ec);
 }
 
+void IsmViewModel::move_cursor(int dir) {
+    if (screen() == static_cast<int>(Screen::List) || screen() == static_cast<int>(Screen::Detail)) {
+        if (dir < 0) select_prev();
+        else select_next();
+    } else if (screen() == static_cast<int>(Screen::Settings)) {
+        if (dir < 0) settings_up();
+        else settings_down();
+    }
+}
+
 } // namespace ism
