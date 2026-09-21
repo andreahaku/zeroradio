@@ -45,4 +45,4 @@ These run as separate programs next to the apps. Their full source is available 
 
 ## Thanks
 
-Thanks to M5Stack and M5Stack for the CardputerZero and for their support during development.
+Thanks to M5Stack and Harrison Xu for the CardputerZero and for their support during development.
