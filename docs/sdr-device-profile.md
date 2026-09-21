@@ -9,7 +9,7 @@ Date: 2026-06-30. First real CPU/RAM/thermal profile of `sdr_app` on the physica
 - **Capture model**: dongle on the host (X1), not on the device — the USB host port is still
   hardware-blocked (see `device-usb-host-blocker`). RTL-SDR Blog **V4** on the X1 →
   `rtl_tcp -a 0.0.0.0 -p 1234` → device connects over LAN.
-- **Run env**: `SDR_RTLTCP=<device-ip>:1234`, `SDR_SAMPLE_RATE=1024000`. Rendering to `/dev/fb0`.
+- **Run env**: `SDR_RTLTCP=<host>:1234`, `SDR_SAMPLE_RATE=1024000`. Rendering to `/dev/fb0`.
 - **Audio**: NOT engaged — blocked by PipeWire (see finding below). The profile is DSP + display only.
 - Profiler: `scripts/sdr-profile.sh 30 sdr_app` (per-core from `/proc/stat`, no `mpstat` on device).
 

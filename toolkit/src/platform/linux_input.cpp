@@ -1,3 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2026 M5Stack Technology CO LTD
+ * SPDX-FileCopyrightText: 2026 One Small Step Apps Ltd
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "linux_input.h"
 
 #include <array>

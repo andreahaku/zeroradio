@@ -1,3 +1,11 @@
+/*
+ * SPDX-FileCopyrightText: 2026 M5Stack Technology CO LTD
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ * LVGL configuration, based on LVGL's lv_conf_template.h (MIT, LVGL Kft).
+ */
+
 /**
  * lv_conf_desktop.h
  *
