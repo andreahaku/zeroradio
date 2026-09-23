@@ -2,6 +2,8 @@
 
 Radio tools for the [M5Stack CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero). Plug an RTL-SDR dongle into the USB-A port and ZeroRadio turns the CardputerZero into a pocket receiver: listen to a frequency, scan a band for activity, sniff 433/868 MHz sensors, and track aircraft and ships on a map. Every decoder runs on the device. No computer or network is needed.
 
+![SDR — live WFM broadcast, scrolling waterfall](apps/sdr/docs/media/demo.gif)
+
 | Hub | SDR | Scanner |
 | --- | --- | --- |
 | ![ZeroRadio hub](docs/media/hub.png) | ![SDR spectrum and waterfall](docs/media/sdr.png) | ![Scanner waterfall and peaks](docs/media/scanner.png) |
