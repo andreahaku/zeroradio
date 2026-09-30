@@ -15,3 +15,6 @@ graphify-out/
 
 # /scaffold reward-lock (frozen-reward SHA snapshot; tooling artifact)
 .scaffold/
+
+# Session handover, local only (the public repo carries no handovers)
+/HANDOVER.md
