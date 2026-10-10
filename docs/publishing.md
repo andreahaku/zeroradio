@@ -36,7 +36,18 @@ cmake -DPACKAGE_FILE=build/cp0-trixie/zeroradio_<version>_arm64.deb \
 
 The Template validator also expects a Debian revision in the file name (`name_version_revision_arm64.deb`). The store CI instead requires `name_version_arch.deb`, the Debian default that CPack produces. Keep the CPack name, and ignore that single validator message.
 
+The policy script reads the package with `dpkg-deb`. On a host without it (Arch, macOS) it prints nothing, so a clean result there proves nothing. Run it in a container instead:
+
+```bash
+docker run --rm -v "$PWD/..:/w:ro" debian:trixie bash -c \
+  "apt-get update -qq && apt-get install -y -qq python3 >/dev/null && \
+   python3 /w/packages/.github/scripts/install_path_policy.py zeroradio \
+     /w/zeroradio/build/cp0-trixie/zeroradio_<version>_arm64.deb /tmp/bad.txt; cat /tmp/bad.txt"
+```
+
 The store rules the manifest must meet: a summary of 80 characters or less, 1 or 2 categories from the fixed list, 1 to 6 screenshots of 320x170 PNG, a square icon of 128 to 512 px, all 7 permission flags, a unique 4-character share code, and no template placeholder text.
+
+`store.locales` holds the translated summaries. The Store app and the cardputer.cc site look up the user's language, then `en`, then `zh-CN`, and only then the top-level `summary`. Keep an `en` entry in `locales`, or English users see the Chinese summary. Today the Store shows only English, Chinese and Japanese. The Italian, French, German and Spanish entries are ready for when it adds more.
 
 ## 4. Test on a device
 
