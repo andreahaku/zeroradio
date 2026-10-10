@@ -55,7 +55,7 @@ Inside every app:
 | 4 | Next tool page |
 | 5, 6, 7, 8 | The four actions shown in the bottom bar |
 | F / X | Move the cursor in a list or in Settings |
-| H | Help for this app |
+| H or Fn+H | Help for this app |
 | TAB | Switch between SDR and Scanner |
 | Esc | Back to the hub |
 | Hold Esc 3 s | Back to the CardputerZero launcher |

@@ -24,7 +24,7 @@ Sort (Peaks, key 8): power, frequency, age, each descending then ascending. The 
 
 - F/X (up/down arrows): move the cursor on the Peaks page.
 - TAB: switch to the SDR app.
-- H: this help. F/X scroll it, Esc closes it.
+- H or Fn+H: this help. F/X scroll it, Esc closes it.
 - Esc: quit to the hub.
 
 ## Tips

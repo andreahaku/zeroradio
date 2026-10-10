@@ -25,7 +25,7 @@ Frequency entry (page 1, key 6): type MHz with digits and a dot (up to 4 decimal
 ## Global keys
 
 - TAB: switch to the Scanner app.
-- H: this help. F/X scroll it, Esc closes it.
+- H or Fn+H: this help. F/X scroll it, Esc closes it.
 - Esc: quit to the hub.
 
 ## Tips

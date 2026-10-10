@@ -206,6 +206,7 @@ uint32_t map_evdev_key(uint16_t code) {
         case KEY_ESC:        return LV_KEY_ESC;
         case KEY_TAB:        return LV_KEY_NEXT;
         case KEY_H:          return 'h'; // help page
+        case KEY_HELP:       return 'h'; // Fn+H, the system's help key
         // Arrow keys + enter drive list navigation (the Radio hub menu and the
         // aircraft/node/ship lists): a portable selection scheme alongside the
         // 4-8 nav bar. Ignored by screens that don't consume them.

@@ -21,7 +21,7 @@ Theme switches dark/light. TTL is how long a silent device stays listed: 30, 60,
 ## Global keys
 
 - F/X (up/down arrows): move the cursor on the List, Detail and Settings pages.
-- H: this help. F/X scroll it, Esc closes it.
+- H or Fn+H: this help. F/X scroll it, Esc closes it.
 - Esc: quit to the hub.
 
 ## Tips
