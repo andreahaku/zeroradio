@@ -37,7 +37,7 @@ public:
     // --- lifecycle ---
     void request_quit();
 
-    // Exit code asking the Radio hub to close too: the user held ESC 3 s to go
+    // Exit code asking the Radio hub to close too: the user held ESC 0.7 s to go
     // straight back to the system launcher.
     static constexpr int kExitHome = 42;
     void request_home() { exit_code_ = kExitHome; request_quit(); }

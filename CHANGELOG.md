@@ -13,5 +13,5 @@ First public release: a suite of radio tools for the [M5Stack CardputerZero](htt
 - AIS: ship list, radar and world map with the bundled AIS-catcher decoder.
 - Location: set your position once for the whole suite, by city name (offline list of 34,000 cities), coordinates or the GPS of the Cap LoRa-1262-GPS.
 - Detailed worldwide map (Natural Earth 10m) for the ADS-B and AIS map views.
-- TAB switches between SDR and Scanner; F/X scroll every list; H (or Fn+H) opens the help of each app.
+- TAB switches between SDR and Scanner; F/X scroll every list; H (or Fn+H) opens the help of each app; holding Esc returns to the launcher.
 - Battery level in every app, with a charge indicator.

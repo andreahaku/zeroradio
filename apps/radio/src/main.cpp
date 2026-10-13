@@ -90,7 +90,7 @@ int main(int /*argc*/, char** argv) {
     } else {
         LOG_INFO("radio hub: launching {} ({})", target_id, path);
         std::fflush(nullptr); // make the launch visible before the child takes over
-        // Blocks until the app exits (display is free). An app left with a 3 s
+        // Blocks until the app exits (display is free). An app left with a long
         // ESC hold asks for the system launcher: close the hub too.
         if (radio::run_app_binary(path) == toolkit::ShellViewModel::kExitHome) return 0;
     }

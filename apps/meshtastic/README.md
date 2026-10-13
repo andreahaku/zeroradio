@@ -132,7 +132,7 @@ docker run -d --name mtd-sim -p 127.0.0.1:4403:4403 \
 ```
 
 Keys: `4` cycles the view (Chats→Nodes→Map→Tools→Settings), and `5`–`8` are per-view actions.
-`Esc` returns to the hub, and holding `Esc` for 3 s returns to the system launcher.
+`Esc` returns to the hub, and holding `Esc` (0.7 s) returns to the system launcher.
 
 > Note: a single `meshtasticd -s` node has no peer, so no incoming messages appear. To exercise receive,
 > use a second node or a scripted Client-API peer that connects to the same daemon and injects

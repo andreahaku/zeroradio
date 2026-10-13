@@ -135,7 +135,7 @@ void home_handler_trampoline(void* ctx) {
     static_cast<ShellViewModel*>(ctx)->request_home();
 }
 
-// "Hold ESC 3s to return home" toast while ESC is held (CardputerZero convention).
+// "Hold ESC to return home" toast while ESC is held (CardputerZero convention).
 lv_obj_t* hold_toast = nullptr;
 
 void hold_hint_trampoline(bool show, void* /*ctx*/) {
@@ -146,7 +146,7 @@ void hold_hint_trampoline(bool show, void* /*ctx*/) {
     }
     if (hold_toast) return;
     hold_toast = lv_label_create(lv_layer_top());
-    lv_label_set_text(hold_toast, "Hold ESC 3s to return home");
+    lv_label_set_text(hold_toast, "Hold ESC to return home");
     lv_obj_set_style_text_font(hold_toast, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(hold_toast, lv_color_white(), 0);
     lv_obj_set_style_bg_color(hold_toast, lv_color_hex(0x1f3a5f), 0);

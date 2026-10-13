@@ -35,7 +35,7 @@ field mapping.
 
 Global keys, shared by every ZeroRadio app:
 
-- `Esc` — back to the hub. Hold `Esc` for 3 s to return to the system launcher.
+- `Esc` — back to the hub. Hold `Esc` (0.7 s) to return to the system launcher.
 - `H` — open the in-app help ([`docs/help/ism.md`](../../docs/help/ism.md)).
 - `F`/`X` (up/down) — move the List, Detail and Settings cursors.
 

@@ -34,7 +34,7 @@ input (keyboard) → key router (toolkit platform/linux_input)
    ├─ F/X, ↑/↓ → ShellViewModel::on_up() / on_down()   (move the cursor of the visible list)
    ├─ TAB      → ShellViewModel::on_tab()              (SDR ↔ Scanner)
    ├─ H        → help page (ShellViewModel::help_doc(), shown in a TextViewer)
-   ├─ ESC      → short press: back / quit (run_app); hold 3 s: exit with kExitHome
+   ├─ ESC      → short press: back / quit (run_app); hold 0.7 s: exit with kExitHome
    └─ capture  → while a modal dialog is open, every key goes to it
 
 live data (independent of input, never blocks the UI):
@@ -84,7 +84,7 @@ A new app needs a parser, a `NavProvider` that maps keys to actions, and a scree
 - Digits 4-8 drive the NavBar slots.
 - F/X (and the arrow keys) call `on_up()` / `on_down()`. Z/C act as left/right inside dialogs.
 - TAB calls `on_tab()`. H opens the page set with `set_help_doc()`.
-- A short ESC press goes back or quits. Holding ESC shows a hint after 0.5 s and, at 3 s, calls
+- A short ESC press goes back or quits. Holding ESC shows a hint after 0.3 s and, at 0.7 s, calls
   `request_home()`: the app exits with `ShellViewModel::kExitHome` and the hub closes too, which
   returns the user to the system launcher.
 - A dialog takes the keyboard with `platform::set_key_capture()`. Pass `text=true` only for

@@ -58,7 +58,7 @@ Inside every app:
 | H or Fn+H | Help for this app |
 | TAB | Switch between SDR and Scanner |
 | Esc | Back to the hub |
-| Hold Esc 3 s | Back to the CardputerZero launcher |
+| Hold Esc | Back to the CardputerZero launcher |
 
 **Your position.** ADS-B and AIS centre their radar and map on your position. Set it once in Settings > Location of either app. Type a city name, type coordinates such as `35.90, 14.51`, or pick the GPS row. The position is shared by the whole suite.
 

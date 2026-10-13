@@ -44,8 +44,8 @@ void (*hold_hint_handler)(bool, void*) = nullptr;
 void* home_ctx = nullptr;
 
 // ESC hold tracking (see set_home_handler).
-constexpr uint32_t kHoldHintMs = 500;
-constexpr uint32_t kHoldHomeMs = 3000;
+constexpr uint32_t kHoldHintMs = 300;
+constexpr uint32_t kHoldHomeMs = 700; // the CardputerZero Template value
 lv_indev_t* esc_indev = nullptr;
 uint32_t esc_started_at = 0;
 bool esc_hint_shown = false;

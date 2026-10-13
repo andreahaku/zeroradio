@@ -57,7 +57,7 @@ Install the package the way the AppStore does, with apt resolving the dependenci
 sudo apt install ./zeroradio_<version>_arm64.deb
 ```
 
-Then open ZeroRadio from the launcher and check every app with a dongle attached: SDR audio, a Scanner sweep and Open in SDR, ISM devices, ADS-B aircraft, AIS ships, Settings > Location, H (help), TAB (SDR <-> Scanner), Esc and a 3 s Esc hold.
+Then open ZeroRadio from the launcher and check every app with a dongle attached: SDR audio, a Scanner sweep and Open in SDR, ISM devices, ADS-B aircraft, AIS ships, Settings > Location, H (help), TAB (SDR <-> Scanner), Esc and a long Esc hold (0.7 s).
 
 ## 5. Screenshots and icon
 
