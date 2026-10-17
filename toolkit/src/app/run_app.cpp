@@ -156,6 +156,39 @@ Overlays overlays;
 
 constexpr uint32_t kHintShowMs = 4000;
 
+// System fonts with the Japanese and Chinese glyphs Inter lacks, in order of
+// preference. LVGL opens face 0 of a collection, which in Noto Sans CJK is the
+// Japanese one, so Chinese prefers Droid Sans Fallback (fonts-droid-fallback,
+// a dependency of the package). Debian paths first, then Arch for the desktop.
+constexpr const char* kJapaneseFonts[] = {
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+};
+constexpr const char* kChineseFonts[] = {
+    "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+};
+
+// Japanese or Chinese: Inter keeps drawing the Latin text and the first CJK
+// font found supplies the other glyphs, as an LVGL fallback font.
+void attach_cjk_fallback(app::AssetManager& assets, uint32_t size) {
+    const i18n::Lang lang = i18n::current();
+    if (!i18n::needs_cjk_font(lang)) return;
+    lv_font_t* cjk = nullptr;
+    for (const char* path : lang == i18n::Lang::Ja ? kJapaneseFonts : kChineseFonts) {
+        if ((cjk = assets.load_font(path, size))) break;
+    }
+    if (!cjk) {
+        LOG_WARN("no CJK font found: the tooltips show missing glyphs");
+        return;
+    }
+    if (overlays.font) overlays.font->fallback = cjk;
+    else overlays.font = cjk;
+    if (overlays.bold) overlays.bold->fallback = cjk;
+}
+
 lv_obj_t* make_box(lv_coord_t width) {
     auto* box = lv_obj_create(lv_layer_top());
     lv_obj_remove_style_all(box);
@@ -202,7 +235,8 @@ void hold_hint_trampoline(bool show, void* /*ctx*/) {
                           "Tieni premuto ESC per uscire",
                           "Maintenez ESC pour quitter",
                           "ESC gedrückt halten zum Beenden",
-                          "Mantén pulsado ESC para salir"}),
+                          "Mantén pulsado ESC para salir",
+                          "ESC を押し続けると終了します", "按住 ESC 以退出"}),
               overlays.font);
     auto* bar = lv_bar_create(overlays.hold_box);
     lv_obj_set_size(bar, LV_PCT(100), 6);
@@ -239,7 +273,7 @@ void nav_hint_trampoline(int slot, void* /*ctx*/) {
     close_nav_hint();
     if (!overlays.shell) return;
     const i18n::Text hint = overlays.shell->nav_hint(slot);
-    const i18n::Text title_format{"Key %d", "Tasto %d", "Touche %d", "Taste %d", "Tecla %d"};
+    const i18n::Text title_format{"Key %d", "Tasto %d", "Touche %d", "Taste %d", "Tecla %d", "キー %d", "按键 %d"};
     char title[24];
     std::snprintf(title, sizeof(title), i18n::pick(title_format), slot + 4);
 
@@ -250,10 +284,11 @@ void nav_hint_trampoline(int slot, void* /*ctx*/) {
                                          "Questo tasto non fa nulla in questa pagina.",
                                          "Cette touche n’a pas d’effet sur cette page.",
                                          "Diese Taste hat auf dieser Seite keine Funktion.",
-                                         "Esta tecla no hace nada en esta página."})
+                                         "Esta tecla no hace nada en esta página.",
+                                         "このページではこのキーは使いません。", "此键在本页面无功能。"})
                            : i18n::pick(hint),
               overlays.font);
-    lv_obj_align(overlays.hint_box, LV_ALIGN_BOTTOM_MID, 0, -(view::kNavBarHeight + 4));
+    lv_obj_align(overlays.hint_box, LV_ALIGN_CENTER, 0, 0);
 
     overlays.hint_timer = lv_timer_create(hint_timer_cb, kHintShowMs, nullptr);
     lv_timer_set_repeat_count(overlays.hint_timer, 1);
@@ -308,6 +343,7 @@ int run_app(ShellViewModel& shell,
     platform::set_home_handler(home_handler_trampoline, hold_hint_trampoline, &shell);
     overlays = Overlays{&shell, assets.load_font("inter-regular.ttf", 13),
                         assets.load_font("inter-semibold.ttf", 13), nullptr, nullptr, nullptr};
+    attach_cjk_fallback(assets, 13);
     platform::set_nav_hint_handler(nav_hint_trampoline, &shell);
     platform::set_key_activity_handler(key_activity_trampoline, &shell);
     HelpState help{&shell, &assets, nullptr};

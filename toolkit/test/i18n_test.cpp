@@ -27,21 +27,30 @@ int main() {
     check(parse_locale("de") == Lang::De, "de -> de");
     check(parse_locale("es-ES") == Lang::Es, "es-ES -> es");
     check(parse_locale("en_US.UTF-8") == Lang::En, "en_US -> en");
-    check(parse_locale("ja_JP.UTF-8") == Lang::En, "ja (no glyphs) -> en");
-    check(parse_locale("zh_CN.UTF-8") == Lang::En, "zh (no glyphs) -> en");
+    check(parse_locale("ja_JP.UTF-8") == Lang::Ja, "ja_JP -> ja");
+    check(parse_locale("zh_CN.UTF-8") == Lang::Zh, "zh_CN -> zh");
+    check(parse_locale("zh_TW.UTF-8") == Lang::Zh, "zh_TW -> zh (Simplified)");
+    check(parse_locale("ko_KR.UTF-8") == Lang::En, "ko (no translation) -> en");
+    check(needs_cjk_font(Lang::Ja) && needs_cjk_font(Lang::Zh), "ja and zh need a CJK font");
+    check(!needs_cjk_font(Lang::It), "it uses Inter");
     check(parse_locale("C") == Lang::En, "C -> en");
     check(parse_locale("") == Lang::En, "empty -> en");
     check(parse_locale(nullptr) == Lang::En, "null -> en");
     check(parse_locale("item") == Lang::En, "a word starting with a code is not that code");
 
-    const Text full{"Zoom in", "Ingrandisci", "Zoom avant", "Vergrößern", "Acercar"};
+    const Text full{"Zoom in", "Ingrandisci", "Zoom avant", "Vergrößern", "Acercar",
+                    "ズームイン", "放大"};
     check(std::strcmp(pick(full, Lang::It), "Ingrandisci") == 0, "pick it");
     check(std::strcmp(pick(full, Lang::De), "Vergrößern") == 0, "pick de");
     check(std::strcmp(pick(full, Lang::En), "Zoom in") == 0, "pick en");
+    check(std::strcmp(pick(full, Lang::Ja), "ズームイン") == 0, "pick ja");
+    check(std::strcmp(pick(full, Lang::Zh), "放大") == 0, "pick zh");
 
-    const Text partial{"Zoom in", nullptr, "", nullptr, nullptr};
+    const Text partial{"Zoom in", nullptr, "", nullptr, nullptr, nullptr, ""};
     check(std::strcmp(pick(partial, Lang::It), "Zoom in") == 0, "null falls back to en");
     check(std::strcmp(pick(partial, Lang::Fr), "Zoom in") == 0, "empty falls back to en");
+    check(std::strcmp(pick(partial, Lang::Ja), "Zoom in") == 0, "null ja falls back to en");
+    check(std::strcmp(pick(partial, Lang::Zh), "Zoom in") == 0, "empty zh falls back to en");
 
     const Text none{};
     check(none.empty(), "default Text is empty");

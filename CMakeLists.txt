@@ -579,7 +579,7 @@ if(CMAKE_CROSSCOMPILING)
     # Tools the apps spawn, from Debian: rtl_tcp/rtl_power (rtl-sdr), rtl_433
     # (rtl-433), hackrf_sweep (hackrf). pipewire-alsa routes the SDR audio
     # through PipeWire (docs/sdr-device-profile.md).
-    set(CPACK_DEBIAN_PACKAGE_DEPENDS "rtl-sdr, rtl-433, hackrf, pipewire-alsa")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "rtl-sdr, rtl-433, hackrf, pipewire-alsa, fonts-droid-fallback")
     set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
     include(CPack)
 endif()

@@ -64,7 +64,8 @@ i18n::Text ShellViewModel::nav_hint(int slot) const {
                 "Tocca: pagina di tasti successiva. Tieni premuto: quella precedente.",
                 "Appui : page de touches suivante. Maintien : la page précédente.",
                 "Tippen: nächste Tastenseite. Halten: die vorherige.",
-                "Pulsa: siguiente página de teclas. Mantén: la anterior."};
+                "Pulsa: siguiente página de teclas. Mantén: la anterior.",
+                "短押し：次のキーページ。長押し：前のページ。", "轻按：下一页按键。长按：上一页。"};
     }
     if (!nav_provider_ || slot < 0 || slot > 4) return {};
     return nav_provider_->nav_hint(toolbar_page_subject_.value(), slot);

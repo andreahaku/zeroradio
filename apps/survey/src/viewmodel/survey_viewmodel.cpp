@@ -296,17 +296,20 @@ toolkit::i18n::Text SurveyViewModel::nav_hint(int page, int slot) const {
                                  "Riduci lo zoom: scansiona una banda larga il doppio",
                                  "Zoom arrière : balaye une bande deux fois plus large",
                                  "Herauszoomen: ein doppelt so breites Band absuchen",
-                                 "Alejar: barre una banda el doble de ancha"};
+                                 "Alejar: barre una banda el doble de ancha",
+                                 "ズームアウト：2倍の幅でスキャン", "缩小：扫描两倍宽的频段"};
                 case 2: return {"Type the centre frequency and the span",
                                  "Inserisci la frequenza centrale e l’ampiezza",
                                  "Saisit la fréquence centrale et la largeur",
                                  "Mittenfrequenz und Breite eingeben",
-                                 "Introduce la frecuencia central y el ancho"};
+                                 "Introduce la frecuencia central y el ancho",
+                                 "中心周波数と幅を入力", "输入中心频率和扫描宽度"};
                 case 3: return {"Zoom in: sweep a band half as wide",
                                  "Ingrandisci: scansiona una banda larga la metà",
                                  "Zoom avant : balaye une bande deux fois plus étroite",
                                  "Hineinzoomen: ein halb so breites Band absuchen",
-                                 "Acercar: barre una banda la mitad de ancha"};
+                                 "Acercar: barre una banda la mitad de ancha",
+                                 "ズームイン：半分の幅でスキャン", "放大：扫描一半宽的频段"};
                 case 4: return h::kTheme;
             }
             break;
@@ -318,7 +321,8 @@ toolkit::i18n::Text SurveyViewModel::nav_hint(int page, int slot) const {
                                  "Apri il segnale selezionato nell’SDR",
                                  "Ouvre le signal sélectionné dans le SDR",
                                  "Öffnet das gewählte Signal im SDR",
-                                 "Abre la señal seleccionada en el SDR"};
+                                 "Abre la señal seleccionada en el SDR",
+                                 "選択した信号を SDR で開く", "在 SDR 中打开所选信号"};
                 case 4: return h::kSort;
             }
             break;

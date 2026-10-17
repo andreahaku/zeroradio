@@ -258,18 +258,22 @@ toolkit::i18n::Text IsmViewModel::nav_hint(int page, int slot) const {
                                  "Apri il dispositivo evidenziato, o annulla la selezione",
                                  "Ouvre l’appareil en surbrillance, ou annule la sélection",
                                  "Öffnet das markierte Gerät oder hebt die Auswahl auf",
-                                 "Abre el dispositivo resaltado, o anula la selección"};
+                                 "Abre el dispositivo resaltado, o anula la selección",
+                                 "ハイライト中のデバイスを開く、または選択を解除", "打开高亮的设备，或取消选择"};
             }
             break;
         case Screen::Detail:
             switch (slot) {
                 case 1: return {"Previous device", "Dispositivo precedente", "Appareil précédent",
-                                 "Vorheriges Gerät", "Dispositivo anterior"};
+                                 "Vorheriges Gerät", "Dispositivo anterior",
+                                 "前のデバイス", "上一个设备"};
                 case 2: return {"Next device", "Dispositivo successivo", "Appareil suivant",
-                                 "Nächstes Gerät", "Dispositivo siguiente"};
+                                 "Nächstes Gerät", "Dispositivo siguiente",
+                                 "次のデバイス", "下一个设备"};
                 case 4: return {"Back to the device list", "Torna alla lista dei dispositivi",
                                  "Revient à la liste des appareils", "Zurück zur Geräteliste",
-                                 "Vuelve a la lista de dispositivos"};
+                                 "Vuelve a la lista de dispositivos",
+                                 "デバイス一覧に戻る", "返回设备列表"};
             }
             break;
         case Screen::Settings:
