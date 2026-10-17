@@ -54,8 +54,7 @@ void HubScreen::build() {
     constexpr int32_t kFooterHeight = 18;
     auto* footer = lv_label_create(root_);
     lv_label_set_text(footer,
-                      LV_SYMBOL_UP " " LV_SYMBOL_DOWN " Select   " LV_SYMBOL_OK
-                                   " Open   " LV_SYMBOL_CLOSE " Exit");
+                      LV_SYMBOL_UP " " LV_SYMBOL_DOWN " Select   ENTER Open   ESC Exit");
     lv_obj_set_style_text_font(footer, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_opa(footer, LV_OPA_60, 0);
     lv_obj_align(footer, LV_ALIGN_BOTTOM_MID, 0, -3);
