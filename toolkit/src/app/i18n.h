@@ -8,9 +8,8 @@
 
 namespace toolkit::i18n {
 
-// UI languages with translations. The bundled fonts have no CJK glyphs, so a
-// Japanese or Chinese system falls back to English.
-enum class Lang { En, It, Fr, De, Es };
+// UI languages with translations. Chinese is Simplified for every zh locale.
+enum class Lang { En, It, Fr, De, Es, Ja, Zh };
 
 // One string in every supported language. A null entry falls back to `en`.
 struct Text {
@@ -19,6 +18,8 @@ struct Text {
     const char* fr{nullptr};
     const char* de{nullptr};
     const char* es{nullptr};
+    const char* ja{nullptr};
+    const char* zh{nullptr};
 
     bool empty() const { return en == nullptr || en[0] == '\0'; }
 };
@@ -26,6 +27,9 @@ struct Text {
 // Language from a POSIX locale name ("it_IT.UTF-8", "de", "C"): English when
 // the name is empty or not supported.
 Lang parse_locale(const char* name);
+
+// True for the languages whose glyphs the bundled Inter font lacks.
+bool needs_cjk_font(Lang lang);
 
 // The user's language: ZERORADIO_LANG, then LC_ALL, LC_MESSAGES and LANG, the
 // way the CardputerZero Store reads it. Read once, then cached.

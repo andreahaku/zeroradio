@@ -406,7 +406,8 @@ toolkit::i18n::Text AisViewModel::nav_hint(int page, int slot) const {
                                  "Seleziona la nave evidenziata, o annulla la selezione",
                                  "Sélectionne le navire en surbrillance, ou annule la sélection",
                                  "Wählt das markierte Schiff aus oder hebt die Auswahl auf",
-                                 "Selecciona el barco resaltado, o anula la selección"};
+                                 "Selecciona el barco resaltado, o anula la selección",
+                                 "ハイライト中の船舶を選択、または選択を解除", "选中高亮的船只，或取消选择"};
             }
             break;
         case Screen::Radar:
@@ -421,7 +422,8 @@ toolkit::i18n::Text AisViewModel::nav_hint(int page, int slot) const {
                             "Mostra o nascondi le altre navi",
                             "Affiche ou masque les autres navires",
                             "Blendet die anderen Schiffe ein oder aus",
-                            "Muestra u oculta los demás barcos"};
+                            "Muestra u oculta los demás barcos",
+                            "他の船舶を表示／非表示", "显示或隐藏其他船只"};
             }
             break;
         case Screen::Settings:

@@ -451,7 +451,8 @@ toolkit::i18n::Text AdsbViewModel::nav_hint(int page, int slot) const {
                                  "Seleziona l’aereo evidenziato, o annulla la selezione",
                                  "Sélectionne l’avion en surbrillance, ou annule la sélection",
                                  "Wählt das markierte Flugzeug aus oder hebt die Auswahl auf",
-                                 "Selecciona el avión resaltado, o anula la selección"};
+                                 "Selecciona el avión resaltado, o anula la selección",
+                                 "ハイライト中の航空機を選択、または選択を解除", "选中高亮的飞机，或取消选择"};
             }
             break;
         case Screen::Radar:
@@ -466,7 +467,8 @@ toolkit::i18n::Text AdsbViewModel::nav_hint(int page, int slot) const {
                             "Mostra o nascondi gli altri aerei",
                             "Affiche ou masque les autres avions",
                             "Blendet die anderen Flugzeuge ein oder aus",
-                            "Muestra u oculta los demás aviones"};
+                            "Muestra u oculta los demás aviones",
+                            "他の航空機を表示／非表示", "显示或隐藏其他飞机"};
             }
             break;
         case Screen::Settings:

@@ -22,6 +22,8 @@ Lang parse_locale(const char* name) {
     if (is("fr")) return Lang::Fr;
     if (is("de")) return Lang::De;
     if (is("es")) return Lang::Es;
+    if (is("ja")) return Lang::Ja;
+    if (is("zh")) return Lang::Zh;
     return Lang::En;
 }
 
@@ -45,10 +47,16 @@ const char* pick(const Text& text, Lang lang) {
         case Lang::Fr: value = text.fr; break;
         case Lang::De: value = text.de; break;
         case Lang::Es: value = text.es; break;
+        case Lang::Ja: value = text.ja; break;
+        case Lang::Zh: value = text.zh; break;
         case Lang::En: break;
     }
     if (value && value[0] != '\0') return value;
     return text.en ? text.en : "";
+}
+
+bool needs_cjk_font(Lang lang) {
+    return lang == Lang::Ja || lang == Lang::Zh;
 }
 
 const char* pick(const Text& text) {

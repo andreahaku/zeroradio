@@ -257,18 +257,22 @@ toolkit::i18n::Text SdrViewModel::nav_hint(int page, int slot) const {
             switch (slot) {
                 case 1: return {"Tune down by one step", "Scendi di un passo di sintonia",
                                  "Descend d’un pas de réglage", "Einen Schritt tiefer abstimmen",
-                                 "Baja la sintonía un paso"};
+                                 "Baja la sintonía un paso",
+                                 "1ステップ下へ同調", "向下调谐一步"};
                 case 2: return {"Type a frequency in MHz", "Inserisci una frequenza in MHz",
                                  "Saisit une fréquence en MHz", "Frequenz in MHz eingeben",
-                                 "Introduce una frecuencia en MHz"};
+                                 "Introduce una frecuencia en MHz",
+                                 "周波数を MHz で入力", "以 MHz 输入频率"};
                 case 3: return {"Tune up by one step", "Sali di un passo di sintonia",
                                  "Monte d’un pas de réglage", "Einen Schritt höher abstimmen",
-                                 "Sube la sintonía un paso"};
+                                 "Sube la sintonía un paso",
+                                 "1ステップ上へ同調", "向上调谐一步"};
                 case 4: return {"Switch between the coarse and the fine tuning step",
                                  "Alterna il passo di sintonia grande e quello fine",
                                  "Alterne entre le pas de réglage large et le pas fin",
                                  "Wechselt zwischen grober und feiner Schrittweite",
-                                 "Alterna entre el paso de sintonía grande y el fino"};
+                                 "Alterna entre el paso de sintonía grande y el fino",
+                                 "同調ステップの粗い／細かいを切り替え", "切换粗调和细调步进"};
             }
             break;
         case Page::Zoom:
@@ -278,13 +282,15 @@ toolkit::i18n::Text SdrViewModel::nav_hint(int page, int slot) const {
                                  "Passa alla banda successiva: FM, Air, 2m, 70cm",
                                  "Passe à la bande suivante : FM, Air, 2m, 70cm",
                                  "Springt zum nächsten Band: FM, Air, 2m, 70cm",
-                                 "Pasa a la banda siguiente: FM, Air, 2m, 70cm"};
+                                 "Pasa a la banda siguiente: FM, Air, 2m, 70cm",
+                                 "次のバンドへ：FM、Air、2m、70cm", "切换到下一个波段：FM、Air、2m、70cm"};
                 case 3: return h::kZoomIn;
                 case 4: return {"Next demodulation mode: WFM, NFM, AM, USB, LSB, CW",
                                  "Modo di demodulazione successivo: WFM, NFM, AM, USB, LSB, CW",
                                  "Mode de démodulation suivant : WFM, NFM, AM, USB, LSB, CW",
                                  "Nächste Demodulationsart: WFM, NFM, AM, USB, LSB, CW",
-                                 "Modo de demodulación siguiente: WFM, NFM, AM, USB, LSB, CW"};
+                                 "Modo de demodulación siguiente: WFM, NFM, AM, USB, LSB, CW",
+                                 "次の復調モード：WFM、NFM、AM、USB、LSB、CW", "下一个解调模式：WFM、NFM、AM、USB、LSB、CW"};
             }
             break;
         case Page::Visual:
@@ -294,48 +300,58 @@ toolkit::i18n::Text SdrViewModel::nav_hint(int page, int slot) const {
                                  "Mostra o nascondi la griglia delle frequenze",
                                  "Affiche ou masque la grille des fréquences",
                                  "Blendet das Frequenzraster ein oder aus",
-                                 "Muestra u oculta la cuadrícula de frecuencias"};
+                                 "Muestra u oculta la cuadrícula de frecuencias",
+                                 "周波数グリッドを表示／非表示", "显示或隐藏频率网格"};
                 case 3: return {"Change how the screen splits the waterfall and the spectrum",
                                  "Cambia la divisione dello schermo tra waterfall e spettro",
                                  "Change le partage de l’écran entre cascade et spectre",
                                  "Ändert die Aufteilung zwischen Wasserfall und Spektrum",
-                                 "Cambia el reparto de la pantalla entre cascada y espectro"};
+                                 "Cambia el reparto de la pantalla entre cascada y espectro",
+                                 "ウォーターフォールとスペクトラムの画面配分を変更", "更改瀑布图与频谱的屏幕分配"};
                 case 4: return {"Hold the spectrum peaks, or stop holding them",
                                  "Mantieni i picchi dello spettro, o smetti di mantenerli",
                                  "Maintient les crêtes du spectre, ou arrête de les maintenir",
                                  "Hält die Spektrumspitzen fest oder gibt sie frei",
-                                 "Retiene los picos del espectro, o deja de retenerlos"};
+                                 "Retiene los picos del espectro, o deja de retenerlos",
+                                 "スペクトラムのピークホールドをオン／オフ", "开启或关闭频谱峰值保持"};
             }
             break;
         case Page::Audio:
             switch (slot) {
                 case 1: return {"Mute or unmute the audio", "Silenzia o riattiva l’audio",
                                  "Coupe ou rétablit le son", "Schaltet den Ton stumm oder wieder ein",
-                                 "Silencia o reactiva el audio"};
+                                 "Silencia o reactiva el audio",
+                                 "音声をミュート／解除", "静音或取消静音"};
                 case 2: return {"Volume down", "Abbassa il volume", "Baisse le volume",
-                                 "Leiser", "Baja el volumen"};
+                                 "Leiser", "Baja el volumen",
+                                 "音量を下げる", "降低音量"};
                 case 3: return {"Volume up", "Alza il volume", "Monte le volume",
-                                 "Lauter", "Sube el volumen"};
+                                 "Lauter", "Sube el volumen",
+                                 "音量を上げる", "提高音量"};
                 case 4: return {"The current volume. This key does nothing.",
                                  "Il volume attuale. Questo tasto non fa nulla.",
                                  "Le volume actuel. Cette touche n’a pas d’effet.",
                                  "Die aktuelle Lautstärke. Diese Taste hat keine Funktion.",
-                                 "El volumen actual. Esta tecla no hace nada."};
+                                 "El volumen actual. Esta tecla no hace nada.",
+                                 "現在の音量。このキーは使いません。", "当前音量。此键无功能。"};
             }
             break;
         case Page::Settings:
             switch (slot) {
                 case 1: return {"Lower the tuner gain", "Riduci il guadagno del tuner",
                                  "Baisse le gain du tuner", "Senkt die Tuner-Verstärkung",
-                                 "Baja la ganancia del sintonizador"};
+                                 "Baja la ganancia del sintonizador",
+                                 "チューナーのゲインを下げる", "降低调谐器增益"};
                 case 2: return {"Raise the tuner gain", "Aumenta il guadagno del tuner",
                                  "Monte le gain du tuner", "Erhöht die Tuner-Verstärkung",
-                                 "Sube la ganancia del sintonizador"};
+                                 "Sube la ganancia del sintonizador",
+                                 "チューナーのゲインを上げる", "提高调谐器增益"};
                 case 3: return {"Switch the automatic gain on or off",
                                  "Attiva o disattiva il guadagno automatico",
                                  "Active ou désactive le gain automatique",
                                  "Schaltet die automatische Verstärkung ein oder aus",
-                                 "Activa o desactiva la ganancia automática"};
+                                 "Activa o desactiva la ganancia automática",
+                                 "自動ゲインをオン／オフ", "开启或关闭自动增益"};
                 case 4: return h::kBackToMenu;
             }
             break;

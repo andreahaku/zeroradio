@@ -39,7 +39,9 @@
 /* Memory size */
 #define LV_MEM_SIZE                        (16U * 1024U * 1024U)
 
-#define LV_DRAW_THREAD_STACK_SIZE          (32U * 1024U)
+// FreeType needs a deep stack for the CFF outlines of Noto Sans CJK (the
+// Japanese tooltips): 32 KB crashed in FT_Load_Glyph.
+#define LV_DRAW_THREAD_STACK_SIZE          (128U * 1024U)
 
 #define LV_USE_FLOAT                       1
 
