@@ -61,7 +61,7 @@ Inside every app:
 | H or Fn+H | Help for this app |
 | TAB | Switch between SDR and Scanner |
 | Esc | Back to the hub |
-| Hold Esc 3 s | Back to the CardputerZero launcher (let go before the bar fills to cancel) |
+| Hold Esc 3 s | Back to the CardputerZero launcher (let go earlier to cancel) |
 
 The key tooltips follow the system language (`LANG`): English, Italian, French, German, Spanish, Japanese and Chinese. Other languages show English.
 

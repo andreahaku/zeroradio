@@ -8,7 +8,7 @@ All notable changes to ZeroRadio. Versions follow semantic versioning.
 - Key 4 shows the name of the tool page (TUNE, ZOOM, LIST, RADAR, SETUP…) on a white tab, as in ZeroTracker, instead of its number.
 - Hold key 4 to go back one tool page, as in ZeroTracker. A tap still shows the next page.
 - SYM + 4 to 8 shows what that key does on the current page. The tooltip follows the system language: English, Italian, French, German, Spanish, Japanese or Chinese.
-- Hold Esc 3 s to leave ZeroRadio for the launcher, as in ZeroTracker. A small window with a bar shows the countdown, and letting go cancels it. A short press still goes back to the menu.
+- Hold Esc 3 s to leave ZeroRadio for the launcher, as in ZeroTracker. The same toast as ZeroTracker, "Hold ESC 3 s to exit", stays up while you hold, and letting go cancels it. A short press still goes back to the menu.
 - The menu comes back on the app you used last, also after a TAB switch between SDR and Scanner.
 - Frequency entry: the "." key (SYM + .) now types the decimal point, so you can enter values such as 98.525 MHz in the SDR and the Scanner.
 - SDR: Fn+A mutes, Fn+S and Fn+D change the volume from any page, with a short on-screen readout.

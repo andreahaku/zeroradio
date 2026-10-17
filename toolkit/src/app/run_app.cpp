@@ -219,43 +219,58 @@ lv_obj_t* add_label(lv_obj_t* box, const char* text, const lv_font_t* font) {
     return label;
 }
 
-void bar_anim_cb(void* bar, int32_t value) {
-    lv_bar_set_value(static_cast<lv_obj_t*>(bar), value, LV_ANIM_OFF);
-}
-
-// ESC held past kEscHoldHintMs: a small modal with a bar that fills until the
-// app leaves for the launcher at kEscHoldHomeMs (CardputerZero convention).
+// ESC held past kEscHoldHintMs: the ZeroTracker exit toast, "Hold ESC 3 s to
+// exit" with ESC in the warning colour, until the app leaves for the launcher
+// at kEscHoldHomeMs or the key is released.
 void hold_hint_trampoline(bool show, void* /*ctx*/) {
     if (!show) {
-        if (overlays.hold_box) lv_obj_delete(overlays.hold_box); // also ends the bar animation
+        if (overlays.hold_box) lv_obj_delete(overlays.hold_box);
         overlays.hold_box = nullptr;
         return;
     }
-    if (overlays.hold_box) return;
-    overlays.hold_box = make_box(220);
-    add_label(overlays.hold_box,
-              i18n::pick({"Keep holding ESC to exit",
-                          "Tieni premuto ESC per uscire",
-                          "Maintenez ESC pour quitter",
-                          "ESC gedrückt halten zum Beenden",
-                          "Mantén pulsado ESC para salir",
-                          "ESC を押し続けると終了します", "按住 ESC 以退出"}),
-              overlays.font);
-    auto* bar = lv_bar_create(overlays.hold_box);
-    lv_obj_set_size(bar, LV_PCT(100), 6);
-    lv_bar_set_range(bar, 0, 100);
-    lv_obj_set_style_bg_color(bar, lv_color_hex(0x0d1b2a), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(bar, lv_color_hex(0x5b8fd0), LV_PART_INDICATOR);
-    lv_obj_align(overlays.hold_box, LV_ALIGN_CENTER, 0, 0);
+    if (overlays.hold_box || !overlays.shell) return;
+    const bool dark = overlays.shell->is_dark_mode();
+    const auto colors = view::palette(dark);
 
-    lv_anim_t anim;
-    lv_anim_init(&anim);
-    lv_anim_set_var(&anim, bar);
-    lv_anim_set_exec_cb(&anim, bar_anim_cb);
-    lv_anim_set_values(&anim, 0, 100);
-    lv_anim_set_duration(&anim, platform::kEscHoldHomeMs - platform::kEscHoldHintMs);
-    lv_anim_start(&anim);
+    auto* box = lv_obj_create(lv_layer_top());
+    lv_obj_remove_style_all(box);
+    lv_obj_set_size(box, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_min_width(box, 96, 0);
+    lv_obj_set_style_min_height(box, 36, 0);
+    lv_obj_set_style_pad_hor(box, 14, 0);
+    lv_obj_set_style_pad_ver(box, 8, 0);
+    lv_obj_set_style_radius(box, 10, 0);
+    lv_obj_set_style_bg_color(box, colors.button, 0);
+    lv_obj_set_style_bg_opa(box, LV_OPA_90, 0);
+    lv_obj_set_style_shadow_width(box, 8, 0);
+    lv_obj_set_style_shadow_opa(box, LV_OPA_10, 0);
+    lv_obj_set_style_shadow_color(box, lv_color_black(), 0);
+    lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_clear_flag(box, LV_OBJ_FLAG_CLICKABLE);
+
+    // "%s" is the key name, drawn in the warning colour through recolouring.
+    const char* format = i18n::pick({"Hold %s 3 s to exit",
+                                     "Tieni premuto %s 3 s per uscire",
+                                     "Maintenez %s 3 s pour quitter",
+                                     "%s 3 s halten zum Beenden",
+                                     "Mantén %s 3 s para salir",
+                                     "%s を3秒押し続けると終了",
+                                     "按住 %s 3 秒退出"});
+    char key[24];
+    std::snprintf(key, sizeof(key), "#%06x ESC#", dark ? 0xf2c97du : 0xf0a020u);
+    char text[96];
+    std::snprintf(text, sizeof(text), format, key);
+
+    auto* label = lv_label_create(box);
+    lv_label_set_recolor(label, true);
+    lv_label_set_text(label, text);
+    lv_obj_set_style_text_font(label, overlays.font ? overlays.font : &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(label, colors.text, 0);
+    lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_center(label);
+
+    lv_obj_align(box, LV_ALIGN_BOTTOM_MID, 0, -38);
+    overlays.hold_box = box;
 }
 
 void close_nav_hint() {
