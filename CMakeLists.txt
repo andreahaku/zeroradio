@@ -481,6 +481,13 @@ if(USE_DESKTOP)
     add_test(NAME location_test COMMAND location_test)
 endif()
 
+# UI language from the locale, with the English fallback.
+if(USE_DESKTOP)
+    add_executable(i18n_test ${CMAKE_CURRENT_SOURCE_DIR}/toolkit/test/i18n_test.cpp)
+    target_link_libraries(i18n_test PRIVATE radio_toolkit)
+    add_test(NAME i18n_test COMMAND i18n_test)
+endif()
+
 # nlohmann/json — header-only, used by the ADS-B and ISM parsers. Resolved here,
 # not in an app subdirectory: a system package yields an IMPORTED target that is
 # only visible in the directory that found it (the FetchContent fallback is global).
