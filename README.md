@@ -57,6 +57,7 @@ Inside every app:
 | F / X (up/down) | Move the cursor in a list or in Settings, or zoom on the SDR, Scanner, radar and map |
 | Z / C (left/right) | Tune the SDR, move the Scanner band, step through aircraft, ships and devices, change a setting |
 | SYM + 4 to 8 | What that key does on this page, in your language |
+| Fn+A / Fn+S / Fn+D | SDR: mute, volume down, volume up |
 | H or Fn+H | Help for this app |
 | TAB | Switch between SDR and Scanner |
 | Esc | Back to the hub |

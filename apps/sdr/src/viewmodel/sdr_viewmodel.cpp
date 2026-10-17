@@ -146,6 +146,19 @@ void SdrViewModel::volume_down() {
     bump_nav_refresh();
 }
 
+std::string SdrViewModel::on_volume(int step) {
+    if (step == 0) toggle_mute();
+    else if (step > 0) volume_up();
+    else volume_down();
+    if (muted()) {
+        return toolkit::i18n::pick(
+            {"Muted", "Muto", "Muet", "Stumm", "Silencio", "ミュート", "静音"});
+    }
+    return std::string(toolkit::i18n::pick({"Volume", "Volume", "Volume", "Lautstärke", "Volumen",
+                                            "音量", "音量"})) +
+           " " + std::to_string(model_.volume()) + "%";
+}
+
 void SdrViewModel::toggle_gain_auto() { model_.toggle_gain_auto(); publish_gain(); bump_nav_refresh(); }
 void SdrViewModel::gain_up()          { model_.gain_up();          publish_gain(); bump_nav_refresh(); }
 void SdrViewModel::gain_down()        { model_.gain_down();        publish_gain(); bump_nav_refresh(); }

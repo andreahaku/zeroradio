@@ -28,6 +28,12 @@ constexpr uint32_t kPageHoldMs = 400;
 // the Unicode private use area, clear of LVGL's control keys and of text.
 constexpr uint32_t kKeyNavHint = 0xE000;
 
+// Volume keys: Fn + A / S / D on the CardputerZero (KEY_MUTE, KEY_VOLUMEDOWN,
+// KEY_VOLUMEUP), in the same private use area.
+constexpr uint32_t kKeyMute = 0xE010;
+constexpr uint32_t kKeyVolumeDown = 0xE011;
+constexpr uint32_t kKeyVolumeUp = 0xE012;
+
 void init_key_input(lv_display_t* display);
 void attach_key_router(lv_indev_t* indev);
 void register_nav_button(size_t index, lv_obj_t* button);
@@ -52,6 +58,9 @@ void set_page_back_handler(void (*handler)(void* ctx), void* ctx);
 // SYM + 4..8 outside a key capture (Shift + 4..8 on a desktop keyboard): show
 // what NavBar slot `slot` (0..4) does.
 void set_nav_hint_handler(void (*handler)(int slot, void* ctx), void* ctx);
+
+// Volume keys outside a key capture: `step` is -1 (down), +1 (up) or 0 (mute).
+void set_volume_handler(void (*handler)(int step, void* ctx), void* ctx);
 
 // Called for every key press before it is routed, captures included, e.g. to
 // close a tooltip.

@@ -70,6 +70,14 @@ public:
     virtual void on_left() {}
     virtual void on_right() {}
 
+    // Volume keys (Fn + A/S/D): `step` -1 down, +1 up, 0 mute on/off. An app
+    // with audio returns the new state to show briefly, e.g. "Volume 60%";
+    // an empty string (the default) shows nothing.
+    virtual std::string on_volume(int step) {
+        (void)step;
+        return {};
+    }
+
     // Help page opened with H (run_app shows it), as a path relative to the
     // repository root, e.g. "docs/help/sdr.md"; empty = no help.
     void set_help_doc(std::string relative_path) { help_doc_ = std::move(relative_path); }

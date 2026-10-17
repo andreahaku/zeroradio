@@ -151,10 +151,13 @@ struct Overlays {
     lv_obj_t* hold_box{nullptr};
     lv_obj_t* hint_box{nullptr};
     lv_timer_t* hint_timer{nullptr};
+    lv_obj_t* toast_box{nullptr};
+    lv_timer_t* toast_timer{nullptr};
 };
 Overlays overlays;
 
 constexpr uint32_t kHintShowMs = 4000;
+constexpr uint32_t kToastShowMs = 1200;
 
 // System fonts with the Japanese and Chinese glyphs Inter lacks, in order of
 // preference. LVGL opens face 0 of a collection, which in Noto Sans CJK is the
@@ -301,6 +304,32 @@ void key_activity_trampoline(uint32_t key, void* /*ctx*/) {
     }
 }
 
+void close_toast() {
+    if (overlays.toast_timer) lv_timer_delete(overlays.toast_timer);
+    overlays.toast_timer = nullptr;
+    if (overlays.toast_box) lv_obj_delete(overlays.toast_box);
+    overlays.toast_box = nullptr;
+}
+
+void toast_timer_cb(lv_timer_t* /*timer*/) {
+    overlays.toast_timer = nullptr; // a one-shot timer deletes itself
+    close_toast();
+}
+
+// Fn + A/S/D: the app changes its volume and the new state shows for a moment.
+void volume_trampoline(int step, void* ctx) {
+    const std::string status = static_cast<ShellViewModel*>(ctx)->on_volume(step);
+    if (status.empty()) return;
+    close_toast();
+    overlays.toast_box = make_box(LV_SIZE_CONTENT);
+    lv_obj_set_style_pad_hor(overlays.toast_box, 12, 0);
+    auto* label = add_label(overlays.toast_box, status.c_str(), overlays.bold);
+    lv_obj_set_width(label, LV_SIZE_CONTENT);
+    lv_obj_align(overlays.toast_box, LV_ALIGN_CENTER, 0, 0);
+    overlays.toast_timer = lv_timer_create(toast_timer_cb, kToastShowMs, nullptr);
+    lv_timer_set_repeat_count(overlays.toast_timer, 1);
+}
+
 void arrow_handler_trampoline(uint32_t key, void* ctx) {
     auto* shell = static_cast<ShellViewModel*>(ctx);
     switch (key) {
@@ -341,11 +370,14 @@ int run_app(ShellViewModel& shell,
     platform::set_page_back_handler(page_back_trampoline, &shell);
     platform::set_arrow_handler(arrow_handler_trampoline, &shell);
     platform::set_home_handler(home_handler_trampoline, hold_hint_trampoline, &shell);
-    overlays = Overlays{&shell, assets.load_font("inter-regular.ttf", 13),
-                        assets.load_font("inter-semibold.ttf", 13), nullptr, nullptr, nullptr};
+    overlays = Overlays{};
+    overlays.shell = &shell;
+    overlays.font = assets.load_font("inter-regular.ttf", 13);
+    overlays.bold = assets.load_font("inter-semibold.ttf", 13);
     attach_cjk_fallback(assets, 13);
     platform::set_nav_hint_handler(nav_hint_trampoline, &shell);
     platform::set_key_activity_handler(key_activity_trampoline, &shell);
+    platform::set_volume_handler(volume_trampoline, &shell);
     HelpState help{&shell, &assets, nullptr};
     platform::set_help_handler(help_handler_trampoline, &help);
 
@@ -387,6 +419,8 @@ int run_app(ShellViewModel& shell,
     platform::set_home_handler(nullptr, nullptr, nullptr);
     platform::set_nav_hint_handler(nullptr, nullptr);
     platform::set_key_activity_handler(nullptr, nullptr);
+    platform::set_volume_handler(nullptr, nullptr);
+    close_toast();
     hold_hint_trampoline(false, nullptr);
     close_nav_hint();
     overlays = Overlays{};

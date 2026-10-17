@@ -11,6 +11,7 @@ All notable changes to ZeroRadio. Versions follow semantic versioning.
 - Hold Esc 3 s to leave ZeroRadio for the launcher, as in ZeroTracker. A small window with a bar shows the countdown, and letting go cancels it. A short press still goes back to the menu.
 - The menu comes back on the app you used last, also after a TAB switch between SDR and Scanner.
 - Frequency entry: the "." key (SYM + .) now types the decimal point, so you can enter values such as 98.525 MHz in the SDR and the Scanner.
+- SDR: Fn+A mutes, Fn+S and Fn+D change the volume from any page, with a short on-screen readout.
 - SDR: the narrow FM mode is now labelled NFM, next to WFM.
 - The battery level is green, yellow, orange or red as the charge drops.
 - The menu footer reads ENTER Open and ESC Exit.

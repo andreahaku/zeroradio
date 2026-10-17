@@ -93,6 +93,8 @@ A new app needs a parser, a `NavProvider` that maps keys to actions, and a scree
   `NavProvider::nav_hint()` in the user's language (`toolkit::i18n`, from `LANG`). Japanese and
   Chinese glyphs come from a system CJK font set as the fallback of Inter.
 - The driver sends the "." key (SYM layer) as `KEY_HIRAGANA`, mapped to `.` for frequency entry.
+- Fn+A/S/D (`KEY_MUTE`, `KEY_VOLUMEDOWN`, `KEY_VOLUMEUP`) call `on_volume()`. The SDR changes
+  its volume and returns the text that `run_app` shows for 1.2 s.
 - TAB calls `on_tab()`. H opens the page set with `set_help_doc()`.
 - A short ESC press goes back or quits. Holding ESC shows a modal with a bar after 0.3 s and, at
   3 s, calls `request_home()`: the app exits with `ShellViewModel::kExitHome` and the hub closes
