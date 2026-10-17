@@ -5,6 +5,7 @@
  */
 
 #include "sdr_viewmodel.h"
+#include "nav_hints.h"
 
 #include "ui_const.h"
 
@@ -247,6 +248,99 @@ void SdrViewModel::nav_activate(int page, int slot) {
             else if (slot == 4) request_quit();
             break;
     }
+}
+
+toolkit::i18n::Text SdrViewModel::nav_hint(int page, int slot) const {
+    namespace h = toolkit::hints;
+    switch (static_cast<Page>(page)) {
+        case Page::Tuning:
+            switch (slot) {
+                case 1: return {"Tune down by one step", "Scendi di un passo di sintonia",
+                                 "Descend d’un pas de réglage", "Einen Schritt tiefer abstimmen",
+                                 "Baja la sintonía un paso"};
+                case 2: return {"Type a frequency in MHz", "Inserisci una frequenza in MHz",
+                                 "Saisit une fréquence en MHz", "Frequenz in MHz eingeben",
+                                 "Introduce una frecuencia en MHz"};
+                case 3: return {"Tune up by one step", "Sali di un passo di sintonia",
+                                 "Monte d’un pas de réglage", "Einen Schritt höher abstimmen",
+                                 "Sube la sintonía un paso"};
+                case 4: return {"Switch between the coarse and the fine tuning step",
+                                 "Alterna il passo di sintonia grande e quello fine",
+                                 "Alterne entre le pas de réglage large et le pas fin",
+                                 "Wechselt zwischen grober und feiner Schrittweite",
+                                 "Alterna entre el paso de sintonía grande y el fino"};
+            }
+            break;
+        case Page::Zoom:
+            switch (slot) {
+                case 1: return h::kZoomOut;
+                case 2: return {"Jump to the next band: FM, Air, 2m, 70cm",
+                                 "Passa alla banda successiva: FM, Air, 2m, 70cm",
+                                 "Passe à la bande suivante : FM, Air, 2m, 70cm",
+                                 "Springt zum nächsten Band: FM, Air, 2m, 70cm",
+                                 "Pasa a la banda siguiente: FM, Air, 2m, 70cm"};
+                case 3: return h::kZoomIn;
+                case 4: return {"Next demodulation mode: WFM, NFM, AM, USB, LSB, CW",
+                                 "Modo di demodulazione successivo: WFM, NFM, AM, USB, LSB, CW",
+                                 "Mode de démodulation suivant : WFM, NFM, AM, USB, LSB, CW",
+                                 "Nächste Demodulationsart: WFM, NFM, AM, USB, LSB, CW",
+                                 "Modo de demodulación siguiente: WFM, NFM, AM, USB, LSB, CW"};
+            }
+            break;
+        case Page::Visual:
+            switch (slot) {
+                case 1: return h::kTheme;
+                case 2: return {"Show or hide the frequency grid",
+                                 "Mostra o nascondi la griglia delle frequenze",
+                                 "Affiche ou masque la grille des fréquences",
+                                 "Blendet das Frequenzraster ein oder aus",
+                                 "Muestra u oculta la cuadrícula de frecuencias"};
+                case 3: return {"Change how the screen splits the waterfall and the spectrum",
+                                 "Cambia la divisione dello schermo tra waterfall e spettro",
+                                 "Change le partage de l’écran entre cascade et spectre",
+                                 "Ändert die Aufteilung zwischen Wasserfall und Spektrum",
+                                 "Cambia el reparto de la pantalla entre cascada y espectro"};
+                case 4: return {"Hold the spectrum peaks, or stop holding them",
+                                 "Mantieni i picchi dello spettro, o smetti di mantenerli",
+                                 "Maintient les crêtes du spectre, ou arrête de les maintenir",
+                                 "Hält die Spektrumspitzen fest oder gibt sie frei",
+                                 "Retiene los picos del espectro, o deja de retenerlos"};
+            }
+            break;
+        case Page::Audio:
+            switch (slot) {
+                case 1: return {"Mute or unmute the audio", "Silenzia o riattiva l’audio",
+                                 "Coupe ou rétablit le son", "Schaltet den Ton stumm oder wieder ein",
+                                 "Silencia o reactiva el audio"};
+                case 2: return {"Volume down", "Abbassa il volume", "Baisse le volume",
+                                 "Leiser", "Baja el volumen"};
+                case 3: return {"Volume up", "Alza il volume", "Monte le volume",
+                                 "Lauter", "Sube el volumen"};
+                case 4: return {"The current volume. This key does nothing.",
+                                 "Il volume attuale. Questo tasto non fa nulla.",
+                                 "Le volume actuel. Cette touche n’a pas d’effet.",
+                                 "Die aktuelle Lautstärke. Diese Taste hat keine Funktion.",
+                                 "El volumen actual. Esta tecla no hace nada."};
+            }
+            break;
+        case Page::Settings:
+            switch (slot) {
+                case 1: return {"Lower the tuner gain", "Riduci il guadagno del tuner",
+                                 "Baisse le gain du tuner", "Senkt die Tuner-Verstärkung",
+                                 "Baja la ganancia del sintonizador"};
+                case 2: return {"Raise the tuner gain", "Aumenta il guadagno del tuner",
+                                 "Monte le gain du tuner", "Erhöht die Tuner-Verstärkung",
+                                 "Sube la ganancia del sintonizador"};
+                case 3: return {"Switch the automatic gain on or off",
+                                 "Attiva o disattiva il guadagno automatico",
+                                 "Active ou désactive le gain automatique",
+                                 "Schaltet die automatische Verstärkung ein oder aus",
+                                 "Activa o desactiva la ganancia automática"};
+                case 4: return h::kBackToMenu;
+            }
+            break;
+    }
+    return {};
 }
 
 // --- publish helpers ---

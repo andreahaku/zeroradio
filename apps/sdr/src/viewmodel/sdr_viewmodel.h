@@ -92,6 +92,7 @@ public:
     int nav_page_count() const override;
     void nav_fill(int page, NavProvider::NavSlot out[5]) const override;
     void nav_activate(int page, int slot) override;
+    toolkit::i18n::Text nav_hint(int page, int slot) const override;
 
     // TAB: switch to the Spectrum Survey app (see toolkit::run_handoff).
     void on_tab() override { request_handoff("survey_app", "survey"); }

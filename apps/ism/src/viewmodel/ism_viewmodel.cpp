@@ -5,6 +5,7 @@
  */
 
 #include "ism_viewmodel.h"
+#include "nav_hints.h"
 
 #include "persisted_state.h"
 #include "ui_const.h"
@@ -243,6 +244,44 @@ void IsmViewModel::move_cursor(int dir) {
         if (dir < 0) settings_up();
         else settings_down();
     }
+}
+
+toolkit::i18n::Text IsmViewModel::nav_hint(int page, int slot) const {
+    namespace h = toolkit::hints;
+    switch (static_cast<Screen>(page)) {
+        case Screen::List:
+            switch (slot) {
+                case 1: return h::kSort;
+                case 2: return h::kListUp;
+                case 3: return h::kListDown;
+                case 4: return {"Open the highlighted device, or clear the selection",
+                                 "Apri il dispositivo evidenziato, o annulla la selezione",
+                                 "Ouvre l’appareil en surbrillance, ou annule la sélection",
+                                 "Öffnet das markierte Gerät oder hebt die Auswahl auf",
+                                 "Abre el dispositivo resaltado, o anula la selección"};
+            }
+            break;
+        case Screen::Detail:
+            switch (slot) {
+                case 1: return {"Previous device", "Dispositivo precedente", "Appareil précédent",
+                                 "Vorheriges Gerät", "Dispositivo anterior"};
+                case 2: return {"Next device", "Dispositivo successivo", "Appareil suivant",
+                                 "Nächstes Gerät", "Dispositivo siguiente"};
+                case 4: return {"Back to the device list", "Torna alla lista dei dispositivi",
+                                 "Revient à la liste des appareils", "Zurück zur Geräteliste",
+                                 "Vuelve a la lista de dispositivos"};
+            }
+            break;
+        case Screen::Settings:
+            switch (slot) {
+                case 1: return h::kSettingPrev;
+                case 2: return h::kSettingNext;
+                case 3: return h::kSettingChange;
+                case 4: return h::kBackToMenu;
+            }
+            break;
+    }
+    return {};
 }
 
 } // namespace ism

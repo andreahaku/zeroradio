@@ -5,6 +5,7 @@
  */
 
 #include "ais_viewmodel.h"
+#include "nav_hints.h"
 
 #include "persisted_state.h"
 #include "ui_const.h"
@@ -391,6 +392,48 @@ void AisViewModel::move_cursor(int dir) {
         if (dir < 0) settings_up();
         else settings_down();
     }
+}
+
+toolkit::i18n::Text AisViewModel::nav_hint(int page, int slot) const {
+    namespace h = toolkit::hints;
+    switch (static_cast<Screen>(page)) {
+        case Screen::List:
+            switch (slot) {
+                case 1: return h::kSort;
+                case 2: return h::kListUp;
+                case 3: return h::kListDown;
+                case 4: return {"Select the highlighted ship, or clear the selection",
+                                 "Seleziona la nave evidenziata, o annulla la selezione",
+                                 "Sélectionne le navire en surbrillance, ou annule la sélection",
+                                 "Wählt das markierte Schiff aus oder hebt die Auswahl auf",
+                                 "Selecciona el barco resaltado, o anula la selección"};
+            }
+            break;
+        case Screen::Radar:
+        case Screen::Detail:
+            switch (slot) {
+                case 1: return h::kZoomIn;
+                case 2: return h::kZoomOut;
+                case 3: return h::kTracks;
+                case 4:
+                    if (static_cast<Screen>(page) == Screen::Radar) return h::kRadarMap;
+                    return {"Show or hide the other ships",
+                            "Mostra o nascondi le altre navi",
+                            "Affiche ou masque les autres navires",
+                            "Blendet die anderen Schiffe ein oder aus",
+                            "Muestra u oculta los demás barcos"};
+            }
+            break;
+        case Screen::Settings:
+            switch (slot) {
+                case 1: return h::kSettingPrev;
+                case 2: return h::kSettingNext;
+                case 3: return h::kSettingChange;
+                case 4: return h::kBackToMenu;
+            }
+            break;
+    }
+    return {};
 }
 
 } // namespace ais
