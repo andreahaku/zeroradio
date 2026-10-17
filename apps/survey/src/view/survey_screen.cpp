@@ -284,6 +284,8 @@ void SurveyScreen::build_peaks_view(lv_obj_t* content) {
     lv_obj_align(sort_lbl, LV_ALIGN_RIGHT_MID, -4, 0);
 
     peaks_table_ = lv_table_create(peaks_view_);
+
+    reactive::bind_theme(peaks_table_, vm_.dark_mode_subject(), reactive::ThemeRole::Table);
     lv_obj_set_width(peaks_table_, LV_PCT(100));
     lv_obj_set_flex_grow(peaks_table_, 1);
     lv_table_set_column_count(peaks_table_, 3);

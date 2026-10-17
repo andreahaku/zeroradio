@@ -113,6 +113,12 @@ void IconButton::set_tab_style(const lv_font_t* font, lv_color_t bg, lv_color_t 
     set_icon_color(fg);
 }
 
+void IconButton::set_tab_colors(lv_color_t bg, lv_color_t fg) {
+    if (!label_) return;
+    lv_obj_set_style_bg_color(label_, bg, 0);
+    set_icon_color(fg);
+}
+
 void IconButton::set_enabled(bool enabled) {
     enabled_ = enabled;
     if (!core_obj_) {

@@ -44,7 +44,7 @@ constexpr uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b) {
 // blue-grey sea, with a faint coastline tracing the boundary — chosen to read
 // as "land vs sea" with minimal contrast under the bright entity dots.
 struct MapStyle {
-    uint16_t sea_color = rgb565(0x12, 0x1a, 0x22);   // faint blue-grey sea
+    uint16_t sea_color = rgb565(0x1a, 0x27, 0x35);   // dark blue sea, a step above the black land
     uint16_t land_color = rgb565(0x00, 0x00, 0x00);  // black land
     uint16_t coast_color = rgb565(0x3c, 0x4b, 0x5a); // faint grey-blue coastline
     uint16_t border_color = rgb565(0x42, 0x42, 0x4a); // dim slate borders, dashed

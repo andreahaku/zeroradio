@@ -40,6 +40,7 @@ public:
     // Draw the text as a tab: `fg` on a rounded `bg` box, wider than the button
     // but taking the same room in the bar (the page name on key 4).
     void set_tab_style(const lv_font_t* font, lv_color_t bg, lv_color_t fg);
+    void set_tab_colors(lv_color_t bg, lv_color_t fg); // after set_tab_style
 
 private:
     static void theme_observer_cb(lv_observer_t* observer, lv_subject_t* subject);

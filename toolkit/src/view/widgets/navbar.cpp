@@ -124,7 +124,8 @@ void NavBar::create_icon_buttons() {
         lv_obj_set_style_translate_x(icon_buttons_[i]->root(), kNavButtonXOffsets[i], 0);
         platform::register_nav_button(i, icon_buttons_[i]->root());
     }
-    // Key 4 shows the page name as a white tab with black text (ZeroTracker).
+    // Key 4 shows the page name as a tab (ZeroTracker); update_icon_buttons()
+    // sets its colours for the theme.
     icon_buttons_[0]->set_tab_style(tab_font_ ? tab_font_ : text_font_, lv_color_white(),
                                     lv_color_black());
 }
@@ -151,6 +152,11 @@ void NavBar::update_icon_buttons() {
             const char* name = provider_.nav_page_name(page);
             button->set_text(name && name[0] ? name : kPageLabels[page >= 0 && page < 5 ? page : 0]);
             button->set_enabled(true);
+            // White with black text on a dark bar, inverted on the light theme.
+            // The overlay bar is a dark veil in both themes.
+            const bool dark_bar = overlay_ || shell_.is_dark_mode();
+            button->set_tab_colors(dark_bar ? lv_color_white() : lv_color_black(),
+                                   dark_bar ? lv_color_black() : lv_color_white());
             continue;
         } else {
             const auto& slot = slots[i];

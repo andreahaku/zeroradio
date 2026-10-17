@@ -155,7 +155,8 @@ void AisScreen::update_list(const std::vector<Row>& rows) {
     if (!list_table_) return;
 
     lv_table_set_row_count(list_table_, static_cast<uint32_t>(rows.size()));
-    list_row_colors_.assign(rows.size(), lv_color_white());
+    const bool dark = vm_.is_dark_mode();
+    list_row_colors_.assign(rows.size(), view::palette(dark).text);
 
     const std::string& sel_id = vm_.selected_id();
     const bool km = vm_.units_km();
@@ -168,7 +169,7 @@ void AisScreen::update_list(const std::vector<Row>& rows) {
     for (size_t i = 0; i < rows.size(); ++i) {
         const Row& r = rows[i];
         const uint32_t row = static_cast<uint32_t>(i);
-        list_row_colors_[row] = nav_color(r.nav_status);
+        list_row_colors_[row] = view::readable(nav_rgb(r.nav_status), dark);
 
         char sog_buf[24];
         char cog_buf[24];
