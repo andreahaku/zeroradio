@@ -46,7 +46,7 @@ The package pulls its Debian dependencies (`rtl-sdr`, `rtl-433`, `hackrf`, `pipe
 
 ## Use
 
-Open **ZeroRadio** from the launcher, move with F/X and press Enter to open an app. The last row, **About**, shows the version, the source code link with a QR code, the changelog and the credits.
+Open **ZeroRadio** from the launcher, move with F/X and press Enter to open an app. The menu starts on the app you used last. The last row, **About**, shows the version, the source code link with a QR code, the changelog and the credits.
 
 Inside every app:
 
@@ -54,11 +54,15 @@ Inside every app:
 | --- | --- |
 | 4 | Next tool page |
 | 5, 6, 7, 8 | The four actions shown in the bottom bar |
-| F / X | Move the cursor in a list or in Settings |
+| F / X (up/down) | Move the cursor in a list or in Settings, or zoom on the SDR, Scanner, radar and map |
+| Z / C (left/right) | Tune the SDR, move the Scanner band, step through aircraft, ships and devices, change a setting |
+| SYM + 4 to 8 | What that key does on this page, in your language |
 | H or Fn+H | Help for this app |
 | TAB | Switch between SDR and Scanner |
 | Esc | Back to the hub |
-| Hold Esc | Back to the CardputerZero launcher |
+| Hold Esc 3 s | Back to the CardputerZero launcher (let go before the bar fills to cancel) |
+
+The key tooltips follow the system language (`LANG`): English, Italian, French, German and Spanish. Other languages show English.
 
 **Your position.** ADS-B and AIS centre their radar and map on your position. Set it once in Settings > Location of either app. Type a city name, type coordinates such as `35.90, 14.51`, or pick the GPS row. The position is shared by the whole suite.
 

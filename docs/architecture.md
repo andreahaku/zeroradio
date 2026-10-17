@@ -31,10 +31,12 @@ The UI observes LVGL *subjects* and never reads state directly. Actions flow one
 input (keyboard) → key router (toolkit platform/linux_input)
    ├─ 4..8     → NavBar slot → NavProvider::nav_activate(page, slot) → app ViewModel action
    │                                            → model / persisted state + publish subject → UI updates
-   ├─ F/X, ↑/↓ → ShellViewModel::on_up() / on_down()   (move the cursor of the visible list)
+   ├─ F/X, ↑/↓ → ShellViewModel::on_up() / on_down()   (list cursor, or zoom)
+   ├─ Z/C, ←/→ → ShellViewModel::on_left() / on_right() (tune, pan, next contact, setting value)
+   ├─ SYM+4..8 → key tooltip: ShellViewModel::nav_hint(slot) → NavProvider::nav_hint(page, slot)
    ├─ TAB      → ShellViewModel::on_tab()              (SDR ↔ Scanner)
    ├─ H        → help page (ShellViewModel::help_doc(), shown in a TextViewer)
-   ├─ ESC      → short press: back / quit (run_app); hold 0.7 s: exit with kExitHome
+   ├─ ESC      → short press: back / quit (run_app); hold 3 s: exit with kExitHome
    └─ capture  → while a modal dialog is open, every key goes to it
 
 live data (independent of input, never blocks the UI):
@@ -82,11 +84,19 @@ A new app needs a parser, a `NavProvider` that maps keys to actions, and a scree
 `toolkit/src/platform/linux_input.cpp` reads the keyboard and routes each key:
 
 - Digits 4-8 drive the NavBar slots.
-- F/X (and the arrow keys) call `on_up()` / `on_down()`. Z/C act as left/right inside dialogs.
+- F/X (and the up/down arrow keys) call `on_up()` / `on_down()`. Z/C (and left/right) call
+  `on_left()` / `on_right()`.
+- SYM + 4..8 opens a tooltip for that NavBar key. The keyboard driver reports SYM as `KEY_CD`
+  and, while it is held, sends the five keys as `KEY_APOSTROPHE`, `KEY_GRAVE`, `KEY_BACKSLASH`,
+  `KEY_COMMA` and `KEY_DOT`. On a desktop keyboard Shift + 4..8 does the same. The text comes from
+  `NavProvider::nav_hint()` in the user's language (`toolkit::i18n`, from `LANG`).
+- The driver sends the "." key (SYM layer) as `KEY_HIRAGANA`, mapped to `.` for frequency entry.
 - TAB calls `on_tab()`. H opens the page set with `set_help_doc()`.
-- A short ESC press goes back or quits. Holding ESC shows a hint after 0.3 s and, at 0.7 s, calls
-  `request_home()`: the app exits with `ShellViewModel::kExitHome` and the hub closes too, which
-  returns the user to the system launcher.
+- A short ESC press goes back or quits. Holding ESC shows a modal with a bar after 0.3 s and, at
+  3 s, calls `request_home()`: the app exits with `ShellViewModel::kExitHome` and the hub closes
+  too, which returns the user to the system launcher. Releasing ESC while the modal is up cancels.
+- The hub selects the app used last, from `~/.config/zeroradio/hub/last_app`. The hub writes it
+  on launch, and `run_handoff()` writes it on a TAB switch.
 - A dialog takes the keyboard with `platform::set_key_capture()`. Pass `text=true` only for
   free-text entry: in text mode F/X/Z/C type letters, and menus rely on them as arrows.
 
