@@ -46,8 +46,8 @@ void set_quit_handler(void (*handler)(void* ctx), void* ctx);
 // TAB (LV_KEY_NEXT) outside a key capture: app switch (SDR <-> Survey).
 void set_tab_handler(void (*handler)(void* ctx), void* ctx);
 
-// Arrows outside a key capture: LV_KEY_UP, LV_KEY_DOWN, LV_KEY_LEFT or
-// LV_KEY_RIGHT. On the CardputerZero keyboard F/X/Z/C act as arrows without Fn.
+// Arrows and Enter outside a key capture: LV_KEY_UP, LV_KEY_DOWN, LV_KEY_LEFT,
+// LV_KEY_RIGHT or LV_KEY_ENTER. On the CardputerZero keyboard F/X/Z/C act as arrows without Fn.
 void set_arrow_handler(void (*handler)(uint32_t key, void* ctx), void* ctx);
 
 // Key 4 outside a key capture, once a handler is set: a tap shows the next

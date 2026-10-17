@@ -27,6 +27,13 @@ bool valid(LatLon p) {
 
 } // namespace
 
+LatLon offset_nm(LatLon from, double north_nm, double east_nm) {
+    const double lat = from.lat + north_nm / 60.0;
+    const double cos_lat = std::cos(from.lat * 3.14159265358979323846 / 180.0);
+    const double lon = from.lon + (cos_lat > 1e-6 ? east_nm / (60.0 * cos_lat) : 0.0);
+    return {std::clamp(lat, -85.0, 85.0), lon > 180.0 ? lon - 360.0 : (lon < -180.0 ? lon + 360.0 : lon)};
+}
+
 double range_nm(LatLon home, LatLon p) {
     if (!valid(home) || !valid(p)) {
         return 0.0;

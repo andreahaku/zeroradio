@@ -16,6 +16,10 @@ struct LatLon {
 // Great-circle distance between two points, in nautical miles (haversine).
 double range_nm(LatLon home, LatLon p);
 
+// The point `north_nm` north and `east_nm` east of `from` (flat-earth step,
+// fine for a map pan of a few hundred NM).
+LatLon offset_nm(LatLon from, double north_nm, double east_nm);
+
 // Initial bearing from `home` to `p`, normalized to [0, 359] degrees (0 = N).
 double bearing_deg(LatLon home, LatLon p);
 

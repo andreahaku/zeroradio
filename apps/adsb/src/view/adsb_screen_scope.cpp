@@ -108,6 +108,14 @@ void AdsbScreen::render_scope(uint16_t* buf, int width, int height, lv_obj_t* ca
     const uint16_t trail_col = lv_color_to_u16(lv_color_hex(day ? 0x5f9f6f : 0x55aa55));  // others' trail
     const uint16_t trail_sel_col = sel_ac_col;                          // selected trail
 
+    // Map mode on the Radar page can be panned with the arrows: the view
+    // centre moves away from home. The Detail mini-map stays on home.
+    const bool panned = mercator && canvas != detail_canvas_ &&
+                        (vm_.pan_north_nm() != 0.0 || vm_.pan_east_nm() != 0.0);
+    const toolkit::geo::LatLon centre =
+        panned ? toolkit::geo::offset_nm(config_.home, vm_.pan_north_nm(), vm_.pan_east_nm())
+               : config_.home;
+
     if (mercator) {
         // Map mode: coastline + national borders centred on home, instead of rings.
         toolkit::map::MapViewport vp;
@@ -116,7 +124,7 @@ void AdsbScreen::render_scope(uint16_t* buf, int width, int height, lv_obj_t* ca
         vp.cx = cx;
         vp.cy = cy;
         vp.radius_px = radius_px;
-        vp.home = config_.home;
+        vp.home = centre;
         vp.range_nm = max_nm;
         vp.projection = toolkit::map::Projection::Mercator;
         auto& cache = (canvas == detail_canvas_) ? detail_map_cache_ : scope_map_cache_;
@@ -148,13 +156,21 @@ void AdsbScreen::render_scope(uint16_t* buf, int width, int height, lv_obj_t* ca
         }
     }
     // Home dot at the centre (both modes).
-    plot_disc(buf, w, h, cx, cy, 2, home_col);
+    if (panned) {
+        // Home off-centre: a dot where it projects, if it is on the canvas.
+        int hx = 0, hy = 0;
+        if (toolkit::geo::project_mercator(centre, config_.home, max_nm, radius_px, hx, hy))
+            plot_disc(buf, w, h, cx + hx, cy + hy, 2, home_col);
+        plot_disc(buf, w, h, cx, cy, 1, home_col); // the view centre
+    } else {
+        plot_disc(buf, w, h, cx, cy, 2, home_col);
+    }
 
     // Project a point with the active projection. Mercator (map) doesn't cull, so
     // drop points that fall outside the canvas; azimuthal (radar) culls by range.
     auto project_pt = [&](const toolkit::geo::LatLon& p, int& dx, int& dy) -> bool {
         if (mercator) {
-            if (!toolkit::geo::project_mercator(config_.home, p, max_nm, radius_px, dx, dy))
+            if (!toolkit::geo::project_mercator(centre, p, max_nm, radius_px, dx, dy))
                 return false;
             return cx + dx >= 0 && cx + dx < w && cy + dy >= 0 && cy + dy < h;
         }

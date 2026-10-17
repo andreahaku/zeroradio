@@ -125,7 +125,8 @@ void dispatch_nav_key(uint32_t key) {
         if (help_handler) help_handler(help_ctx);
         return;
     }
-    if (key == LV_KEY_UP || key == LV_KEY_DOWN || key == LV_KEY_LEFT || key == LV_KEY_RIGHT) {
+    if (key == LV_KEY_UP || key == LV_KEY_DOWN || key == LV_KEY_LEFT || key == LV_KEY_RIGHT ||
+        key == LV_KEY_ENTER) {
         if (arrow_handler) arrow_handler(key, arrow_ctx);
         return;
     }

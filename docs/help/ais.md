@@ -17,7 +17,7 @@ Key 4 cycles four pages.
 - Radar: 5 zoom in, 6 zoom out (up to AUTO), 7 trails on/off, 8 radar/map.
 - Detail: 5 zoom in, 6 zoom out, 7 trails on/off, 8 show other traffic on/off.
 
-Zoom steps: 5, 10, 20, 50, 100 and 200 NM, then AUTO.
+Zoom steps: 1, 2, 5, 10, 20, 50, 100 and 200 NM, then AUTO. Below 5 NM the coastline is coarse: the map data is Natural Earth 1:10m.
 - Settings: 5 previous row, 6 next row, 7 change the value, 8 quit.
 
 Settings rows: Theme, Units (NM/km), TTL, Range, Trails, Map view, Location.
@@ -29,6 +29,7 @@ Location (Settings, key 7 on the Location row): type a city or "lat, lon". The f
 - 4: the next page of keys. The key shows the page name: LIST, RADAR (MAP), DETAIL, SETUP. Hold 4 for the page before.
 - F/X (up/down arrows): move the cursor on the List and Settings pages, zoom in/out on the Radar and Detail pages.
 - Z/C (left/right arrows): previous/next vessel on the Radar and Detail pages, change the value in Settings.
+- Map view (Radar page): the arrows move the map centre by a quarter of the range. Enter centres it on your position again.
 - SYM + 4 to 8: a tooltip that says what that key does on this page, in your language (English, Italian, French, German, Spanish, Japanese or Chinese).
 - H or Fn+H: this help. F/X scroll it, Esc closes it.
 - Esc: quit to the hub. Hold Esc 3 s to leave ZeroRadio for the launcher. Let go before 3 s to cancel.
