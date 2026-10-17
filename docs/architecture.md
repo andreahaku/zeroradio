@@ -90,7 +90,8 @@ A new app needs a parser, a `NavProvider` that maps keys to actions, and a scree
 - SYM + 4..8 opens a tooltip for that NavBar key. The keyboard driver reports SYM as `KEY_CD`
   and, while it is held, sends the five keys as `KEY_APOSTROPHE`, `KEY_GRAVE`, `KEY_BACKSLASH`,
   `KEY_COMMA` and `KEY_DOT`. On a desktop keyboard Shift + 4..8 does the same. The text comes from
-  `NavProvider::nav_hint()` in the user's language (`toolkit::i18n`, from `LANG`).
+  `NavProvider::nav_hint()` in the user's language (`toolkit::i18n`, from `LANG`). Japanese and
+  Chinese glyphs come from a system CJK font set as the fallback of Inter.
 - The driver sends the "." key (SYM layer) as `KEY_HIRAGANA`, mapped to `.` for frequency entry.
 - TAB calls `on_tab()`. H opens the page set with `set_help_doc()`.
 - A short ESC press goes back or quits. Holding ESC shows a modal with a bar after 0.3 s and, at
