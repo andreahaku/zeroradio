@@ -26,4 +26,10 @@ std::filesystem::path config_file(const std::string& app_subdir, const std::stri
 // if the path is empty). Safe to call before writing a state file.
 bool ensure_parent_dir(const std::filesystem::path& path);
 
+// The ZeroRadio app the user last opened (its catalog id, e.g. "survey"), so
+// the hub menu comes back on it. The hub records a launch, and a TAB switch
+// between apps records its target. Empty when nothing is recorded.
+void save_last_app(const std::string& id);
+std::string load_last_app();
+
 } // namespace toolkit

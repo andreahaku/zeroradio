@@ -5,6 +5,7 @@
  */
 
 #include "handoff.h"
+#include "persisted_state.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -35,6 +36,7 @@ int run_handoff(const ShellViewModel& shell) {
         std::fprintf(stderr, "handoff: %s not found\n", h.bin.c_str());
         return 1;
     }
+    save_last_app(h.app_dir); // the app directory is the hub catalog id
     for (const auto& [key, value] : h.env) ::setenv(key.c_str(), value.c_str(), 1);
     std::fflush(nullptr);
     ::execl(path.c_str(), path.c_str(), static_cast<char*>(nullptr));

@@ -25,8 +25,8 @@ namespace {
 // Re-launch the hub as a brand-new process. LVGL + the SDL backend keep static
 // state that is not cleanly re-initialisable in-process (a second lv_init()
 // leaves the SDL event pump dead -> a frozen, unresponsive window), so rather
-// than loop in-process we exec a fresh image for every menu render. State is
-// intentionally not carried over (the selection resets to the top).
+// than loop in-process we exec a fresh image for every menu render. The menu
+// selection comes back from toolkit::load_last_app(), not from this process.
 [[noreturn]] void reexec_hub(char** argv) {
     std::fflush(nullptr); // execv discards stdio buffers; flush pending logs first
     execv("/proc/self/exe", argv);
