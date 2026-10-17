@@ -9,6 +9,7 @@
 #include "theme.h"
 
 #include <cstdint>
+#include <initializer_list>
 
 namespace reactive {
 namespace {
@@ -81,6 +82,16 @@ void theme_observer(lv_observer_t* observer, lv_subject_t* subject) {
             break;
         case ThemeRole::Text:
             lv_obj_set_style_text_color(obj, colors.text, 0);
+            break;
+        case ThemeRole::Table:
+            // The LVGL theme styles a table once, when it is created; a theme
+            // switch needs the colours set on both parts here.
+            for (const lv_style_selector_t part : {LV_PART_MAIN, LV_PART_ITEMS}) {
+                lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, part);
+                lv_obj_set_style_bg_color(obj, colors.background, part);
+                lv_obj_set_style_text_color(obj, colors.text, part);
+            }
+            lv_obj_set_style_border_color(obj, colors.border, LV_PART_ITEMS);
             break;
     }
 }

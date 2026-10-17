@@ -155,6 +155,8 @@ void MeshtasticScreen::build_content(lv_obj_t* content) {
     }
 
     nodes_table_ = lv_table_create(nodes_view_);
+
+    reactive::bind_theme(nodes_table_, vm_.dark_mode_subject(), reactive::ThemeRole::Table);
     lv_obj_set_width(nodes_table_, LV_PCT(100));
     lv_obj_set_flex_grow(nodes_table_, 1);
     lv_table_set_column_count(nodes_table_, 4);
@@ -188,6 +190,8 @@ void MeshtasticScreen::build_content(lv_obj_t* content) {
     lv_obj_add_flag(settings_view_, LV_OBJ_FLAG_HIDDEN);
 
     settings_table_ = lv_table_create(settings_view_);
+
+    reactive::bind_theme(settings_table_, vm_.dark_mode_subject(), reactive::ThemeRole::Table);
     lv_obj_set_size(settings_table_, LV_PCT(100), LV_PCT(100));
     lv_obj_align(settings_table_, LV_ALIGN_TOP_LEFT, 0, 0);
     lv_table_set_column_count(settings_table_, 2);

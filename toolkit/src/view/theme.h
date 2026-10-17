@@ -28,6 +28,10 @@ struct ThemePalette {
 };
 
 ThemePalette palette(bool dark_mode);
+
+// A colour picked for a dark background (e.g. an aircraft category), made
+// darker on the light theme so it still reads on white.
+lv_color_t readable(uint32_t rgb, bool dark_mode);
 void apply_lvgl_theme(lv_display_t* display, bool dark_mode);
 
 } // namespace view

@@ -122,6 +122,8 @@ void IsmScreen::build_content(lv_obj_t* content) {
     }
 
     list_table_ = lv_table_create(list_view_);
+
+    reactive::bind_theme(list_table_, vm_.dark_mode_subject(), reactive::ThemeRole::Table);
     lv_obj_set_width(list_table_, LV_PCT(100));
     lv_obj_set_flex_grow(list_table_, 1);
     lv_table_set_column_count(list_table_, 3);
@@ -157,6 +159,8 @@ void IsmScreen::build_content(lv_obj_t* content) {
     lv_obj_set_style_pad_all(settings_box_, 0, 0);
 
     settings_table_ = lv_table_create(settings_box_);
+
+    reactive::bind_theme(settings_table_, vm_.dark_mode_subject(), reactive::ThemeRole::Table);
     lv_obj_set_size(settings_table_, LV_PCT(100), LV_PCT(100));
     lv_table_set_column_count(settings_table_, 2);
     lv_table_set_column_width(settings_table_, 0, 150);

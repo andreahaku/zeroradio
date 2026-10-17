@@ -10,6 +10,15 @@
 
 namespace view {
 
+lv_color_t readable(uint32_t rgb, bool dark_mode) {
+    if (dark_mode) return lv_color_hex(rgb);
+    // 55 % of each channel: the pastel accents keep their hue but get the
+    // contrast of a dark text on the light background.
+    const auto scale = [rgb](int shift) { return ((rgb >> shift) & 0xff) * 55 / 100; };
+    return lv_color_make(static_cast<uint8_t>(scale(16)), static_cast<uint8_t>(scale(8)),
+                         static_cast<uint8_t>(scale(0)));
+}
+
 ThemePalette palette(bool dark_mode) {
     if (dark_mode) {
         return {

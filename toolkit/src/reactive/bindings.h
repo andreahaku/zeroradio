@@ -27,6 +27,7 @@ enum class ThemeRole {
     Bar,
     Button,
     Text,
+    Table, // an lv_table: background, cells and row separators
 };
 
 void bind_theme(lv_obj_t* obj, lv_subject_t* dark_mode_subject, ThemeRole role);

@@ -142,6 +142,7 @@ void AdsbScreen::render_scope(uint16_t* buf, int width, int height, lv_obj_t* ca
             // One decimal on short ranges (5 NM rings are 1.7 / 3.3 / 5).
             const double ring = to_unit(ring_nm * (static_cast<double>(i) + 1) / 3.0, ring_km);
             lv_label_set_text_fmt(lbl, ring < 10.0 ? "%.1f" : "%.0f", ring);
+            lv_obj_set_style_text_color(lbl, view::readable(0x7aa07a, !day), 0); // dim green
             lv_obj_remove_flag(lbl, LV_OBJ_FLAG_HIDDEN);
             lv_obj_align_to(lbl, canvas, LV_ALIGN_CENTER, 4, -ring_px[i] + 6);
         }
@@ -258,7 +259,8 @@ void AdsbScreen::update_ppi(const std::vector<Row>& rows) {
             lv_obj_set_style_text_color(l, lv_color_black(), 0);
         } else {
             lv_obj_set_style_bg_opa(l, LV_OPA_TRANSP, 0);
-            lv_obj_set_style_text_color(l, lv_color_hex(category_rgb(r.category, r.emergency)), 0);
+            lv_obj_set_style_text_color(
+                l, view::readable(category_rgb(r.category, r.emergency), vm_.is_dark_mode()), 0);
         }
         lv_obj_remove_flag(l, LV_OBJ_FLAG_HIDDEN);
     }

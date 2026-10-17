@@ -184,7 +184,8 @@ void AdsbScreen::update_list(const std::vector<Row>& rows) {
 
     // Data rows are 0-based (the column titles live in the fixed header strip).
     lv_table_set_row_count(list_table_, static_cast<uint32_t>(rows.size()));
-    list_row_colors_.assign(rows.size(), lv_color_white());
+    const bool dark = vm_.is_dark_mode();
+    list_row_colors_.assign(rows.size(), view::palette(dark).text);
 
     const std::string& sel_hex = vm_.selected_hex();
     const bool km = vm_.units_km();
@@ -200,7 +201,7 @@ void AdsbScreen::update_list(const std::vector<Row>& rows) {
     for (size_t i = 0; i < rows.size(); ++i) {
         const Row& r = rows[i];
         const uint32_t row = static_cast<uint32_t>(i);
-        list_row_colors_[row] = category_color(r.category, r.emergency);
+        list_row_colors_[row] = view::readable(category_rgb(r.category, r.emergency), dark);
         // Sized for any 64-bit value: a bogus/huge field must not truncate to a
         // misleading number (snprintf is bounded either way).
         char alt_buf[24];
