@@ -33,6 +33,13 @@ public:
     // Activate slot `slot` (1..4) on `page`. Slot 0 is handled by the NavBar.
     virtual void nav_activate(int page, int slot) = 0;
 
+    // Short name of `page` (a few capitals, e.g. "TUNE"), shown on key 4 as a
+    // tab, as in ZeroTracker. nullptr = the 1-based page number.
+    virtual const char* nav_page_name(int page) const {
+        (void)page;
+        return nullptr;
+    }
+
     // What slot `slot` (1..4) does on `page`, for the key tooltip (SYM + 4-8).
     // Empty = no tooltip. Slot 0 is described by the shell.
     virtual i18n::Text nav_hint(int page, int slot) const {

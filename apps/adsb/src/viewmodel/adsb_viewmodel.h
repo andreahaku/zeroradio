@@ -107,6 +107,7 @@ public:
     int nav_page_count() const override;
     void nav_fill(int page, NavProvider::NavSlot out[5]) const override;
     void nav_activate(int page, int slot) override;
+    const char* nav_page_name(int page) const override;
     toolkit::i18n::Text nav_hint(int page, int slot) const override;
 
     // F/X (arrows): the list cursor, or the settings cursor.

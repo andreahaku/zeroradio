@@ -246,6 +246,15 @@ void IsmViewModel::move_cursor(int dir) {
     }
 }
 
+const char* IsmViewModel::nav_page_name(int page) const {
+    switch (static_cast<Screen>(page)) {
+        case Screen::List: return "LIST";
+        case Screen::Detail: return "DETAIL";
+        case Screen::Settings: return "SETUP";
+    }
+    return nullptr;
+}
+
 toolkit::i18n::Text IsmViewModel::nav_hint(int page, int slot) const {
     namespace h = toolkit::hints;
     switch (static_cast<Screen>(page)) {

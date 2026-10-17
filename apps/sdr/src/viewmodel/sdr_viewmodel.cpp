@@ -250,6 +250,17 @@ void SdrViewModel::nav_activate(int page, int slot) {
     }
 }
 
+const char* SdrViewModel::nav_page_name(int page) const {
+    switch (static_cast<Page>(page)) {
+        case Page::Tuning: return "TUNE";
+        case Page::Zoom: return "ZOOM";
+        case Page::Visual: return "VIEW";
+        case Page::Audio: return "AUDIO";
+        case Page::Settings: return "GAIN";
+    }
+    return nullptr;
+}
+
 toolkit::i18n::Text SdrViewModel::nav_hint(int page, int slot) const {
     namespace h = toolkit::hints;
     switch (static_cast<Page>(page)) {

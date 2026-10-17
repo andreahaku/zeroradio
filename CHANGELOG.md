@@ -5,6 +5,7 @@ All notable changes to ZeroRadio. Versions follow semantic versioning.
 ## 1.1.0
 
 - Arrow keys work on every page: F/X (up/down) and Z/C (left/right). SDR: left/right tune by one step, up/down zoom. Scanner: up/down zoom and left/right move the swept band. ADS-B and AIS: up/down zoom the radar and map, left/right step through the contacts. ISM: left/right step through the devices. Settings: left/right change the value both ways.
+- Key 4 shows the name of the tool page (TUNE, ZOOM, LIST, RADAR, SETUP…) on a white tab, as in ZeroTracker, instead of its number.
 - Hold key 4 to go back one tool page, as in ZeroTracker. A tap still shows the next page.
 - SYM + 4 to 8 shows what that key does on the current page. The tooltip follows the system language: English, Italian, French, German, Spanish, Japanese or Chinese.
 - Hold Esc 3 s to leave ZeroRadio for the launcher, as in ZeroTracker. A small window with a bar shows the countdown, and letting go cancels it. A short press still goes back to the menu.

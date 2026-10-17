@@ -11,6 +11,10 @@
 
 namespace view::widgets {
 
+namespace {
+constexpr int32_t kTabWidth = 58;
+} // namespace
+
 IconButton::IconButton(lv_obj_t* parent,
                        lv_subject_t* dark_mode_subject,
                        int32_t width,
@@ -87,6 +91,26 @@ void IconButton::set_icon_color(lv_color_t color) {
     force_color_ = true;
     forced_color_ = color;
     apply_theme(dark_mode());
+}
+
+void IconButton::set_tab_style(const lv_font_t* font, lv_color_t bg, lv_color_t fg) {
+    if (!core_obj_ || !label_) return;
+    // Widen the button to fit six capitals. Negative side margins keep the
+    // space it takes in the bar's flex row, so the other keys do not move.
+    const int32_t extra = (kTabWidth - width_) / 2;
+    lv_obj_set_width(core_obj_, kTabWidth);
+    lv_obj_set_style_margin_left(core_obj_, -extra, 0);
+    lv_obj_set_style_margin_right(core_obj_, -extra, 0);
+    lv_obj_set_width(label_, kTabWidth);
+    lv_label_set_long_mode(label_, LV_LABEL_LONG_MODE_CLIP);
+    lv_obj_set_style_text_align(label_, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_bg_color(label_, bg, 0);
+    lv_obj_set_style_bg_opa(label_, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(label_, 4, 0);
+    lv_obj_set_style_pad_hor(label_, 2, 0);
+    lv_obj_set_style_pad_ver(label_, 1, 0);
+    set_font(font);
+    set_icon_color(fg);
 }
 
 void IconButton::set_enabled(bool enabled) {

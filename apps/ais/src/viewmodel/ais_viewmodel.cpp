@@ -186,6 +186,7 @@ bool AisViewModel::map_mercator() const { return map_mercator_; }
 
 void AisViewModel::toggle_map_mode() {
     map_mercator_ = !map_mercator_;
+    bump_nav_refresh(); // key 4 reads MAP or RADAR
     save_settings();
 }
 int AisViewModel::settings_cursor() const { return settings_cursor_; }
@@ -392,6 +393,16 @@ void AisViewModel::move_cursor(int dir) {
         if (dir < 0) settings_up();
         else settings_down();
     }
+}
+
+const char* AisViewModel::nav_page_name(int page) const {
+    switch (static_cast<Screen>(page)) {
+        case Screen::List: return "LIST";
+        case Screen::Radar: return map_mercator_ ? "MAP" : "RADAR";
+        case Screen::Detail: return "DETAIL";
+        case Screen::Settings: return "SETUP";
+    }
+    return nullptr;
 }
 
 toolkit::i18n::Text AisViewModel::nav_hint(int page, int slot) const {

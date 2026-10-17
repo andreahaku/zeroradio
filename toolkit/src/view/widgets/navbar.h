@@ -56,6 +56,7 @@ private:
     std::array<SlotCtx, 5> slot_ctx_{};
     lv_font_t* icon_font_{nullptr};
     lv_font_t* text_font_{nullptr};
+    lv_font_t* tab_font_{nullptr};
     bool overlay_{false};
     lv_observer_t* page_observer_{nullptr};
     lv_observer_t* theme_observer_{nullptr};
