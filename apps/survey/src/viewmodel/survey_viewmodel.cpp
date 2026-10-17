@@ -287,6 +287,14 @@ void SurveyViewModel::nav_activate(int page, int slot) {
     }
 }
 
+const char* SurveyViewModel::nav_page_name(int page) const {
+    switch (static_cast<Page>(page)) {
+        case Page::Waterfall: return "SWEEP";
+        case Page::Peaks: return "PEAKS";
+    }
+    return nullptr;
+}
+
 toolkit::i18n::Text SurveyViewModel::nav_hint(int page, int slot) const {
     namespace h = toolkit::hints;
     switch (static_cast<Page>(page)) {

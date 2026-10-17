@@ -20,7 +20,7 @@ Theme switches dark/light. TTL is how long a silent device stays listed: 30, 60,
 
 ## Global keys
 
-- 4: the next page of keys. Hold 4 for the page before.
+- 4: the next page of keys. The key shows the page name: LIST, DETAIL, SETUP. Hold 4 for the page before.
 - F/X (up/down arrows): move the cursor on the List, Detail and Settings pages.
 - Z/C (left/right arrows): previous/next device on the Detail page, change the value in Settings.
 - SYM + 4 to 8: a tooltip that says what that key does on this page, in your language (English, Italian, French, German, Spanish, Japanese or Chinese).

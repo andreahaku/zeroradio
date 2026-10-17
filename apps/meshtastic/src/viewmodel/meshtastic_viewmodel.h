@@ -136,6 +136,9 @@ public:
     int nav_page_count() const override;
     void nav_fill(int page, NavProvider::NavSlot out[5]) const override;
     void nav_activate(int page, int slot) override;
+    const char* nav_page_name(int page) const override {
+        return page == static_cast<int>(Page::Settings) ? "SETUP" : page_name(page);
+    }
 
 private:
     int nodes_cursor_ = 0;

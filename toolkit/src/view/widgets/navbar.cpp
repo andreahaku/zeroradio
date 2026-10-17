@@ -94,9 +94,9 @@ void NavBar::set_overlay_mode() {
     // Lift the bar above the (full-height) content...
     lv_obj_move_foreground(core_obj_);
     // ...with white icons for contrast against the content colours.
-    for (auto& button : icon_buttons_) {
-        if (button) {
-            button->set_icon_color(lv_color_white());
+    for (size_t i = 1; i < icon_buttons_.size(); ++i) { // slot 0 keeps its tab colours
+        if (icon_buttons_[i]) {
+            icon_buttons_[i]->set_icon_color(lv_color_white());
         }
     }
 }
@@ -106,6 +106,7 @@ void NavBar::create_icon_buttons() {
     const auto dark_color = view::palette(true).text;
     icon_font_ = assets_.load_font("Phosphor-Fill.ttf", 26);
     text_font_ = assets_.load_font("inter-semibold.ttf", 16);
+    tab_font_ = assets_.load_font("inter-bold.ttf", 13);
 
     for (size_t i = 0; i < icon_buttons_.size(); ++i) {
         slot_ctx_[i] = SlotCtx{this, static_cast<int>(i)};
@@ -123,6 +124,9 @@ void NavBar::create_icon_buttons() {
         lv_obj_set_style_translate_x(icon_buttons_[i]->root(), kNavButtonXOffsets[i], 0);
         platform::register_nav_button(i, icon_buttons_[i]->root());
     }
+    // Key 4 shows the page name as a white tab with black text (ZeroTracker).
+    icon_buttons_[0]->set_tab_style(tab_font_ ? tab_font_ : text_font_, lv_color_white(),
+                                    lv_color_black());
 }
 
 void NavBar::update_icon_buttons() {
@@ -142,11 +146,12 @@ void NavBar::update_icon_buttons() {
         bool use_text_font;
         bool enabled;
         if (i == 0) {
-            // Slot 0 always shows the 1-based page number, rendered with the text
-            // font and always enabled (it is the page switcher).
-            text = kPageLabels[page >= 0 && page < 5 ? page : 0];
-            use_text_font = true;
-            enabled = true;
+            // Slot 0 is the page switcher: it shows the page name (or the
+            // 1-based number) on its tab and is always enabled.
+            const char* name = provider_.nav_page_name(page);
+            button->set_text(name && name[0] ? name : kPageLabels[page >= 0 && page < 5 ? page : 0]);
+            button->set_enabled(true);
+            continue;
         } else {
             const auto& slot = slots[i];
             text = slot.text;
@@ -160,7 +165,7 @@ void NavBar::update_icon_buttons() {
         button->set_font((use_text_font || placeholder) ? text_font_ : icon_font_);
         button->set_text(placeholder ? "\xC2\xB7" : text); // middot placeholder
         button->set_enabled((i == 0) ? true : (!placeholder && enabled));
-        if (overlay_) {
+        if (overlay_) { // only slots 1..4 get here
             button->set_icon_color(lv_color_white());
         }
     }
