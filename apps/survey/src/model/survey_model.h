@@ -28,6 +28,7 @@ public:
 
     void zoom_in();      // halve the span around the centre
     void zoom_out();     // double the span around the centre
+    void pan(int dir);   // shift by a quarter span: -1 down, +1 up (span kept)
 
     // Manual tune: set the swept window from a centre frequency and total span
     // (start = centre - span/2, stop = centre + span/2), clamped to the radio

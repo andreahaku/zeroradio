@@ -218,7 +218,7 @@ void AdsbViewModel::settings_down() {
     if (settings_cursor_ + 1 < settings_count()) ++settings_cursor_;
 }
 
-void AdsbViewModel::settings_activate() {
+void AdsbViewModel::settings_activate(int dir) {
     switch (settings_cursor_) {
         case 0: set_dark_mode(!is_dark_mode()); break;            // Theme
         case 1: units_km_ = !units_km_; break;                    // Units
@@ -226,11 +226,11 @@ void AdsbViewModel::settings_activate() {
             static const double kTtl[] = {15, 30, 60, 120};
             int i = 0;
             for (int k = 0; k < 4; ++k) if (ttl_seconds_ == kTtl[k]) i = k;
-            ttl_seconds_ = kTtl[(i + 1) % 4];
+            ttl_seconds_ = kTtl[(i + dir + 4) % 4];
             break;
         }
         case 3: {                                                 // Range default
-            const int next = (range_index() + 1) % kRangeStateCount; // ladder + AUTO
+            const int next = (range_index() + dir + kRangeStateCount) % kRangeStateCount; // ladder + AUTO
             range_index_subject_.set(next);
             bump_nav_refresh();
             break;
@@ -239,13 +239,13 @@ void AdsbViewModel::settings_activate() {
             static const int kTr[] = {0, 15, 30, 60};
             int i = 0;
             for (int k = 0; k < 4; ++k) if (trail_len_ == kTr[k]) i = k;
-            trail_len_ = kTr[(i + 1) % 4];
+            trail_len_ = kTr[(i + dir + 4) % 4];
             break;
         }
         case 5: show_ground_ = !show_ground_; break;              // Ground
         case 6: emergency_only_ = !emergency_only_; break;        // Emergency only
         case 7: map_mercator_ = !map_mercator_; break;            // Map view (Radar/Map)
-        case 8: location_request_ = true; return; // Location: the screen opens the dialog
+        case 8: if (dir > 0) location_request_ = true; return; // Location: the screen opens the dialog
         default: break;
     }
     save_settings();
@@ -412,10 +412,26 @@ void AdsbViewModel::set_location_label(std::string label) {
     location_label_ = label.empty() ? std::string("Not set") : std::move(label);
 }
 
+void AdsbViewModel::move_side(int dir) {
+    const int s = screen();
+    if (s == static_cast<int>(Screen::Radar) || s == static_cast<int>(Screen::Detail)) {
+        // Step the selection through the contacts in list order.
+        if (dir < 0) select_prev();
+        else select_next();
+        if (!cursor_hex_.empty()) selected_hex_ = cursor_hex_;
+    } else if (s == static_cast<int>(Screen::Settings)) {
+        settings_activate(dir);
+    }
+}
+
 void AdsbViewModel::move_cursor(int dir) {
     if (screen() == static_cast<int>(Screen::List)) {
         if (dir < 0) select_prev();
         else select_next();
+    } else if (screen() == static_cast<int>(Screen::Radar) ||
+               screen() == static_cast<int>(Screen::Detail)) {
+        if (dir < 0) range_in();
+        else range_out();
     } else if (screen() == static_cast<int>(Screen::Settings)) {
         if (dir < 0) settings_up();
         else settings_down();

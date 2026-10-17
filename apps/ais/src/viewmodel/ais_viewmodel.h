@@ -79,7 +79,7 @@ public:
     int settings_cursor() const;
     void settings_up();
     void settings_down();
-    void settings_activate();
+    void settings_activate(int dir = 1);
     std::string setting_name(int i) const;
     std::string setting_value(int i) const;
 
@@ -97,14 +97,20 @@ public:
     void nav_activate(int page, int slot) override;
 
     // F/X (arrows): the list cursor, or the settings cursor.
+    // Arrows. List and Settings: up/down move the cursor. Radar and Detail:
+    // up/down zoom in/out, left/right step through the contacts. Settings:
+    // left/right change the value.
     void on_up() override { move_cursor(-1); }
     void on_down() override { move_cursor(1); }
+    void on_left() override { move_side(-1); }
+    void on_right() override { move_side(1); }
 
 private:
     bool        location_request_{false};
     std::string location_label_{"Not set"};
     bool        location_set_{false};
     void move_cursor(int dir);
+    void move_side(int dir);
     void load_settings();
     void save_settings() const;
 
