@@ -12,6 +12,7 @@ All notable changes to ZeroRadio. Versions follow semantic versioning.
 - The menu comes back on the app you used last, also after a TAB switch between SDR and Scanner.
 - Frequency entry: the "." key (SYM + .) now types the decimal point, so you can enter values such as 98.525 MHz in the SDR and the Scanner.
 - ADS-B and AIS: two closer zoom steps, 2 NM and 1 NM. On the map view the arrows move the centre of the map, and Enter centres it on your position again. Hold key 8 on the map to follow the selected aircraft or ship: an orange dot shows left of its name in the title.
+- Scanner: the tune dialog accepts typing again. Its fields started full with the current value, so every digit was dropped; now the first digit replaces the value, and F/X move between centre and span.
 - SDR: Fn+A mutes, Fn+S and Fn+D change the volume from any page, with a short on-screen readout.
 - SDR: the narrow FM mode is now labelled NFM, next to WFM.
 - The battery level is green, yellow, orange or red as the charge drops.

@@ -14,7 +14,7 @@ Key 4 switches between two pages.
 - Waterfall: 5 zoom out (wider), 6 tune dialog, 7 zoom in (narrower), 8 dark/light theme.
 - Peaks: 5 cursor up, 6 cursor down, 7 open in SDR, 8 next sort order.
 
-Tune dialog (Waterfall, key 6): type the centre in MHz, Enter, then the total span in MHz, Enter. The sweep covers centre +/- span/2. Digits, dot (SYM + .), up to 3 decimals, and Backspace edit. Esc cancels.
+Tune dialog (SWEEP, key 6): the fields show the current values, and typing replaces them. Type the centre in MHz, Enter, then the total span in MHz, Enter. F/X move between the two fields. The sweep covers centre +/- span/2. Digits, dot (SYM + .), up to 3 decimals, and Backspace edit. Esc cancels.
 
 Open in SDR (Peaks, key 7): quits the Scanner and starts the SDR app tuned to the selected peak.
 
