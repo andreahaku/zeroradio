@@ -35,17 +35,19 @@ void (*quit_handler)(void*) = nullptr;
 void* quit_ctx = nullptr;
 void (*tab_handler)(void*) = nullptr;
 void* tab_ctx = nullptr;
-void (*arrow_handler)(int, void*) = nullptr;
+void (*arrow_handler)(uint32_t, void*) = nullptr;
 void* arrow_ctx = nullptr;
 void (*help_handler)(void*) = nullptr;
 void* help_ctx = nullptr;
 void (*home_handler)(void*) = nullptr;
 void (*hold_hint_handler)(bool, void*) = nullptr;
 void* home_ctx = nullptr;
+void (*nav_hint_handler)(int, void*) = nullptr;
+void* nav_hint_ctx = nullptr;
+void (*key_activity_handler)(uint32_t, void*) = nullptr;
+void* key_activity_ctx = nullptr;
 
 // ESC hold tracking (see set_home_handler).
-constexpr uint32_t kHoldHintMs = 300;
-constexpr uint32_t kHoldHomeMs = 700; // the CardputerZero Template value
 lv_indev_t* esc_indev = nullptr;
 uint32_t esc_started_at = 0;
 bool esc_hint_shown = false;
@@ -54,6 +56,22 @@ lv_timer_t* esc_timer = nullptr;
 void (*key_capture)(uint32_t, void*) = nullptr;
 void* capture_ctx = nullptr;
 bool capture_text = false;
+
+// SYM + 4..8 on the device, Shift + 4..8 on a desktop keyboard: the tooltip
+// of that NavBar key. Returns -1 for any other key.
+int nav_hint_slot(uint32_t key) {
+    if (key >= kKeyNavHint && key < kKeyNavHint + kNavKeyCount) {
+        return static_cast<int>(key - kKeyNavHint);
+    }
+    switch (key) {
+        case '$': return 0;
+        case '%': return 1;
+        case '^': return 2;
+        case '&': return 3;
+        case '*': return 4;
+        default:  return -1;
+    }
+}
 
 size_t nav_key_to_index(uint32_t key) {
     switch (key) {
@@ -96,8 +114,12 @@ void dispatch_nav_key(uint32_t key) {
         if (help_handler) help_handler(help_ctx);
         return;
     }
-    if (key == LV_KEY_UP || key == LV_KEY_DOWN) {
-        if (arrow_handler) arrow_handler(key == LV_KEY_UP ? -1 : 1, arrow_ctx);
+    if (key == LV_KEY_UP || key == LV_KEY_DOWN || key == LV_KEY_LEFT || key == LV_KEY_RIGHT) {
+        if (arrow_handler) arrow_handler(key, arrow_ctx);
+        return;
+    }
+    if (const int slot = nav_hint_slot(key); slot >= 0) {
+        if (nav_hint_handler) nav_hint_handler(slot, nav_hint_ctx);
         return;
     }
 
@@ -127,13 +149,13 @@ void esc_timer_cb(lv_timer_t* timer) {
         return;
     }
     if (esc_home_sent) return;
-    if (elapsed >= kHoldHomeMs) {
+    if (elapsed >= kEscHoldHomeMs) {
         esc_home_sent = true;
         if (esc_hint_shown && hold_hint_handler) hold_hint_handler(false, home_ctx);
         esc_hint_shown = false;
         if (home_handler) home_handler(home_ctx);
         else if (quit_handler) quit_handler(quit_ctx);
-    } else if (elapsed >= kHoldHintMs && !esc_hint_shown) {
+    } else if (elapsed >= kEscHoldHintMs && !esc_hint_shown) {
         esc_hint_shown = true;
         if (hold_hint_handler) hold_hint_handler(true, home_ctx);
     }
@@ -161,6 +183,7 @@ void key_event_cb(lv_event_t* event) {
     const bool pressed = lv_indev_get_state(indev) == LV_INDEV_STATE_PRESSED;
 
     if (pressed && (!last_key_pressed || last_key != key)) {
+        if (key_activity_handler) key_activity_handler(key, key_activity_ctx);
         if (key == LV_KEY_ESC && !key_capture && !esc_indev) {
             start_esc_hold(indev);
         } else if (key != LV_KEY_ESC || key_capture) {
@@ -173,6 +196,23 @@ void key_event_cb(lv_event_t* event) {
 }
 
 #if !USE_DESKTOP
+// The CardputerZero keyboard driver reports SYM as a key of its own, held
+// while the symbol layer is active.
+bool sym_held = false;
+
+// SYM + 4..8: the symbol layer turns the five NavBar keys into these codes.
+// Outside a key capture they open the key tooltips instead.
+uint32_t map_sym_nav_key(uint16_t code) {
+    switch (code) {
+        case KEY_APOSTROPHE: return kKeyNavHint + 0; // SYM + 4
+        case KEY_GRAVE:      return kKeyNavHint + 1; // SYM + 5
+        case KEY_BACKSLASH:  return kKeyNavHint + 2; // SYM + 6
+        case KEY_COMMA:      return kKeyNavHint + 3; // SYM + 7
+        case KEY_DOT:        return kKeyNavHint + 4; // SYM + 8
+        default:             return 0;
+    }
+}
+
 struct EvdevKeypad {
     int fd{-1};
     lv_indev_state_t state{LV_INDEV_STATE_RELEASED};
@@ -197,6 +237,9 @@ uint32_t map_evdev_text(uint16_t code) {
 }
 
 uint32_t map_evdev_key(uint16_t code) {
+    if (sym_held && !key_capture) {
+        if (const uint32_t hint = map_sym_nav_key(code)) return hint;
+    }
     // While a text-entry capture is active, F/X/Z/C are letters again (the Fn
     // layer still sends real arrows).
     if (capture_text) {
@@ -235,7 +278,10 @@ uint32_t map_evdev_key(uint16_t code) {
         case KEY_8:          return '8';
         case KEY_9:          return '9';
         case KEY_DOT:
-        case KEY_KPDOT:      return '.';
+        case KEY_KPDOT:
+        // The CardputerZero driver sends its "." key (on the symbol layer) as
+        // KEY_HIRAGANA.
+        case KEY_HIRAGANA:   return '.';
         case KEY_BACKSPACE:  return LV_KEY_BACKSPACE;
         case KEY_ENTER:
         case KEY_KPENTER:    return LV_KEY_ENTER;
@@ -268,6 +314,10 @@ void evdev_read_cb(lv_indev_t* indev, lv_indev_data_t* data) {
     input_event input{};
     while (read(keypad->fd, &input, sizeof(input)) == sizeof(input)) {
         if (input.type != EV_KEY) {
+            continue;
+        }
+        if (input.code == KEY_CD) { // SYM, see sym_held
+            sym_held = input.value != 0;
             continue;
         }
 
@@ -400,9 +450,19 @@ void set_help_handler(void (*handler)(void* ctx), void* ctx) {
     help_ctx = ctx;
 }
 
-void set_arrow_handler(void (*handler)(int dir, void* ctx), void* ctx) {
+void set_arrow_handler(void (*handler)(uint32_t key, void* ctx), void* ctx) {
     arrow_handler = handler;
     arrow_ctx = ctx;
+}
+
+void set_nav_hint_handler(void (*handler)(int slot, void* ctx), void* ctx) {
+    nav_hint_handler = handler;
+    nav_hint_ctx = ctx;
+}
+
+void set_key_activity_handler(void (*handler)(uint32_t key, void* ctx), void* ctx) {
+    key_activity_handler = handler;
+    key_activity_ctx = ctx;
 }
 
 void set_tab_handler(void (*handler)(void* ctx), void* ctx) {

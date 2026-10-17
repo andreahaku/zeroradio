@@ -51,6 +51,18 @@ int ShellViewModel::nav_page_count() const {
     return nav_provider_ ? nav_provider_->nav_page_count() : 1;
 }
 
+i18n::Text ShellViewModel::nav_hint(int slot) const {
+    if (slot == 0) {
+        return {"Show the next page of keys",
+                "Mostra la pagina successiva di tasti",
+                "Affiche la page de touches suivante",
+                "Zeigt die nächste Tastenseite",
+                "Muestra la siguiente página de teclas"};
+    }
+    if (!nav_provider_ || slot < 0 || slot > 4) return {};
+    return nav_provider_->nav_hint(toolbar_page_subject_.value(), slot);
+}
+
 lv_subject_t* ShellViewModel::dark_mode_subject() {
     return dark_mode_subject_.native();
 }

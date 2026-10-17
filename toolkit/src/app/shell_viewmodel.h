@@ -37,7 +37,7 @@ public:
     // --- lifecycle ---
     void request_quit();
 
-    // Exit code asking the Radio hub to close too: the user held ESC 0.7 s to go
+    // Exit code asking the Radio hub to close too: the user held ESC 3 s to go
     // straight back to the system launcher.
     static constexpr int kExitHome = 42;
     void request_home() { exit_code_ = kExitHome; request_quit(); }
@@ -65,6 +65,11 @@ public:
     virtual void on_up() {}
     virtual void on_down() {}
 
+    // Left/right keys (arrows, Z/C): move along what the page shows, such as the
+    // tuned frequency or the selected aircraft. Nothing by default.
+    virtual void on_left() {}
+    virtual void on_right() {}
+
     // Help page opened with H (run_app shows it), as a path relative to the
     // repository root, e.g. "docs/help/sdr.md"; empty = no help.
     void set_help_doc(std::string relative_path) { help_doc_ = std::move(relative_path); }
@@ -77,6 +82,10 @@ public:
     // --- NavProvider wiring ---
     void set_nav_provider(NavProvider* provider);
     int nav_page_count() const; // delegates to the provider (1 if unset)
+
+    // What NavBar slot `slot` (0..4) does on the current page, for the key
+    // tooltip. Slot 0 is the page switcher; the rest come from the provider.
+    i18n::Text nav_hint(int slot) const;
 
     // --- subject accessors (raw lv_subject_t* for the shared widgets) ---
     lv_subject_t* dark_mode_subject();

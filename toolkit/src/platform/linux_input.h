@@ -10,10 +10,20 @@
 #include "lvgl.h"
 
 #include <cstddef>
+#include <cstdint>
 
 namespace platform {
 
 constexpr size_t kNavKeyCount = 5;
+
+// ESC hold: the hint appears after kEscHoldHintMs, the app leaves for the
+// system launcher after kEscHoldHomeMs.
+constexpr uint32_t kEscHoldHintMs = 300;
+constexpr uint32_t kEscHoldHomeMs = 3000;
+
+// Key codes for the NavBar key tooltips: kKeyNavHint + slot (0..4). They sit in
+// the Unicode private use area, clear of LVGL's control keys and of text.
+constexpr uint32_t kKeyNavHint = 0xE000;
 
 void init_key_input(lv_display_t* display);
 void attach_key_router(lv_indev_t* indev);
@@ -27,17 +37,26 @@ void set_quit_handler(void (*handler)(void* ctx), void* ctx);
 // TAB (LV_KEY_NEXT) outside a key capture: app switch (SDR <-> Survey).
 void set_tab_handler(void (*handler)(void* ctx), void* ctx);
 
-// Up/down (arrows, or F/X on the CardputerZero keyboard) outside a key
-// capture: move the cursor of the visible list. `dir` is -1 (up) or +1 (down).
-void set_arrow_handler(void (*handler)(int dir, void* ctx), void* ctx);
+// Arrows outside a key capture: LV_KEY_UP, LV_KEY_DOWN, LV_KEY_LEFT or
+// LV_KEY_RIGHT. On the CardputerZero keyboard F/X/Z/C act as arrows without Fn.
+void set_arrow_handler(void (*handler)(uint32_t key, void* ctx), void* ctx);
+
+// SYM + 4..8 outside a key capture (Shift + 4..8 on a desktop keyboard): show
+// what NavBar slot `slot` (0..4) does.
+void set_nav_hint_handler(void (*handler)(int slot, void* ctx), void* ctx);
+
+// Called for every key press before it is routed, captures included, e.g. to
+// close a tooltip.
+void set_key_activity_handler(void (*handler)(uint32_t key, void* ctx), void* ctx);
 
 // H outside a key capture: open the app's help page.
 void set_help_handler(void (*handler)(void* ctx), void* ctx);
 
 // ESC outside a key capture follows the CardputerZero convention: a short press
-// is the normal quit/back (set_quit_handler), holding it 0.7 s returns to the
-// system launcher (`home`). `hint(true)` fires once the hold passes 0.3 s so the
-// UI can show "Hold ESC to return home"; `hint(false)` clears it.
+// is the normal quit/back (set_quit_handler), holding it kEscHoldHomeMs (3 s)
+// returns to the system launcher (`home`). `hint(true)` fires once the hold
+// passes kEscHoldHintMs so the UI can show the exit prompt; `hint(false)`
+// clears it.
 void set_home_handler(void (*home)(void* ctx), void (*hint)(bool show, void* ctx), void* ctx);
 
 // While a capture handler is set (e.g. a modal frequency dialog), every key
