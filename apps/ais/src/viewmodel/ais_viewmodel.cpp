@@ -377,7 +377,38 @@ bool AisViewModel::map_pan_active() const {
     return screen() == static_cast<int>(Screen::Radar) && map_mercator_;
 }
 
+bool AisViewModel::following() const {
+    return follow_ && map_mercator_ && !selected_id_.empty();
+}
+
+void AisViewModel::set_pan_nm(double north_nm, double east_nm) {
+    pan_north_nm_ = north_nm;
+    pan_east_nm_ = east_nm;
+}
+
+bool AisViewModel::nav_has_hold(int page, int slot) const {
+    // Key 8 on the map: a long press switches the follow mode.
+    return static_cast<Screen>(page) == Screen::Radar && slot == 4 && map_mercator_;
+}
+
+std::string AisViewModel::nav_hold(int page, int slot) {
+    if (!nav_has_hold(page, slot)) return {};
+    if (follow_) {
+        follow_ = false;
+        return toolkit::i18n::pick({"Follow off", "Follow disattivato", "Suivi désactivé",
+                                    "Folgen aus", "Seguimiento desactivado",
+                                    "追従オフ", "跟随已关闭"});
+    }
+    if (selected_id_.empty()) {
+        return toolkit::i18n::pick({"Select a ship first", "Seleziona prima una nave", "Sélectionnez d’abord un navire", "Zuerst ein Schiff wählen", "Selecciona primero un barco", "先に船舶を選択してください", "请先选择一艘船"});
+    }
+    follow_ = true;
+    return toolkit::i18n::pick({"Follow on", "Follow attivato", "Suivi activé", "Folgen an",
+                                "Seguimiento activado", "追従オン", "跟随已开启"});
+}
+
 void AisViewModel::pan_map(int north, int east) {
+    follow_ = false; // moving the map by hand ends the follow mode
     // A quarter of the outer ring per press.
     const double step = range_nm() / 4.0;
     pan_north_nm_ += north * step;
@@ -385,6 +416,7 @@ void AisViewModel::pan_map(int north, int east) {
 }
 
 void AisViewModel::recenter_map() {
+    follow_ = false;
     pan_north_nm_ = 0.0;
     pan_east_nm_ = 0.0;
 }

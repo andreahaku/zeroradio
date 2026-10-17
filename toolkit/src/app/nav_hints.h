@@ -42,10 +42,13 @@ inline constexpr i18n::Text kTracks{
     "Blendet die Spuren ein oder aus", "Muestra u oculta las estelas",
     "航跡を表示／非表示", "显示或隐藏航迹"};
 inline constexpr i18n::Text kRadarMap{
-    "Switch between the radar and the map", "Alterna il radar e la mappa",
-    "Alterne entre le radar et la carte", "Wechselt zwischen Radar und Karte",
-    "Alterna entre el radar y el mapa",
-    "レーダーと地図を切り替え", "在雷达和地图之间切换"};
+    "Tap: radar or map. Hold on the map: follow the selected contact on or off.",
+    "Tocca: radar o mappa. Tieni premuto sulla mappa: segui il contatto selezionato, o smetti.",
+    "Appui : radar ou carte. Maintien sur la carte : suivre le contact choisi, ou arrêter.",
+    "Tippen: Radar oder Karte. Halten auf der Karte: dem gewählten Kontakt folgen oder nicht.",
+    "Pulsa: radar o mapa. Mantén en el mapa: seguir el contacto elegido, o dejar de seguirlo.",
+    "短押し：レーダー／地図。地図で長押し：選択中の目標の追従をオン／オフ。",
+    "轻按：雷达或地图。在地图上长按：开启或关闭跟随所选目标。"};
 inline constexpr i18n::Text kSettingPrev{
     "Previous setting", "Impostazione precedente", "Réglage précédent",
     "Vorherige Einstellung", "Ajuste anterior",

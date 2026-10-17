@@ -110,6 +110,17 @@ void AdsbScreen::render_scope(uint16_t* buf, int width, int height, lv_obj_t* ca
 
     // Map mode on the Radar page can be panned with the arrows: the view
     // centre moves away from home. The Detail mini-map stays on home.
+    // Follow mode: put the pan offset on the selected contact, so an arrow
+    // later moves the map on from there.
+    if (mercator && canvas != detail_canvas_ && vm_.following()) {
+        for (const auto& r : rows) {
+            if (r.hex != vm_.selected_hex() || !r.has_pos) continue;
+            const double cos_lat = std::cos(config_.home.lat * 3.14159265358979323846 / 180.0);
+            vm_.set_pan_nm((r.pos.lat - config_.home.lat) * 60.0,
+                           (r.pos.lon - config_.home.lon) * 60.0 * cos_lat);
+            break;
+        }
+    }
     const bool panned = mercator && canvas != detail_canvas_ &&
                         (vm_.pan_north_nm() != 0.0 || vm_.pan_east_nm() != 0.0);
     const toolkit::geo::LatLon centre =

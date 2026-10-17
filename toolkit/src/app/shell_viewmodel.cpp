@@ -58,6 +58,20 @@ int ShellViewModel::nav_page_count() const {
     return nav_provider_ ? nav_provider_->nav_page_count() : 1;
 }
 
+bool ShellViewModel::nav_has_hold(int slot) const {
+    if (slot == 0) return true;
+    return nav_provider_ && nav_provider_->nav_has_hold(toolbar_page_subject_.value(), slot);
+}
+
+std::string ShellViewModel::nav_hold(int slot) {
+    if (slot == 0) {
+        cycle_toolbar_back();
+        return {};
+    }
+    if (!nav_provider_) return {};
+    return nav_provider_->nav_hold(toolbar_page_subject_.value(), slot);
+}
+
 i18n::Text ShellViewModel::nav_hint(int slot) const {
     if (slot == 0) {
         return {"Tap: the next page of keys. Hold: the page before.",

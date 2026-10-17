@@ -8,6 +8,8 @@
 
 #include "i18n.h"
 
+#include <string>
+
 namespace toolkit {
 
 // Drives the 5-key NavBar content. Implemented by each app's viewmodel. Slot 0
@@ -38,6 +40,19 @@ public:
     virtual const char* nav_page_name(int page) const {
         (void)page;
         return nullptr;
+    }
+
+    // Whether slot `slot` (1..4) on `page` has an action for a long press, and
+    // that action. It returns a short status to show, or "" for none.
+    virtual bool nav_has_hold(int page, int slot) const {
+        (void)page;
+        (void)slot;
+        return false;
+    }
+    virtual std::string nav_hold(int page, int slot) {
+        (void)page;
+        (void)slot;
+        return {};
     }
 
     // What slot `slot` (1..4) does on `page`, for the key tooltip (SYM + 4-8).

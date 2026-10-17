@@ -57,6 +57,7 @@ Inside every app:
 | F / X (up/down) | Move the cursor in a list or in Settings, or zoom on the SDR, Scanner, radar and map |
 | Z / C (left/right) | Tune the SDR, move the Scanner band, step through aircraft, ships and devices, change a setting |
 | Arrows on the ADS-B/AIS map | Move the centre of the map. Enter centres it on your position |
+| Hold 8 on the ADS-B/AIS map | Follow the selected aircraft or ship (FOLLOW in the title). Hold again to stop |
 | SYM + 4 to 8 | What that key does on this page, in your language |
 | Fn+A / Fn+S / Fn+D | SDR: mute, volume down, volume up |
 | H or Fn+H | Help for this app |
