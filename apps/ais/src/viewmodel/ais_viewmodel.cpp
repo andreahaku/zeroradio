@@ -19,11 +19,12 @@
 namespace ais {
 namespace {
 
-constexpr std::array<int, 6> kRingLadder = {5, 10, 20, 50, 100, 200};
+constexpr std::array<int, 8> kRingLadder = {1, 2, 5, 10, 20, 50, 100, 200};
 constexpr int kManualCount     = static_cast<int>(kRingLadder.size());
 constexpr int kRangeStateCount = kManualCount + 1; // + AUTO (top index)
 // v2: the range ladder gained a 5 NM step (index 0).
-constexpr int kSettingsVersion = 2;
+// v3: the range ladder gained 1 NM and 2 NM steps (indexes 0 and 1).
+constexpr int kSettingsVersion = 3;
 
 constexpr std::array<const char*, AisViewModel::kSortCount> kSortLabels = {
     "MMSI", "DST", "SOG", "COG"};
@@ -264,7 +265,10 @@ void AisViewModel::load_settings() {
     units_km_ = (km != 0);
     if (ttl == 30 || ttl == 60 || ttl == 120 || ttl == 300) ttl_seconds_ = ttl;
     // Older files predate the 5 NM step at the bottom of the ladder: shift up.
-    if (ver < kSettingsVersion) ++range;
+    // Older files predate the 5 NM (v2) and the 1 and 2 NM (v3) steps at
+    // the bottom of the ladder: shift the index up once per missing step.
+    if (ver < 2) ++range;
+    if (ver < 3) range += 2;
     if (range >= 0 && range < kRangeStateCount) range_index_subject_.set(range);
     if (trail == 0 || trail == 15 || trail == 30 || trail == 60) trail_len_ = trail;
     show_trails_subject_.set(trails_on != 0);
@@ -369,7 +373,31 @@ void AisViewModel::set_location_label(std::string label) {
     location_label_ = label.empty() ? std::string("Not set") : std::move(label);
 }
 
+bool AisViewModel::map_pan_active() const {
+    return screen() == static_cast<int>(Screen::Radar) && map_mercator_;
+}
+
+void AisViewModel::pan_map(int north, int east) {
+    // A quarter of the outer ring per press.
+    const double step = range_nm() / 4.0;
+    pan_north_nm_ += north * step;
+    pan_east_nm_ += east * step;
+}
+
+void AisViewModel::recenter_map() {
+    pan_north_nm_ = 0.0;
+    pan_east_nm_ = 0.0;
+}
+
+void AisViewModel::on_enter() {
+    if (map_pan_active()) recenter_map();
+}
+
 void AisViewModel::move_side(int dir) {
+    if (map_pan_active()) {
+        pan_map(0, dir);
+        return;
+    }
     const int s = screen();
     if (s == static_cast<int>(Screen::Radar) || s == static_cast<int>(Screen::Detail)) {
         // Step the selection through the contacts in list order.
@@ -382,6 +410,10 @@ void AisViewModel::move_side(int dir) {
 }
 
 void AisViewModel::move_cursor(int dir) {
+    if (map_pan_active()) {
+        pan_map(-dir, 0); // up (-1) moves the view north
+        return;
+    }
     if (screen() == static_cast<int>(Screen::List)) {
         if (dir < 0) select_prev();
         else select_next();

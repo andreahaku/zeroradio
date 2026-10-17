@@ -99,13 +99,22 @@ public:
     toolkit::i18n::Text nav_hint(int page, int slot) const override;
 
     // F/X (arrows): the list cursor, or the settings cursor.
-    // Arrows. List and Settings: up/down move the cursor. Radar and Detail:
-    // up/down zoom in/out, left/right step through the contacts. Settings:
-    // left/right change the value.
+    // Arrows. List and Settings: up/down move the cursor. Radar in map mode:
+    // the arrows move the map centre. Radar and Detail otherwise: up/down zoom
+    // in/out, left/right step through the contacts. Settings: left/right
+    // change the value.
     void on_up() override { move_cursor(-1); }
     void on_down() override { move_cursor(1); }
     void on_left() override { move_side(-1); }
     void on_right() override { move_side(1); }
+    void on_enter() override;
+
+    // Map pan (Radar page in map mode, arrows): the view centre's offset from
+    // home in NM. Enter re-centres on home. Not saved.
+    double pan_north_nm() const { return pan_north_nm_; }
+    double pan_east_nm() const { return pan_east_nm_; }
+    void pan_map(int north, int east);
+    void recenter_map();
 
 private:
     bool        location_request_{false};
@@ -113,11 +122,14 @@ private:
     bool        location_set_{false};
     void move_cursor(int dir);
     void move_side(int dir);
+    bool map_pan_active() const;
+    double pan_north_nm_{0.0};
+    double pan_east_nm_{0.0};
     void load_settings();
     void save_settings() const;
 
     reactive::IntSubject  sort_mode_subject_{static_cast<int>(Sort::Distance)};
-    reactive::IntSubject  range_index_subject_{6}; // AUTO (after the 6 manual steps)
+    reactive::IntSubject  range_index_subject_{8}; // AUTO (after the 8 manual steps)
     reactive::BoolSubject show_trails_subject_{true};
 
     std::string cursor_id_;

@@ -352,6 +352,7 @@ void arrow_handler_trampoline(uint32_t key, void* ctx) {
         case LV_KEY_DOWN:  shell->on_down(); break;
         case LV_KEY_LEFT:  shell->on_left(); break;
         case LV_KEY_RIGHT: shell->on_right(); break;
+        case LV_KEY_ENTER: shell->on_enter(); break;
         default: break;
     }
 }

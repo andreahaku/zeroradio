@@ -21,13 +21,14 @@ namespace adsb {
 namespace {
 
 // Range-ring states: manual ladder steps (NM) plus an AUTO state at the top that
-// fits the outer ring to the farthest aircraft. range_in zooms toward 10 NM;
+// fits the outer ring to the farthest aircraft. range_in zooms toward 1 NM;
 // range_out widens up to AUTO (the default).
-constexpr std::array<int, 6> kRingLadder = {5, 10, 20, 50, 100, 200};
+constexpr std::array<int, 8> kRingLadder = {1, 2, 5, 10, 20, 50, 100, 200};
 constexpr int kManualCount     = static_cast<int>(kRingLadder.size());
 constexpr int kRangeStateCount = kManualCount + 1; // + AUTO (top index)
 // v3: the range ladder gained a 5 NM step (index 0).
-constexpr int kSettingsVersion = 3;
+// v4: the range ladder gained 1 NM and 2 NM steps (indexes 0 and 1).
+constexpr int kSettingsVersion = 4;
 
 // Short labels for the sort modes (List page slot 1).
 constexpr std::array<const char*, AdsbViewModel::kSortCount> kSortLabels = {
@@ -292,8 +293,10 @@ void AdsbViewModel::load_settings() {
     // out-of-range values are ignored so a corrupt file can't disable expiry
     // (huge TTL) or bypass the trail cap (huge trail length).
     if (ttl == 15 || ttl == 30 || ttl == 60 || ttl == 120) ttl_seconds_ = ttl;
-    // Older files predate the 5 NM step at the bottom of the ladder: shift up.
-    if (ver < kSettingsVersion) ++range;
+    // Older files predate the 5 NM (v3) and the 1 and 2 NM (v4) steps at
+    // the bottom of the ladder: shift the index up once per missing step.
+    if (ver < 3) ++range;
+    if (ver < 4) range += 2;
     if (range >= 0 && range < kRangeStateCount) range_index_subject_.set(range);
     if (trail == 0 || trail == 15 || trail == 30 || trail == 60) trail_len_ = trail;
     show_ground_ = (ground != 0);
@@ -414,7 +417,31 @@ void AdsbViewModel::set_location_label(std::string label) {
     location_label_ = label.empty() ? std::string("Not set") : std::move(label);
 }
 
+bool AdsbViewModel::map_pan_active() const {
+    return screen() == static_cast<int>(Screen::Radar) && map_mercator_;
+}
+
+void AdsbViewModel::pan_map(int north, int east) {
+    // A quarter of the outer ring per press.
+    const double step = range_nm() / 4.0;
+    pan_north_nm_ += north * step;
+    pan_east_nm_ += east * step;
+}
+
+void AdsbViewModel::recenter_map() {
+    pan_north_nm_ = 0.0;
+    pan_east_nm_ = 0.0;
+}
+
+void AdsbViewModel::on_enter() {
+    if (map_pan_active()) recenter_map();
+}
+
 void AdsbViewModel::move_side(int dir) {
+    if (map_pan_active()) {
+        pan_map(0, dir);
+        return;
+    }
     const int s = screen();
     if (s == static_cast<int>(Screen::Radar) || s == static_cast<int>(Screen::Detail)) {
         // Step the selection through the contacts in list order.
@@ -427,6 +454,10 @@ void AdsbViewModel::move_side(int dir) {
 }
 
 void AdsbViewModel::move_cursor(int dir) {
+    if (map_pan_active()) {
+        pan_map(-dir, 0); // up (-1) moves the view north
+        return;
+    }
     if (screen() == static_cast<int>(Screen::List)) {
         if (dir < 0) select_prev();
         else select_next();

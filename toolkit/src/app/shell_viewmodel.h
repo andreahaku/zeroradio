@@ -70,6 +70,9 @@ public:
     virtual void on_left() {}
     virtual void on_right() {}
 
+    // Enter outside a dialog. Nothing by default.
+    virtual void on_enter() {}
+
     // Volume keys (Fn + A/S/D): `step` -1 down, +1 up, 0 mute on/off. An app
     // with audio returns the new state to show briefly, e.g. "Volume 60%";
     // an empty string (the default) shows nothing.
