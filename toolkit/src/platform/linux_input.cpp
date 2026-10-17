@@ -44,6 +44,8 @@ void (*hold_hint_handler)(bool, void*) = nullptr;
 void* home_ctx = nullptr;
 void (*nav_hint_handler)(int, void*) = nullptr;
 void* nav_hint_ctx = nullptr;
+void (*volume_handler)(int, void*) = nullptr;
+void* volume_ctx = nullptr;
 void (*key_activity_handler)(uint32_t, void*) = nullptr;
 void* key_activity_ctx = nullptr;
 
@@ -125,6 +127,12 @@ void dispatch_nav_key(uint32_t key) {
     }
     if (key == LV_KEY_UP || key == LV_KEY_DOWN || key == LV_KEY_LEFT || key == LV_KEY_RIGHT) {
         if (arrow_handler) arrow_handler(key, arrow_ctx);
+        return;
+    }
+    if (key == kKeyMute || key == kKeyVolumeDown || key == kKeyVolumeUp) {
+        if (volume_handler) {
+            volume_handler(key == kKeyMute ? 0 : (key == kKeyVolumeUp ? 1 : -1), volume_ctx);
+        }
         return;
     }
     if (const int slot = nav_hint_slot(key); slot >= 0) {
@@ -321,6 +329,10 @@ uint32_t map_evdev_key(uint16_t code) {
         // The CardputerZero driver sends its "." key (on the symbol layer) as
         // KEY_HIRAGANA.
         case KEY_HIRAGANA:   return '.';
+        // Fn + A / S / D.
+        case KEY_MUTE:       return kKeyMute;
+        case KEY_VOLUMEDOWN: return kKeyVolumeDown;
+        case KEY_VOLUMEUP:   return kKeyVolumeUp;
         case KEY_BACKSPACE:  return LV_KEY_BACKSPACE;
         case KEY_ENTER:
         case KEY_KPENTER:    return LV_KEY_ENTER;
@@ -502,6 +514,11 @@ void set_page_back_handler(void (*handler)(void* ctx), void* ctx) {
 void set_nav_hint_handler(void (*handler)(int slot, void* ctx), void* ctx) {
     nav_hint_handler = handler;
     nav_hint_ctx = ctx;
+}
+
+void set_volume_handler(void (*handler)(int step, void* ctx), void* ctx) {
+    volume_handler = handler;
+    volume_ctx = ctx;
 }
 
 void set_key_activity_handler(void (*handler)(uint32_t key, void* ctx), void* ctx) {

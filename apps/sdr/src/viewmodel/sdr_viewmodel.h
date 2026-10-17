@@ -104,6 +104,9 @@ public:
     void on_up() override { zoom_in(); }
     void on_down() override { zoom_out(); }
 
+    // Fn + A/S/D: mute, volume down, volume up, from any page.
+    std::string on_volume(int step) override;
+
 private:
     void publish_vfo();
     void publish_mode();
