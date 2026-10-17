@@ -96,9 +96,10 @@ A new app needs a parser, a `NavProvider` that maps keys to actions, and a scree
 - Fn+A/S/D (`KEY_MUTE`, `KEY_VOLUMEDOWN`, `KEY_VOLUMEUP`) call `on_volume()`. The SDR changes
   its volume and returns the text that `run_app` shows for 1.2 s.
 - TAB calls `on_tab()`. H opens the page set with `set_help_doc()`.
-- A short ESC press goes back or quits. Holding ESC shows a modal with a bar after 0.3 s and, at
-  3 s, calls `request_home()`: the app exits with `ShellViewModel::kExitHome` and the hub closes
-  too, which returns the user to the system launcher. Releasing ESC while the modal is up cancels.
+- A short ESC press goes back or quits. Holding ESC shows the ZeroTracker exit toast ("Hold ESC
+  3 s to exit") after 0.3 s and, at 3 s, calls `request_home()`: the app exits with
+  `ShellViewModel::kExitHome` and the hub closes too, which returns the user to the system
+  launcher. Releasing ESC while the toast is up cancels.
 - The hub selects the app used last, from `~/.config/zeroradio/hub/last_app`. The hub writes it
   on launch, and `run_handoff()` writes it on a TAB switch.
 - A dialog takes the keyboard with `platform::set_key_capture()`. Pass `text=true` only for
