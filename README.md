@@ -18,7 +18,7 @@ ZeroRadio is one entry in the CardputerZero launcher. It opens a hub that starts
 
 | App | What it does | Decoder on the device |
 | --- | --- | --- |
-| **SDR** | Spectrum, waterfall and audio: WFM, FM, AM, USB, LSB, CW. Frequency entry, zoom, band presets. | `rtl_tcp` |
+| **SDR** | Spectrum, waterfall and audio: WFM, NFM, AM, USB, LSB, CW. Frequency entry, zoom, band presets. | `rtl_tcp` |
 | **Scanner** | Sweeps a wide band, lists the strongest signals, and opens one in the SDR app. | `rtl_power` / `hackrf_sweep` |
 | **ISM** | Lists 433/868 MHz devices: weather sensors, tyre pressure sensors, remotes. | `rtl_433` |
 | **ADS-B** | Aircraft list, radar and world map at 1090 MHz. | `readsb` (bundled) |

@@ -22,7 +22,7 @@ resolution (320×170).
   on exit. `RtlTcpSource` reads raw IQ on a background thread and runs an FFT (FFTW, single
   precision) with an adaptive noise floor. Tuning and zoom **retune the hardware** and crop the FFT window.
 - **Audio demodulation** — `AudioDemod` reads the same IQ stream and outputs 48 kHz mono through SDL
-  on the desktop or **ALSA on the device**. Modes: **WFM**, **FM** (narrow), **AM** (envelope + AGC),
+  on the desktop or **ALSA on the device**. Modes: **WFM**, **NFM** (narrow FM), **AM** (envelope + AGC),
   **USB/LSB** (Weaver), **CW**.
 - **5-page toolbar** — the 5 physical keys (`4`–`8`) drive tuning, zoom/band, visual options,
   **audio** (mute / volume) and **settings** (gain / exit). No pointer is needed.
@@ -46,7 +46,7 @@ thread uses the same sample stream twice, so the UI never blocks:
    adaptive noise floor and normalizes to 0–1. Each frame becomes one new waterfall line and one
    spectrum trace.
 2. **For the audio** — a demodulator decimates to 48 kHz and applies the algorithm for the selected
-   mode (FM discriminator for WFM/FM, envelope for AM, Weaver for SSB/CW). The system audio plays it.
+   mode (FM discriminator for WFM/NFM, envelope for AM, Weaver for SSB/CW). The system audio plays it.
 
 **What you see.** The header shows the demod **mode** on the left, the tuned **frequency** centred
 over a marker line, and an **S-meter** on the right. The **spectrum** chart sits below it, and the
@@ -183,7 +183,7 @@ The `.deb` installs every app under `/usr/share/zeroradio`.
 
 ## Known limitations
 
-- WFM is verified by ear. FM, AM, SSB and CW audio still need a check with a proper antenna in a
+- WFM is verified by ear. NFM, AM, SSB and CW audio still need a check with a proper antenna in a
   quieter RF environment.
 - Waterfall frequency labels show 3 decimals (1 kHz resolution). The header shows 4 decimals, so
   100 Hz fine tuning appears on the header but not on the waterfall scale.

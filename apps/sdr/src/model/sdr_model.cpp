@@ -45,19 +45,19 @@ const BandPreset& band_preset(int index) {
 const char* radio_mode_name(RadioMode mode) {
     switch (mode) {
         case RadioMode::WFM: return "WFM";
-        case RadioMode::FM:  return "FM";
+        case RadioMode::NFM: return "NFM";
         case RadioMode::AM:  return "AM";
         case RadioMode::USB: return "USB";
         case RadioMode::LSB: return "LSB";
         case RadioMode::CW:  return "CW";
     }
-    return "FM";
+    return "NFM";
 }
 
 TuneSteps mode_tune_steps(RadioMode mode) {
     switch (mode) {
         case RadioMode::WFM: return {100000, 10000};
-        case RadioMode::FM:  return {25000, 5000};
+        case RadioMode::NFM:  return {25000, 5000};
         case RadioMode::AM:  return {9000, 1000};
         case RadioMode::USB:
         case RadioMode::LSB: return {1000, 100};
@@ -69,7 +69,7 @@ TuneSteps mode_tune_steps(RadioMode mode) {
 Passband mode_passband(RadioMode mode) {
     switch (mode) {
         case RadioMode::WFM: return {-90000, 90000};
-        case RadioMode::FM:  return {-6000, 6000};
+        case RadioMode::NFM:  return {-6000, 6000};
         case RadioMode::AM:  return {-4000, 4000};
         case RadioMode::USB: return {0, 2700};
         case RadioMode::LSB: return {-2700, 0};
