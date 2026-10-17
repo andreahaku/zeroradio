@@ -5,11 +5,20 @@
  */
 
 #include "hub_viewmodel.h"
+#include "persisted_state.h"
 
 namespace radio {
 
 HubViewModel::HubViewModel(const std::vector<AppEntry>& apps) : apps_(apps) {
     set_title("ZeroRadio " APP_VERSION);
+    // Come back on the app used last (see toolkit::save_last_app).
+    const std::string last = toolkit::load_last_app();
+    for (int i = 0; i < count(); ++i) {
+        if (!last.empty() && last == entry(i).id) {
+            selected_subject_.set(i);
+            break;
+        }
+    }
 }
 
 int HubViewModel::count() const {
@@ -49,6 +58,7 @@ void HubViewModel::launch_selected() {
     }
     launch_entry_ = &entry(selected());
     launch_target_ = launch_entry_->id;
+    toolkit::save_last_app(launch_target_);
     request_quit(); // ends the LVGL loop; the outer run loop reads launch_target()
 }
 

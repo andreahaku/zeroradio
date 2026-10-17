@@ -7,6 +7,12 @@
 #include "persisted_state.h"
 
 #include <cstdlib>
+#include <fstream>
+
+namespace {
+constexpr const char* kHubSubdir = "zeroradio/hub";
+constexpr const char* kLastAppFile = "last_app";
+} // namespace
 
 namespace toolkit {
 
@@ -32,6 +38,20 @@ bool ensure_parent_dir(const std::filesystem::path& path) {
     std::error_code ec;
     std::filesystem::create_directories(path.parent_path(), ec);
     return !ec;
+}
+
+void save_last_app(const std::string& id) {
+    const auto path = config_file(kHubSubdir, kLastAppFile);
+    if (!ensure_parent_dir(path)) return;
+    std::ofstream out(path, std::ios::trunc);
+    out << id << '\n';
+}
+
+std::string load_last_app() {
+    std::ifstream in(config_file(kHubSubdir, kLastAppFile));
+    std::string id;
+    in >> id;
+    return id;
 }
 
 } // namespace toolkit
