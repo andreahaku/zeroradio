@@ -24,6 +24,7 @@ Frequency entry (page 1, key 6): type MHz with digits and a dot (SYM + .), up to
 
 ## Global keys
 
+- 4: the next page of keys. Hold 4 for the page before.
 - Arrows (F/X/Z/C): Z/C tune down/up by one step, F/X zoom in/out.
 - TAB: switch to the Scanner app.
 - SYM + 4 to 8: a tooltip that says what that key does on this page, in your language (English, Italian, French, German or Spanish).

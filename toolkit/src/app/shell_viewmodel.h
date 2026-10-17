@@ -77,6 +77,7 @@ public:
 
     // --- NavBar tool page ---
     void cycle_toolbar();   // slot 0: next tool page (wraps), then bump nav_refresh
+    void cycle_toolbar_back(); // slot 0 held: the page before (wraps)
     void bump_nav_refresh(); // force a NavBar re-render after slot labels change
 
     // --- NavProvider wiring ---

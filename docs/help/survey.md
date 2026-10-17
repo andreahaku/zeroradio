@@ -22,6 +22,7 @@ Sort (Peaks, key 8): power, frequency, age, each descending then ascending. The 
 
 ## Global keys
 
+- 4: the next page of keys. Hold 4 for the page before.
 - F/X (up/down arrows): zoom in/out on the Waterfall page, move the cursor on the Peaks page.
 - Z/C (left/right arrows): move the swept band down/up by a quarter of its span on the Waterfall page.
 - TAB: switch to the SDR app.
