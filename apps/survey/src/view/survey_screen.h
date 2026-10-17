@@ -98,6 +98,8 @@ private:
     std::string range_center_buf_;
     std::string range_span_buf_;
     bool        range_editing_span_ = false; // false = editing centre
+    // The field still shows the seeded value: the first digit or dot replaces it.
+    bool        range_fresh_ = true;
     lv_observer_t* range_req_observer_ = nullptr;
     int         last_range_req_     = 0;
 };

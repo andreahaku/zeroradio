@@ -448,6 +448,7 @@ void SurveyScreen::open_range_dialog() {
     std::snprintf(buf, sizeof(buf), "%.3f", span);
     range_span_buf_ = buf;
     range_editing_span_ = false;
+    range_fresh_ = true;
 
     auto* value_font = assets().load_font("inter-semibold.ttf", 20);
     auto* small_font = assets().load_font("inter-regular.ttf", 12);
@@ -475,7 +476,7 @@ void SurveyScreen::open_range_dialog() {
     lv_obj_set_style_text_font(range_span_label_, value_font ? value_font : fb, 0);
 
     auto* hint = lv_label_create(range_dialog_);
-    lv_label_set_text(hint, "Enter = next/OK   Esc = cancel");
+    lv_label_set_text(hint, "Type to replace   F/X field   Enter next/OK   Esc cancel");
     lv_obj_set_style_text_font(hint, small_font ? small_font : fb, 0);
     lv_obj_set_style_text_color(hint, lv_color_hex(0xaaaaaa), 0);
 
@@ -502,7 +503,15 @@ void SurveyScreen::update_range_labels() {
 
 void SurveyScreen::on_range_key(uint32_t key) {
     std::string& buf = range_editing_span_ ? range_span_buf_ : range_center_buf_;
-    if (key >= '0' && key <= '9') {
+    // The seeded value is selected: typing starts a new one, Backspace edits it.
+    if (range_fresh_ && ((key >= '0' && key <= '9') || key == '.')) buf.clear();
+    if (key != LV_KEY_UP && key != LV_KEY_DOWN) range_fresh_ = false;
+    if (key == LV_KEY_UP || key == LV_KEY_DOWN) {
+        // F/X move between the centre and the span.
+        range_editing_span_ = (key == LV_KEY_DOWN);
+        range_fresh_ = true;
+        update_range_labels();
+    } else if (key >= '0' && key <= '9') {
         const auto dot = buf.find('.');
         const bool frac_full = dot != std::string::npos && (buf.size() - dot - 1) >= 3;
         if (!frac_full && buf.size() < 9) {
@@ -523,6 +532,7 @@ void SurveyScreen::on_range_key(uint32_t key) {
     } else if (key == LV_KEY_ENTER) {
         if (!range_editing_span_) {
             range_editing_span_ = true; // centre done -> edit span
+            range_fresh_ = true;
             update_range_labels();
         } else {
             close_range_dialog(true);
