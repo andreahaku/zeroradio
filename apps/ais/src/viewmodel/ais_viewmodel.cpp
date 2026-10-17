@@ -121,6 +121,7 @@ void AisViewModel::select_next() {
 void AisViewModel::toggle_select() {
     if (!cursor_id_.empty() && selected_id_ == cursor_id_) {
         selected_id_.clear();
+        follow_ = false; // nothing left to follow
     } else {
         selected_id_ = cursor_id_;
     }
@@ -167,6 +168,7 @@ void AisViewModel::set_visible_order(std::vector<std::string> order) {
     }
     if (!present(selected_id_)) {
         selected_id_.clear();
+        follow_ = false; // the followed ship is gone
     }
     if (!selection_init_done_ && !visible_order_.empty()) {
         selected_id_ = visible_order_.front();
