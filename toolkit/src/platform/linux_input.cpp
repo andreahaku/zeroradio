@@ -142,9 +142,12 @@ void esc_timer_cb(lv_timer_t* timer) {
     const uint32_t elapsed = lv_tick_elaps(esc_started_at);
     if (!held) {
         lv_timer_pause(timer);
+        // A short press goes back. Released once the exit prompt is up, the
+        // hold is cancelled and nothing happens.
+        const bool short_press = !esc_hint_shown && !esc_home_sent;
         if (esc_hint_shown && hold_hint_handler) hold_hint_handler(false, home_ctx);
         esc_hint_shown = false;
-        if (!esc_home_sent && quit_handler) quit_handler(quit_ctx); // short press
+        if (short_press && quit_handler) quit_handler(quit_ctx);
         esc_indev = nullptr;
         return;
     }

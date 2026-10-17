@@ -56,7 +56,7 @@ void set_help_handler(void (*handler)(void* ctx), void* ctx);
 // is the normal quit/back (set_quit_handler), holding it kEscHoldHomeMs (3 s)
 // returns to the system launcher (`home`). `hint(true)` fires once the hold
 // passes kEscHoldHintMs so the UI can show the exit prompt; `hint(false)`
-// clears it.
+// clears it. Releasing ESC while the prompt is up cancels the hold.
 void set_home_handler(void (*home)(void* ctx), void (*hint)(bool show, void* ctx), void* ctx);
 
 // While a capture handler is set (e.g. a modal frequency dialog), every key
