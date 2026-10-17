@@ -30,7 +30,7 @@ Location (Settings, key 7 on the Location row): type a city or "lat, lon". The f
 - F/X (up/down arrows): move the cursor on the List and Settings pages, zoom in/out on the Radar and Detail pages.
 - Z/C (left/right arrows): previous/next aircraft on the Radar and Detail pages, change the value in Settings.
 - Map view (Radar page): the arrows move the map centre by a quarter of the range. Enter centres it on your position again.
-- Map view: hold 8 to follow the selected aircraft. The map stays centred on it and the title shows FOLLOW. Hold 8 again, press an arrow or Enter to stop.
+- Map view: hold 8 to follow the selected aircraft. The map stays centred on it and an orange dot shows left of its name in the title. Hold 8 again, press an arrow or Enter to stop.
 - SYM + 4 to 8: a tooltip that says what that key does on this page, in your language (English, Italian, French, German, Spanish, Japanese or Chinese).
 - H or Fn+H: this help. F/X scroll it, Esc closes it.
 - Esc: quit to the hub. Hold Esc 3 s to leave ZeroRadio for the launcher. Let go before 3 s to cancel.
