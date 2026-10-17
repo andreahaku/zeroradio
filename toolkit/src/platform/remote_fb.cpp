@@ -39,6 +39,7 @@ lv_display_t* g_disp{nullptr};
 std::mutex g_key_mutex;
 std::deque<std::pair<uint32_t, bool>> g_key_queue;
 uint32_t g_last_key{0};
+bool g_last_pressed{false}; // a key stays down until the viewer sends its key-up
 
 void send_region(const lv_area_t* area, uint8_t* px_map) {
     const int fd = g_client.load();
@@ -93,12 +94,13 @@ void keypad_read_cb(lv_indev_t* /*indev*/, lv_indev_data_t* data) {
         const auto kv = g_key_queue.front();
         g_key_queue.pop_front();
         g_last_key = kv.first;
+        g_last_pressed = kv.second;
         data->key = kv.first;
         data->state = kv.second ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
         data->continue_reading = !g_key_queue.empty();
     } else {
         data->key = g_last_key;
-        data->state = LV_INDEV_STATE_RELEASED;
+        data->state = g_last_pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
     }
 }
 
@@ -183,6 +185,11 @@ void server_thread(int port, int w, int h) {
             }
         }
 
+        {
+            // A viewer that drops mid-press must not leave the key held.
+            std::lock_guard<std::mutex> lock(g_key_mutex);
+            if (g_last_pressed) g_key_queue.emplace_back(g_last_key, false);
+        }
         g_client.store(-1);
         close(fd);
     }
@@ -260,6 +267,7 @@ void remote_fb_destroy() {
         std::lock_guard<std::mutex> lock(g_key_mutex);
         g_key_queue.clear();
         g_last_key = 0;
+        g_last_pressed = false;
     }
     g_need_refresh.store(false);
 }
