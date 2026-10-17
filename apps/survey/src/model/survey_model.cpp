@@ -62,7 +62,10 @@ void SurveyModel::zoom_out() {
 
 void SurveyModel::pan(int dir) {
     const int64_t span = stop_hz_ - start_hz_;
-    const int64_t start = std::clamp(start_hz_ + dir * (span / 4), kMinHz, kMaxHz - span);
+    // set_range keeps span <= kMaxHz - kMinHz; the max() keeps clamp's bounds
+    // ordered even if that ever changes.
+    const int64_t start =
+        std::clamp(start_hz_ + dir * (span / 4), kMinHz, std::max(kMinHz, kMaxHz - span));
     set_range(start, start + span);
 }
 
