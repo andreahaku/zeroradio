@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "i18n.h"
+
 namespace toolkit {
 
 // Drives the 5-key NavBar content. Implemented by each app's viewmodel. Slot 0
@@ -30,6 +32,14 @@ public:
 
     // Activate slot `slot` (1..4) on `page`. Slot 0 is handled by the NavBar.
     virtual void nav_activate(int page, int slot) = 0;
+
+    // What slot `slot` (1..4) does on `page`, for the key tooltip (SYM + 4-8).
+    // Empty = no tooltip. Slot 0 is described by the shell.
+    virtual i18n::Text nav_hint(int page, int slot) const {
+        (void)page;
+        (void)slot;
+        return {};
+    }
 };
 
 } // namespace toolkit
