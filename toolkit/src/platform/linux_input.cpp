@@ -276,6 +276,10 @@ struct EvdevKeypad {
     int fd{-1};
     lv_indev_state_t state{LV_INDEV_STATE_RELEASED};
     uint32_t key{0};
+    // What each held physical key was mapped to on key-down. The key-up reuses
+    // it: SYM, or a text capture, may have changed in between, and a release
+    // mapped differently would leave LVGL with the key held.
+    std::array<uint32_t, KEY_CNT> down{};
 };
 
 // Text entry for a modal capture (e.g. the location search): letters, space,
@@ -384,8 +388,18 @@ void evdev_read_cb(lv_indev_t* indev, lv_indev_data_t* data) {
             continue;
         }
 
-        const auto key = map_evdev_key(input.code);
-        if (!key || input.value == 2) {
+        if (input.value == 2 || input.code >= KEY_CNT) {
+            continue; // auto-repeat, or a code out of range
+        }
+        uint32_t key = 0;
+        if (input.value) {
+            key = map_evdev_key(input.code);
+            keypad->down[input.code] = key;
+        } else {
+            key = keypad->down[input.code];
+            keypad->down[input.code] = 0;
+        }
+        if (!key) {
             continue;
         }
 

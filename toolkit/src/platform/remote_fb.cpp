@@ -186,9 +186,13 @@ void server_thread(int port, int w, int h) {
         }
 
         {
-            // A viewer that drops mid-press must not leave the key held.
+            // A viewer that drops mid-press must not leave the key held. The
+            // key ends up held if the last queued event is a key-down, or, with
+            // nothing queued, if the last one read was.
             std::lock_guard<std::mutex> lock(g_key_mutex);
-            if (g_last_pressed) g_key_queue.emplace_back(g_last_key, false);
+            const bool held = g_key_queue.empty() ? g_last_pressed : g_key_queue.back().second;
+            const uint32_t key = g_key_queue.empty() ? g_last_key : g_key_queue.back().first;
+            if (held) g_key_queue.emplace_back(key, false);
         }
         g_client.store(-1);
         close(fd);

@@ -137,6 +137,7 @@ void AdsbViewModel::toggle_select() {
     // Lock the cursor's aircraft as the selection, or unlock if it already is.
     if (!cursor_hex_.empty() && selected_hex_ == cursor_hex_) {
         selected_hex_.clear();
+        follow_ = false; // nothing left to follow
     } else {
         selected_hex_ = cursor_hex_;
     }
@@ -185,6 +186,7 @@ void AdsbViewModel::set_visible_order(std::vector<std::string> order) {
     // The locked selection is dropped if its aircraft is gone (deselected is valid).
     if (!present(selected_hex_)) {
         selected_hex_.clear();
+        follow_ = false; // the followed aircraft is gone
     }
     // Select the first aircraft once, on the first populated frame, so the app
     // opens with something selected (the user can deselect afterwards).
