@@ -13,7 +13,7 @@ namespace sdr {
 // Demodulation mode shown in the SDR header.
 enum class RadioMode {
     WFM = 0, // wide FM (broadcast)
-    FM  = 1, // narrow FM
+    NFM = 1, // narrow FM
     AM  = 2,
     USB = 3,
     LSB = 4,
@@ -107,7 +107,7 @@ private:
 
     bool dark_mode_ = true;
     int32_t vfo_hz_ = 145500000; // 145.500 MHz
-    RadioMode mode_ = RadioMode::FM;
+    RadioMode mode_ = RadioMode::NFM;
     bool fine_tune_ = false;
     int span_level_ = 2;       // index into the span ladder (see sdr_model.cpp)
     int band_index_ = 0;

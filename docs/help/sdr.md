@@ -1,6 +1,6 @@
 # SDR
 
-A live receiver: spectrum, waterfall and demodulated audio (WFM, FM, AM, USB, LSB, CW). It needs an RTL-SDR dongle in the USB-A port and an antenna for the band you listen to.
+A live receiver: spectrum, waterfall and demodulated audio (WFM, NFM, AM, USB, LSB, CW). It needs an RTL-SDR dongle in the USB-A port and an antenna for the band you listen to.
 
 ## Pages
 
@@ -30,7 +30,7 @@ Frequency entry (page 1, key 6): type MHz with digits and a dot (up to 4 decimal
 
 ## Tips
 
-- The step depends on the mode: WFM 100k/10k, FM 25k/5k, AM 9k/1k, SSB 1k/100, CW 500/100 Hz.
+- The step depends on the mode: WFM 100k/10k, NFM 25k/5k, AM 9k/1k, SSB 1k/100, CW 500/100 Hz.
 - A narrower zoom lowers the sample rate and the CPU load.
 - The dongle drains the battery fast. Quit when you stop listening.
 - Frequency, mode, zoom, volume, gain and display options are saved for the next launch.
