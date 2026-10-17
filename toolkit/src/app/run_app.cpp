@@ -111,9 +111,6 @@ void quit_handler_trampoline(void* ctx) {
     static_cast<ShellViewModel*>(ctx)->request_quit();
 }
 
-void page_back_trampoline(void* ctx) {
-    static_cast<ShellViewModel*>(ctx)->cycle_toolbar_back();
-}
 
 void tab_handler_trampoline(void* ctx) {
     static_cast<ShellViewModel*>(ctx)->on_tab();
@@ -331,9 +328,8 @@ void toast_timer_cb(lv_timer_t* /*timer*/) {
     close_toast();
 }
 
-// Fn + A/S/D: the app changes its volume and the new state shows for a moment.
-void volume_trampoline(int step, void* ctx) {
-    const std::string status = static_cast<ShellViewModel*>(ctx)->on_volume(step);
+// A short status in a small box for a moment (volume, follow mode).
+void show_status(const std::string& status) {
     if (status.empty()) return;
     close_toast();
     overlays.toast_box = make_box(LV_SIZE_CONTENT);
@@ -343,6 +339,19 @@ void volume_trampoline(int step, void* ctx) {
     lv_obj_align(overlays.toast_box, LV_ALIGN_CENTER, 0, 0);
     overlays.toast_timer = lv_timer_create(toast_timer_cb, kToastShowMs, nullptr);
     lv_timer_set_repeat_count(overlays.toast_timer, 1);
+}
+
+// Fn + A/S/D: the app changes its volume and the new state shows for a moment.
+void volume_trampoline(int step, void* ctx) {
+    show_status(static_cast<ShellViewModel*>(ctx)->on_volume(step));
+}
+
+bool nav_has_hold_trampoline(int slot, void* ctx) {
+    return static_cast<ShellViewModel*>(ctx)->nav_has_hold(slot);
+}
+
+void nav_hold_trampoline(int slot, void* ctx) {
+    show_status(static_cast<ShellViewModel*>(ctx)->nav_hold(slot));
 }
 
 void arrow_handler_trampoline(uint32_t key, void* ctx) {
@@ -383,7 +392,7 @@ int run_app(ShellViewModel& shell,
     // ESC quits from any tool page (decoupled from nav key '4').
     platform::set_quit_handler(quit_handler_trampoline, &shell);
     platform::set_tab_handler(tab_handler_trampoline, &shell);
-    platform::set_page_back_handler(page_back_trampoline, &shell);
+    platform::set_nav_hold_handler(nav_has_hold_trampoline, nav_hold_trampoline, &shell);
     platform::set_arrow_handler(arrow_handler_trampoline, &shell);
     platform::set_home_handler(home_handler_trampoline, hold_hint_trampoline, &shell);
     overlays = Overlays{};
@@ -430,7 +439,7 @@ int run_app(ShellViewModel& shell,
     // shell / screen (matters if run_app() is ever re-entered, e.g. as a plugin).
     platform::set_quit_handler(nullptr, nullptr);
     platform::set_tab_handler(nullptr, nullptr);
-    platform::set_page_back_handler(nullptr, nullptr);
+    platform::set_nav_hold_handler(nullptr, nullptr, nullptr);
     platform::set_arrow_handler(nullptr, nullptr);
     platform::set_home_handler(nullptr, nullptr, nullptr);
     platform::set_nav_hint_handler(nullptr, nullptr);

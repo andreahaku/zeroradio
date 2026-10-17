@@ -83,6 +83,7 @@ void AdsbScreen::build_content(lv_obj_t* content) {
 
     // Centre: the selected aircraft (callsign + active-sort value).
     header_title_ = lv_label_create(header_);
+    lv_label_set_recolor(header_title_, true); // FOLLOW in colour
     lv_label_set_text(header_title_, "ADSB");
     lv_obj_set_style_text_font(header_title_, font_mono_ ? font_mono_ : &lv_font_montserrat_12, 0);
     reactive::bind_theme(header_title_, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
@@ -452,8 +453,14 @@ void AdsbScreen::tick() {
                 default:
                     break;
             }
-            char t[48];
-            std::snprintf(t, sizeof(t), "%s%s", call.c_str(), sv);
+            // Follow mode: FOLLOW next to the name, in the selected-contact colour.
+            char follow[24] = "";
+            if (vm_.following()) {
+                std::snprintf(follow, sizeof(follow), " #%06x FOLLOW#",
+                              vm_.is_dark_mode() ? 0xff9933u : 0xd96400u);
+            }
+            char t[72];
+            std::snprintf(t, sizeof(t), "%s%s%s", call.c_str(), follow, sv);
             lv_label_set_text(header_title_, t);
         } else {
             lv_label_set_text(header_title_, "ADSB");

@@ -89,6 +89,11 @@ public:
     // --- NavBar tool page ---
     void cycle_toolbar();   // slot 0: next tool page (wraps), then bump nav_refresh
     void cycle_toolbar_back(); // slot 0 held: the page before (wraps)
+
+    // Long press on a NavBar key: slot 0 (key 4) is the page before, slots
+    // 1..4 ask the provider. nav_hold() returns a status to show, or "".
+    bool nav_has_hold(int slot) const;
+    std::string nav_hold(int slot);
     void bump_nav_refresh(); // force a NavBar re-render after slot labels change
 
     // --- NavProvider wiring ---

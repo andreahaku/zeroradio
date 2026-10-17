@@ -83,8 +83,10 @@ A new app needs a parser, a `NavProvider` that maps keys to actions, and a scree
 
 `toolkit/src/platform/linux_input.cpp` reads the keyboard and routes each key:
 
-- Digits 4-8 drive the NavBar slots. Key 4 acts on release: a tap shows the next page, and a
-  0.4 s hold shows the page before (`ShellViewModel::cycle_toolbar_back()`).
+- Digits 4-8 drive the NavBar slots. A key with a hold action acts on release: a tap runs its
+  normal action and a 0.4 s hold its hold action (`set_nav_hold_handler()`). Key 4 always has one,
+  the page before; keys 5-8 have one when `NavProvider::nav_has_hold()` says so, e.g. key 8 on
+  the ADS-B and AIS map toggles the follow mode.
 - F/X (and the up/down arrow keys) call `on_up()` / `on_down()`. Z/C (and left/right) call
   `on_left()` / `on_right()`.
 - SYM + 4..8 opens a tooltip for that NavBar key. The keyboard driver reports SYM as `KEY_CD`

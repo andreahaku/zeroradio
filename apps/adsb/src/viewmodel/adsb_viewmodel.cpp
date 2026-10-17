@@ -421,7 +421,38 @@ bool AdsbViewModel::map_pan_active() const {
     return screen() == static_cast<int>(Screen::Radar) && map_mercator_;
 }
 
+bool AdsbViewModel::following() const {
+    return follow_ && map_mercator_ && !selected_hex_.empty();
+}
+
+void AdsbViewModel::set_pan_nm(double north_nm, double east_nm) {
+    pan_north_nm_ = north_nm;
+    pan_east_nm_ = east_nm;
+}
+
+bool AdsbViewModel::nav_has_hold(int page, int slot) const {
+    // Key 8 on the map: a long press switches the follow mode.
+    return static_cast<Screen>(page) == Screen::Radar && slot == 4 && map_mercator_;
+}
+
+std::string AdsbViewModel::nav_hold(int page, int slot) {
+    if (!nav_has_hold(page, slot)) return {};
+    if (follow_) {
+        follow_ = false;
+        return toolkit::i18n::pick({"Follow off", "Follow disattivato", "Suivi désactivé",
+                                    "Folgen aus", "Seguimiento desactivado",
+                                    "追従オフ", "跟随已关闭"});
+    }
+    if (selected_hex_.empty()) {
+        return toolkit::i18n::pick({"Select an aircraft first", "Seleziona prima un aereo", "Sélectionnez d’abord un avion", "Zuerst ein Flugzeug wählen", "Selecciona primero un avión", "先に航空機を選択してください", "请先选择一架飞机"});
+    }
+    follow_ = true;
+    return toolkit::i18n::pick({"Follow on", "Follow attivato", "Suivi activé", "Folgen an",
+                                "Seguimiento activado", "追従オン", "跟随已开启"});
+}
+
 void AdsbViewModel::pan_map(int north, int east) {
+    follow_ = false; // moving the map by hand ends the follow mode
     // A quarter of the outer ring per press.
     const double step = range_nm() / 4.0;
     pan_north_nm_ += north * step;
@@ -429,6 +460,7 @@ void AdsbViewModel::pan_map(int north, int east) {
 }
 
 void AdsbViewModel::recenter_map() {
+    follow_ = false;
     pan_north_nm_ = 0.0;
     pan_east_nm_ = 0.0;
 }

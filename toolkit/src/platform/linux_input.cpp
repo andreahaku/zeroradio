@@ -49,14 +49,16 @@ void* volume_ctx = nullptr;
 void (*key_activity_handler)(uint32_t, void*) = nullptr;
 void* key_activity_ctx = nullptr;
 
-void (*page_back_handler)(void*) = nullptr;
-void* page_back_ctx = nullptr;
+bool (*nav_has_hold)(int, void*) = nullptr;
+void (*nav_hold_handler)(int, void*) = nullptr;
+void* nav_hold_ctx = nullptr;
 
-// Key 4 hold tracking (see set_page_back_handler).
-lv_indev_t* page_indev = nullptr;
-uint32_t page_started_at = 0;
-bool page_back_sent = false;
-lv_timer_t* page_timer = nullptr;
+// NavBar key hold tracking (see set_nav_hold_handler).
+lv_indev_t* hold_indev = nullptr;
+uint32_t hold_key = 0;
+uint32_t hold_started_at = 0;
+bool hold_sent = false;
+lv_timer_t* hold_timer = nullptr;
 
 // ESC hold tracking (see set_home_handler).
 lv_indev_t* esc_indev = nullptr;
@@ -182,29 +184,38 @@ void esc_timer_cb(lv_timer_t* timer) {
     }
 }
 
-void page_timer_cb(lv_timer_t* timer) {
-    const bool held = page_indev && lv_indev_get_state(page_indev) == LV_INDEV_STATE_PRESSED &&
-                      lv_indev_get_key(page_indev) == '4';
+void hold_timer_cb(lv_timer_t* timer) {
+    const bool held = hold_indev && lv_indev_get_state(hold_indev) == LV_INDEV_STATE_PRESSED &&
+                      lv_indev_get_key(hold_indev) == hold_key;
     if (!held) {
         lv_timer_pause(timer);
-        if (!page_back_sent) dispatch_nav_key('4'); // a tap: the next page
-        page_indev = nullptr;
+        if (!hold_sent) dispatch_nav_key(hold_key); // a tap: the normal action
+        hold_indev = nullptr;
         return;
     }
-    if (!page_back_sent && lv_tick_elaps(page_started_at) >= kPageHoldMs) {
-        page_back_sent = true;
-        if (page_back_handler) page_back_handler(page_back_ctx);
+    if (!hold_sent && lv_tick_elaps(hold_started_at) >= kNavHoldMs) {
+        hold_sent = true;
+        if (nav_hold_handler) {
+            nav_hold_handler(static_cast<int>(nav_key_to_index(hold_key)), nav_hold_ctx);
+        }
     }
 }
 
-// Key 4 down with no capture: a tap goes to the next page on release, a hold
-// goes back one page once kPageHoldMs has passed.
-void start_page_hold(lv_indev_t* indev) {
-    page_indev = indev;
-    page_started_at = lv_tick_get();
-    page_back_sent = false;
-    if (!page_timer) page_timer = lv_timer_create(page_timer_cb, 40, nullptr);
-    lv_timer_resume(page_timer);
+// A NavBar key whose slot has a hold action, pressed with no capture: a tap
+// runs the normal action on release, a hold of kNavHoldMs the hold action.
+void start_nav_hold(lv_indev_t* indev, uint32_t key) {
+    hold_indev = indev;
+    hold_key = key;
+    hold_started_at = lv_tick_get();
+    hold_sent = false;
+    if (!hold_timer) hold_timer = lv_timer_create(hold_timer_cb, 40, nullptr);
+    lv_timer_resume(hold_timer);
+}
+
+bool slot_has_hold(uint32_t key) {
+    const size_t slot = nav_key_to_index(key);
+    return slot < kNavKeyCount && nav_has_hold &&
+           nav_has_hold(static_cast<int>(slot), nav_hold_ctx);
 }
 
 // ESC down with no capture: decide short vs hold in esc_timer_cb.
@@ -232,8 +243,8 @@ void key_event_cb(lv_event_t* event) {
         if (key_activity_handler) key_activity_handler(key, key_activity_ctx);
         if (key == LV_KEY_ESC && !key_capture && !esc_indev) {
             start_esc_hold(indev);
-        } else if (key == '4' && !key_capture && page_back_handler) {
-            if (!page_indev) start_page_hold(indev);
+        } else if (!key_capture && slot_has_hold(key)) {
+            if (!hold_indev) start_nav_hold(indev, key);
         } else if (key != LV_KEY_ESC || key_capture) {
             dispatch_nav_key(key);
         }
@@ -507,9 +518,11 @@ void set_arrow_handler(void (*handler)(uint32_t key, void* ctx), void* ctx) {
     arrow_ctx = ctx;
 }
 
-void set_page_back_handler(void (*handler)(void* ctx), void* ctx) {
-    page_back_handler = handler;
-    page_back_ctx = ctx;
+void set_nav_hold_handler(bool (*has_hold)(int slot, void* ctx),
+                          void (*on_hold)(int slot, void* ctx), void* ctx) {
+    nav_has_hold = has_hold;
+    nav_hold_handler = on_hold;
+    nav_hold_ctx = ctx;
 }
 
 void set_nav_hint_handler(void (*handler)(int slot, void* ctx), void* ctx) {

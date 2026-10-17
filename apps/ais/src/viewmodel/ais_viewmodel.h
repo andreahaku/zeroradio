@@ -115,6 +115,14 @@ public:
     double pan_east_nm() const { return pan_east_nm_; }
     void pan_map(int north, int east);
     void recenter_map();
+    void set_pan_nm(double north_nm, double east_nm);
+
+    // Follow mode (key 8 held on the map): the map centre tracks the selected
+    // contact. The screen moves the pan offset to it every tick; an arrow or
+    // Enter ends it, and so does a cleared selection.
+    bool following() const;
+    bool nav_has_hold(int page, int slot) const override;
+    std::string nav_hold(int page, int slot) override;
 
 private:
     bool        location_request_{false};
@@ -123,6 +131,7 @@ private:
     void move_cursor(int dir);
     void move_side(int dir);
     bool map_pan_active() const;
+    bool follow_{false};
     double pan_north_nm_{0.0};
     double pan_east_nm_{0.0};
     void load_settings();

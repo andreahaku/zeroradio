@@ -21,8 +21,9 @@ constexpr size_t kNavKeyCount = 5;
 constexpr uint32_t kEscHoldHintMs = 300;
 constexpr uint32_t kEscHoldHomeMs = 3000;
 
-// Key 4 held this long goes back one NavBar page (the ZeroTracker value).
-constexpr uint32_t kPageHoldMs = 400;
+// A NavBar key held this long runs its hold action, e.g. key 4 goes back one
+// page (the ZeroTracker value).
+constexpr uint32_t kNavHoldMs = 400;
 
 // Key codes for the NavBar key tooltips: kKeyNavHint + slot (0..4). They sit in
 // the Unicode private use area, clear of LVGL's control keys and of text.
@@ -50,10 +51,11 @@ void set_tab_handler(void (*handler)(void* ctx), void* ctx);
 // LV_KEY_RIGHT or LV_KEY_ENTER. On the CardputerZero keyboard F/X/Z/C act as arrows without Fn.
 void set_arrow_handler(void (*handler)(uint32_t key, void* ctx), void* ctx);
 
-// Key 4 outside a key capture, once a handler is set: a tap shows the next
-// NavBar page on release, a hold of kPageHoldMs calls `handler` (the page
-// before). Without a handler key 4 acts on press, as before.
-void set_page_back_handler(void (*handler)(void* ctx), void* ctx);
+// NavBar keys 4..8 (slots 0..4) outside a key capture. When `has_hold(slot)`
+// is true the key acts on release: a tap runs its normal action, a hold of
+// kNavHoldMs calls `on_hold(slot)`. Other keys act on press, as before.
+void set_nav_hold_handler(bool (*has_hold)(int slot, void* ctx),
+                          void (*on_hold)(int slot, void* ctx), void* ctx);
 
 // SYM + 4..8 outside a key capture (Shift + 4..8 on a desktop keyboard): show
 // what NavBar slot `slot` (0..4) does.
