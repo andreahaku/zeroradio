@@ -1,6 +1,6 @@
 {
   "package_name": "zeroradio",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "app_name": "ZeroRadio",
   "bin_name": "radio_app",
   "description": "SDR, ADS-B, AIS, spectrum scanner and ISM radio tools for CardputerZero",

@@ -21,8 +21,10 @@ Theme switches dark/light. TTL is how long a silent device stays listed: 30, 60,
 ## Global keys
 
 - F/X (up/down arrows): move the cursor on the List, Detail and Settings pages.
+- Z/C (left/right arrows): previous/next device on the Detail page, change the value in Settings.
+- SYM + 4 to 8: a tooltip that says what that key does on this page, in your language (English, Italian, French, German or Spanish).
 - H or Fn+H: this help. F/X scroll it, Esc closes it.
-- Esc: quit to the hub.
+- Esc: quit to the hub. Hold Esc 3 s to leave ZeroRadio for the launcher. Let go before the bar fills to cancel.
 
 ## Tips
 

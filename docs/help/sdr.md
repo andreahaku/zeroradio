@@ -20,13 +20,15 @@ Key 4 cycles five tool pages. The screen stays the same: mode on the left, tuned
 - Page 4: 5 mute, 6 volume down, 7 volume up, 8 shows the volume.
 - Page 5: 5 gain down, 6 gain up, 7 auto gain on/off, 8 exit.
 
-Frequency entry (page 1, key 6): type MHz with digits and a dot (up to 4 decimals), Backspace deletes, Enter tunes, Esc cancels.
+Frequency entry (page 1, key 6): type MHz with digits and a dot (SYM + .), up to 4 decimals, for example 98.525, Backspace deletes, Enter tunes, Esc cancels.
 
 ## Global keys
 
+- Arrows (F/X/Z/C): Z/C tune down/up by one step, F/X zoom in/out.
 - TAB: switch to the Scanner app.
+- SYM + 4 to 8: a tooltip that says what that key does on this page, in your language (English, Italian, French, German or Spanish).
 - H or Fn+H: this help. F/X scroll it, Esc closes it.
-- Esc: quit to the hub.
+- Esc: quit to the hub. Hold Esc 3 s to leave ZeroRadio for the launcher. Let go before the bar fills to cancel.
 
 ## Tips
 

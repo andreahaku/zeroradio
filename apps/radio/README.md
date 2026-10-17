@@ -29,7 +29,7 @@ ADS-B and AIS. It leaves out Meshtastic, which needs `meshtasticd` and the Cap L
 - **Enter / → / `6`** — open the highlighted app.
 - **Esc** — leave the hub and return to the system launcher.
 
-Inside an app, `Esc` returns to the hub. Holding `Esc` (0.7 s) returns straight to the system
+Inside an app, `Esc` returns to the hub. Holding `Esc` 3 s returns straight to the system
 launcher: the app exits with a "home" code, and the hub exits too.
 
 The **About** row opens in the hub itself. It shows the version, the source link with a QR code,

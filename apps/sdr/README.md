@@ -120,7 +120,7 @@ cycles the tool page** (1→5) and shows the page number.
 
 Global keys, shared by every ZeroRadio app:
 
-- `Esc` — back to the hub. Hold `Esc` (0.7 s) to return to the system launcher.
+- `Esc` — back to the hub. Hold `Esc` 3 s to return to the system launcher (let go before the bar fills to cancel). `SYM` + `4`–`8` shows what each key does.
 - `H` — open the in-app help ([`docs/help/sdr.md`](../../docs/help/sdr.md)).
 - `TAB` — switch to the Scanner app.
 
