@@ -244,6 +244,12 @@ void key_event_cb(lv_event_t* event) {
         if (key == LV_KEY_ESC && !key_capture && !esc_indev) {
             start_esc_hold(indev);
         } else if (!key_capture && slot_has_hold(key)) {
+            if (hold_indev && hold_key != key) {
+                // Another hold key while one is down: settle the first as a
+                // tap (unless its hold already fired), then track the new one.
+                if (!hold_sent) dispatch_nav_key(hold_key);
+                hold_indev = nullptr;
+            }
             if (!hold_indev) start_nav_hold(indev, key);
         } else if (key != LV_KEY_ESC || key_capture) {
             dispatch_nav_key(key);
@@ -342,8 +348,9 @@ uint32_t map_evdev_key(uint16_t code) {
         case KEY_9:          return '9';
         case KEY_DOT:
         case KEY_KPDOT:
-        // The CardputerZero driver sends its "." key (on the symbol layer) as
-        // KEY_HIRAGANA.
+        // The CardputerZero driver sends the "." of its symbol layer (SYM plus
+        // the key printed with ".", code 91) as KEY_HIRAGANA. It is not SYM + 8,
+        // which sends KEY_DOT and opens the key 8 tooltip (map_sym_nav_key).
         case KEY_HIRAGANA:   return '.';
         // Fn + A / S / D.
         case KEY_MUTE:       return kKeyMute;
