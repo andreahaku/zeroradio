@@ -5,6 +5,7 @@
  */
 
 #include "adsb_viewmodel.h"
+#include "nav_hints.h"
 
 #include "persisted_state.h"
 #include "ui_const.h"
@@ -436,6 +437,48 @@ void AdsbViewModel::move_cursor(int dir) {
         if (dir < 0) settings_up();
         else settings_down();
     }
+}
+
+toolkit::i18n::Text AdsbViewModel::nav_hint(int page, int slot) const {
+    namespace h = toolkit::hints;
+    switch (static_cast<Screen>(page)) {
+        case Screen::List:
+            switch (slot) {
+                case 1: return h::kSort;
+                case 2: return h::kListUp;
+                case 3: return h::kListDown;
+                case 4: return {"Select the highlighted aircraft, or clear the selection",
+                                 "Seleziona l’aereo evidenziato, o annulla la selezione",
+                                 "Sélectionne l’avion en surbrillance, ou annule la sélection",
+                                 "Wählt das markierte Flugzeug aus oder hebt die Auswahl auf",
+                                 "Selecciona el avión resaltado, o anula la selección"};
+            }
+            break;
+        case Screen::Radar:
+        case Screen::Detail:
+            switch (slot) {
+                case 1: return h::kZoomIn;
+                case 2: return h::kZoomOut;
+                case 3: return h::kTracks;
+                case 4:
+                    if (static_cast<Screen>(page) == Screen::Radar) return h::kRadarMap;
+                    return {"Show or hide the other aircraft",
+                            "Mostra o nascondi gli altri aerei",
+                            "Affiche ou masque les autres avions",
+                            "Blendet die anderen Flugzeuge ein oder aus",
+                            "Muestra u oculta los demás aviones"};
+            }
+            break;
+        case Screen::Settings:
+            switch (slot) {
+                case 1: return h::kSettingPrev;
+                case 2: return h::kSettingNext;
+                case 3: return h::kSettingChange;
+                case 4: return h::kBackToMenu;
+            }
+            break;
+    }
+    return {};
 }
 
 } // namespace adsb

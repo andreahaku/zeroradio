@@ -5,6 +5,7 @@
  */
 
 #include "survey_viewmodel.h"
+#include "nav_hints.h"
 
 #include "handoff.h"
 
@@ -284,6 +285,45 @@ void SurveyViewModel::nav_activate(int page, int slot) {
             if (slot == 4) cycle_sort();
             break;
     }
+}
+
+toolkit::i18n::Text SurveyViewModel::nav_hint(int page, int slot) const {
+    namespace h = toolkit::hints;
+    switch (static_cast<Page>(page)) {
+        case Page::Waterfall:
+            switch (slot) {
+                case 1: return {"Zoom out: sweep a band twice as wide",
+                                 "Riduci lo zoom: scansiona una banda larga il doppio",
+                                 "Zoom arrière : balaye une bande deux fois plus large",
+                                 "Herauszoomen: ein doppelt so breites Band absuchen",
+                                 "Alejar: barre una banda el doble de ancha"};
+                case 2: return {"Type the centre frequency and the span",
+                                 "Inserisci la frequenza centrale e l’ampiezza",
+                                 "Saisit la fréquence centrale et la largeur",
+                                 "Mittenfrequenz und Breite eingeben",
+                                 "Introduce la frecuencia central y el ancho"};
+                case 3: return {"Zoom in: sweep a band half as wide",
+                                 "Ingrandisci: scansiona una banda larga la metà",
+                                 "Zoom avant : balaye une bande deux fois plus étroite",
+                                 "Hineinzoomen: ein halb so breites Band absuchen",
+                                 "Acercar: barre una banda la mitad de ancha"};
+                case 4: return h::kTheme;
+            }
+            break;
+        case Page::Peaks:
+            switch (slot) {
+                case 1: return h::kListUp;
+                case 2: return h::kListDown;
+                case 3: return {"Open the selected signal in the SDR",
+                                 "Apri il segnale selezionato nell’SDR",
+                                 "Ouvre le signal sélectionné dans le SDR",
+                                 "Öffnet das gewählte Signal im SDR",
+                                 "Abre la señal seleccionada en el SDR"};
+                case 4: return h::kSort;
+            }
+            break;
+    }
+    return {};
 }
 
 } // namespace survey
