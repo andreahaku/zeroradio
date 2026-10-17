@@ -370,6 +370,10 @@ int run_app(ShellViewModel& shell,
 
         platform::remote_fb_destroy();
         lv_display_delete(display);
+    } else {
+        // Stop the remote-fb server thread (no-op if unused): a joinable
+        // std::thread left at exit aborts the process.
+        platform::remote_fb_destroy();
     }
 
     return shell.exit_code();
