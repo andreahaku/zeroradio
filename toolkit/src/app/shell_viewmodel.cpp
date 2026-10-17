@@ -39,6 +39,13 @@ void ShellViewModel::cycle_toolbar() {
     bump_nav_refresh();
 }
 
+void ShellViewModel::cycle_toolbar_back() {
+    const int count = nav_page_count();
+    const int prev = count > 0 ? (toolbar_page_subject_.value() - 1 + count) % count : 0;
+    toolbar_page_subject_.set(prev);
+    bump_nav_refresh();
+}
+
 void ShellViewModel::bump_nav_refresh() {
     nav_refresh_subject_.set(nav_refresh_subject_.value() + 1);
 }
@@ -53,11 +60,11 @@ int ShellViewModel::nav_page_count() const {
 
 i18n::Text ShellViewModel::nav_hint(int slot) const {
     if (slot == 0) {
-        return {"Show the next page of keys",
-                "Mostra la pagina successiva di tasti",
-                "Affiche la page de touches suivante",
-                "Zeigt die nächste Tastenseite",
-                "Muestra la siguiente página de teclas"};
+        return {"Tap: the next page of keys. Hold: the page before.",
+                "Tocca: pagina di tasti successiva. Tieni premuto: quella precedente.",
+                "Appui : page de touches suivante. Maintien : la page précédente.",
+                "Tippen: nächste Tastenseite. Halten: die vorherige.",
+                "Pulsa: siguiente página de teclas. Mantén: la anterior."};
     }
     if (!nav_provider_ || slot < 0 || slot > 4) return {};
     return nav_provider_->nav_hint(toolbar_page_subject_.value(), slot);

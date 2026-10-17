@@ -52,7 +52,7 @@ Inside every app:
 
 | Key | Action |
 | --- | --- |
-| 4 | Next tool page |
+| 4 | Next tool page. Hold it for the page before |
 | 5, 6, 7, 8 | The four actions shown in the bottom bar |
 | F / X (up/down) | Move the cursor in a list or in Settings, or zoom on the SDR, Scanner, radar and map |
 | Z / C (left/right) | Tune the SDR, move the Scanner band, step through aircraft, ships and devices, change a setting |

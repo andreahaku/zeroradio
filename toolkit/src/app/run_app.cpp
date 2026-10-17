@@ -111,6 +111,10 @@ void quit_handler_trampoline(void* ctx) {
     static_cast<ShellViewModel*>(ctx)->request_quit();
 }
 
+void page_back_trampoline(void* ctx) {
+    static_cast<ShellViewModel*>(ctx)->cycle_toolbar_back();
+}
+
 void tab_handler_trampoline(void* ctx) {
     static_cast<ShellViewModel*>(ctx)->on_tab();
 }
@@ -299,6 +303,7 @@ int run_app(ShellViewModel& shell,
     // ESC quits from any tool page (decoupled from nav key '4').
     platform::set_quit_handler(quit_handler_trampoline, &shell);
     platform::set_tab_handler(tab_handler_trampoline, &shell);
+    platform::set_page_back_handler(page_back_trampoline, &shell);
     platform::set_arrow_handler(arrow_handler_trampoline, &shell);
     platform::set_home_handler(home_handler_trampoline, hold_hint_trampoline, &shell);
     overlays = Overlays{&shell, assets.load_font("inter-regular.ttf", 13),
@@ -341,6 +346,7 @@ int run_app(ShellViewModel& shell,
     // shell / screen (matters if run_app() is ever re-entered, e.g. as a plugin).
     platform::set_quit_handler(nullptr, nullptr);
     platform::set_tab_handler(nullptr, nullptr);
+    platform::set_page_back_handler(nullptr, nullptr);
     platform::set_arrow_handler(nullptr, nullptr);
     platform::set_home_handler(nullptr, nullptr, nullptr);
     platform::set_nav_hint_handler(nullptr, nullptr);
