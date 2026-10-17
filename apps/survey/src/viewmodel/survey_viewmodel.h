@@ -79,6 +79,7 @@ public:
     // --- actions ---
     void zoom_in();
     void zoom_out();
+    void pan(int dir);           // -1 / +1: shift the band by a quarter span
     void request_range_input();  // bumps range_input_req -> screen opens the dialog
     void set_center_span_mhz(double center_mhz, double span_mhz); // manual tune
     void toggle_dark(); // toggles + persists via the model
@@ -98,15 +99,27 @@ public:
     // TAB: switch to the SDR app at its own frequency (see toolkit::run_handoff).
     void on_tab() override { request_handoff("sdr_app", "sdr"); }
 
-    // F/X (arrows): the Peaks cursor (no list on the waterfall page).
+    // Arrows. Waterfall page: up/down zoom in/out, left/right move the band.
+    // Peaks page: up/down move the cursor.
     void on_up() override {
-        if (lv_subject_get_int(toolbar_page_subject()) == static_cast<int>(Page::Peaks)) peaks_cursor_up();
+        if (on_peaks_page()) peaks_cursor_up();
+        else zoom_in();
     }
     void on_down() override {
-        if (lv_subject_get_int(toolbar_page_subject()) == static_cast<int>(Page::Peaks)) peaks_cursor_down();
+        if (on_peaks_page()) peaks_cursor_down();
+        else zoom_out();
+    }
+    void on_left() override {
+        if (!on_peaks_page()) pan(-1);
+    }
+    void on_right() override {
+        if (!on_peaks_page()) pan(1);
     }
 
 private:
+    bool on_peaks_page() {
+        return lv_subject_get_int(toolbar_page_subject()) == static_cast<int>(Page::Peaks);
+    }
     void publish_range();
     void clamp_selection();
     void sort_rows(std::vector<PeakRow>& rows) const;

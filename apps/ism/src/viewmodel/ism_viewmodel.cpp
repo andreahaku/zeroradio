@@ -115,14 +115,15 @@ void IsmViewModel::settings_down() {
     bump_nav_refresh();
 }
 
-void IsmViewModel::settings_activate() {
+void IsmViewModel::settings_activate(int dir) {
     switch (settings_cursor_) {
         case 0: set_dark_mode(!is_dark_mode()); break; // Theme
         case 1: {                                      // TTL
             int i = 0;
             for (int k = 0; k < static_cast<int>(kTtlLadder.size()); ++k)
                 if (ttl_seconds_ == kTtlLadder[k]) i = k;
-            ttl_seconds_ = kTtlLadder[(i + 1) % kTtlLadder.size()];
+            const int n = static_cast<int>(kTtlLadder.size());
+            ttl_seconds_ = kTtlLadder[static_cast<size_t>((i + dir + n) % n)];
             break;
         }
         default: break;
@@ -223,6 +224,15 @@ void IsmViewModel::save_settings() const {
     std::error_code ec;
     std::filesystem::rename(tmp, path, ec);
     if (ec) std::filesystem::remove(tmp, ec);
+}
+
+void IsmViewModel::move_side(int dir) {
+    if (screen() == static_cast<int>(Screen::Detail)) {
+        if (dir < 0) select_prev();
+        else select_next();
+    } else if (screen() == static_cast<int>(Screen::Settings)) {
+        settings_activate(dir);
+    }
 }
 
 void IsmViewModel::move_cursor(int dir) {

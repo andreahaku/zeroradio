@@ -96,6 +96,12 @@ public:
     // TAB: switch to the Spectrum Survey app (see toolkit::run_handoff).
     void on_tab() override { request_handoff("survey_app", "survey"); }
 
+    // Arrows on every page: left/right tune by one step, up/down zoom in/out.
+    void on_left() override { tune_down(); }
+    void on_right() override { tune_up(); }
+    void on_up() override { zoom_in(); }
+    void on_down() override { zoom_out(); }
+
 private:
     void publish_vfo();
     void publish_mode();

@@ -137,6 +137,11 @@ void SurveyViewModel::zoom_out() {
     publish_range();
 }
 
+void SurveyViewModel::pan(int dir) {
+    model_.pan(dir);
+    publish_range();
+}
+
 void SurveyViewModel::request_range_input() {
     range_input_req_subject_.set(range_input_req_subject_.value() + 1);
 }

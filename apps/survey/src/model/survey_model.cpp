@@ -60,6 +60,12 @@ void SurveyModel::zoom_out() {
     set_range(centre - half, centre + half);
 }
 
+void SurveyModel::pan(int dir) {
+    const int64_t span = stop_hz_ - start_hz_;
+    const int64_t start = std::clamp(start_hz_ + dir * (span / 4), kMinHz, kMaxHz - span);
+    set_range(start, start + span);
+}
+
 void SurveyModel::set_center_span(int64_t center_hz, int64_t span_hz) {
     const int64_t half = std::max<int64_t>(span_hz / 2, kMinSpanHz / 2);
     set_range(center_hz - half, center_hz + half);
