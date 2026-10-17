@@ -27,7 +27,7 @@ Frequency entry (page 1, key 6): type MHz with digits and a dot (SYM + .), up to
 - 4: the next page of keys. Hold 4 for the page before.
 - Arrows (F/X/Z/C): Z/C tune down/up by one step, F/X zoom in/out.
 - TAB: switch to the Scanner app.
-- SYM + 4 to 8: a tooltip that says what that key does on this page, in your language (English, Italian, French, German or Spanish).
+- SYM + 4 to 8: a tooltip that says what that key does on this page, in your language (English, Italian, French, German, Spanish, Japanese or Chinese).
 - H or Fn+H: this help. F/X scroll it, Esc closes it.
 - Esc: quit to the hub. Hold Esc 3 s to leave ZeroRadio for the launcher. Let go before the bar fills to cancel.
 

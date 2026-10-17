@@ -62,7 +62,7 @@ Inside every app:
 | Esc | Back to the hub |
 | Hold Esc 3 s | Back to the CardputerZero launcher (let go before the bar fills to cancel) |
 
-The key tooltips follow the system language (`LANG`): English, Italian, French, German and Spanish. Other languages show English.
+The key tooltips follow the system language (`LANG`): English, Italian, French, German, Spanish, Japanese and Chinese. Other languages show English.
 
 **Your position.** ADS-B and AIS centre their radar and map on your position. Set it once in Settings > Location of either app. Type a city name, type coordinates such as `35.90, 14.51`, or pick the GPS row. The position is shared by the whole suite.
 

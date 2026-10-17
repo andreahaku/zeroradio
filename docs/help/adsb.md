@@ -29,7 +29,7 @@ Location (Settings, key 7 on the Location row): type a city or "lat, lon". The f
 - 4: the next page of keys. Hold 4 for the page before.
 - F/X (up/down arrows): move the cursor on the List and Settings pages, zoom in/out on the Radar and Detail pages.
 - Z/C (left/right arrows): previous/next aircraft on the Radar and Detail pages, change the value in Settings.
-- SYM + 4 to 8: a tooltip that says what that key does on this page, in your language (English, Italian, French, German or Spanish).
+- SYM + 4 to 8: a tooltip that says what that key does on this page, in your language (English, Italian, French, German, Spanish, Japanese or Chinese).
 - H or Fn+H: this help. F/X scroll it, Esc closes it.
 - Esc: quit to the hub. Hold Esc 3 s to leave ZeroRadio for the launcher. Let go before the bar fills to cancel.
 
