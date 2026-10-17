@@ -453,14 +453,14 @@ void AdsbScreen::tick() {
                 default:
                     break;
             }
-            // Follow mode: FOLLOW next to the name, in the selected-contact colour.
+            // Follow mode: a dot left of the name, in the selected-contact colour.
             char follow[24] = "";
             if (vm_.following()) {
-                std::snprintf(follow, sizeof(follow), " #%06x FOLLOW#",
+                std::snprintf(follow, sizeof(follow), "#%06x \xE2\x97\x8F# ",
                               vm_.is_dark_mode() ? 0xff9933u : 0xd96400u);
             }
             char t[72];
-            std::snprintf(t, sizeof(t), "%s%s%s", call.c_str(), follow, sv);
+            std::snprintf(t, sizeof(t), "%s%s%s", follow, call.c_str(), sv);
             lv_label_set_text(header_title_, t);
         } else {
             lv_label_set_text(header_title_, "ADSB");
