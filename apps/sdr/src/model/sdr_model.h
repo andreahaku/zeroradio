@@ -59,8 +59,10 @@ public:
 
     // --- SDR state ---
     // VFO frequency in Hz; setter clamps to [0, INT32_MAX] and skips redundant writes.
+    // `persist` false changes it for this session only (the memory scan retunes
+    // several times a second and must not write the state file each time).
     int32_t vfo_hz() const;
-    void set_vfo_hz(int64_t hz);
+    void set_vfo_hz(int64_t hz, bool persist = true);
     void tune_up();
     void tune_down();
 
@@ -69,7 +71,10 @@ public:
     int32_t tune_step_hz() const;
 
     RadioMode mode() const;
-    void set_mode(RadioMode mode);
+    void set_mode(RadioMode mode, bool persist = true);
+    // Make the session-only frequency and mode the saved ones, and write the
+    // state file (when a memory scan ends).
+    void persist();
     void cycle_mode();
     Passband passband() const;
 
@@ -130,6 +135,11 @@ private:
     bool dark_mode_ = true;
     int32_t vfo_hz_ = 145500000; // 145.500 MHz
     RadioMode mode_ = RadioMode::NFM;
+    // What the state file holds. Equal to vfo_hz_/mode_ except during a memory
+    // scan, whose session-only retunes must not reach the file when another
+    // setting (volume, gain, zoom) saves the state.
+    int32_t saved_vfo_hz_ = 145500000;
+    RadioMode saved_mode_ = RadioMode::NFM;
     bool fine_tune_ = false;
     int span_level_ = 2;       // index into the span ladder (see sdr_model.cpp)
     int band_index_ = 0;

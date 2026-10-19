@@ -30,6 +30,14 @@ resolution (320×170).
 - **Squelch** — mutes the audio until the signal in the passband reaches a level (5–95 on the
   S-meter scale). It closes 8 points below the level after a 2.5 s hold, so pauses in speech pass.
   `Squelch` and `channel_level()` in `src/sdr/squelch.h` are pure and tested by `squelch_test`.
+- **Memory scan** — `MemoryScan` (`src/sdr/memory_scan.h`, pure, tested by `memory_scan_test`)
+  steps through the channels the Memories app hands over in `SDR_SCAN`. Channels that fit in one
+  frame form a group and are read from the same FFT frame with `channel_level()` at their offset,
+  so a quiet group costs one 250 ms settle, not one per channel. A channel at the squelch level
+  stops the scan. The channel is done for this pass when the squelch closes after its hold, after
+  400 ms if it never opened, or on skip: the scan reads the rest of its group, then the next group.
+  Retuning during a scan does not reach the state file, even when another setting saves it. A SCAN NavBar page
+  (pause, skip, lock out, stop) exists only while the scan runs.
 - **Channel S-meter** — the S-meter shows the strongest bin inside the demodulated passband, not the
   whole span, so a strong station next door does not move it.
 - **Frequency correction** — the dongle's crystal error in tenths of ppm, in the `rtl_test -p` sign
@@ -112,6 +120,7 @@ Environment overrides:
 | `SDR_SOURCE=mock` | Use the synthetic source instead of the dongle. |
 | `SDR_RTLTCP=host:port` | Connect to an existing `rtl_tcp` server instead of starting a local one. |
 | `SDR_FREQ=<hz>` | Start tuned to this frequency, overriding the saved VFO. The Scanner's **Open in SDR** uses it. |
+| `SDR_SCAN=<hz>:<mode>,...` | Start a memory scan of these channels (up to 64), as the Memories app sends it. The mode part is optional. Read once at start, like `SDR_FREQ`. |
 | `SDR_MODE=<mode>` | Start in this mode, overriding the saved one: `WFM`, `NFM`, `AM`, `USB`, `LSB` or `CW`. An unknown name keeps the saved mode. The Memories app passes it with `SDR_FREQ`. The SDR reads both once at start and then clears them, so a later TAB switch keeps your tuning. |
 | `SDR_SAMPLE_RATE=<hz>` | Cap the RTL sample rate (valid: 900k–3.2M or 225k–300k). The CM0 needs ~1.0 Msps. Below the cap, the rate follows the page-2 zoom span. |
 | `SDR_ALSA_DEV`, `SDR_ALSA_CARD` | ALSA output PCM / card on the device (default `pipewire`). |
