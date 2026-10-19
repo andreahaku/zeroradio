@@ -9,10 +9,20 @@
 # Spectrum/waterfall pipeline, RTL-SDR source (FFTW3f + Threads) and audio demod,
 # built on radio_toolkit. See apps/sdr/README.md.
 # ====================================================
+add_library(sdr_squelch STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/sdr/squelch.cpp)
+target_include_directories(sdr_squelch PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/sdr)
+
+if(USE_DESKTOP)
+    add_executable(squelch_test ${CMAKE_CURRENT_SOURCE_DIR}/test/squelch_test.cpp)
+    target_link_libraries(squelch_test PRIVATE sdr_squelch)
+    add_test(NAME squelch_test COMMAND squelch_test)
+endif()
+
 file(GLOB_RECURSE SDR_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
 )
+list(REMOVE_ITEM SDR_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/sdr/squelch.cpp")
 
 add_executable(sdr_app ${SDR_SOURCES})
 
@@ -29,6 +39,7 @@ target_link_libraries(sdr_app
     PRIVATE
         radio_toolkit
         lvgl
+        sdr_squelch
 )
 
 # ----------------------------------------------------------------------
