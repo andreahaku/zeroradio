@@ -11,6 +11,7 @@
 #include "ui_const.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -71,6 +72,18 @@ SdrViewModel::SdrViewModel() {
     publish_gain();
 }
 
+void SdrViewModel::restore_span(int32_t span_khz) {
+    // The arrows zoom during a calibration too, so the span may sit on
+    // either side of the one to restore. The calibration zooms for the
+    // session only, so the state file still holds this span.
+    for (;;) {
+        const int32_t before = model_.span_khz();
+        if (before < span_khz) model_.zoom_out();
+        else if (before > span_khz) model_.zoom_in();
+        if (model_.span_khz() == before) break;
+    }
+}
+
 // --- subject accessors ---
 lv_subject_t* SdrViewModel::vfo_text_subject()       { return vfo_text_subject_.native(); }
 lv_subject_t* SdrViewModel::mode_text_subject()      { return mode_text_subject_.native(); }
@@ -85,7 +98,7 @@ lv_subject_t* SdrViewModel::peak_hold_subject()      { return peak_hold_subject_
 lv_subject_t* SdrViewModel::wf_split_subject()       { return wf_split_subject_.native(); }
 lv_subject_t* SdrViewModel::freq_input_req_subject() { return freq_input_req_subject_.native(); }
 lv_subject_t* SdrViewModel::ppm_input_req_subject() { return ppm_input_req_subject_.native(); }
-lv_subject_t* SdrViewModel::scan_text_subject() { return scan_text_subject_.native(); }
+lv_subject_t* SdrViewModel::status_text_subject() { return status_text_subject_.native(); }
 lv_subject_t* SdrViewModel::fine_tune_subject()      { return fine_tune_subject_.native(); }
 lv_subject_t* SdrViewModel::muted_subject()          { return muted_subject_.native(); }
 lv_subject_t* SdrViewModel::volume_subject()         { return volume_subject_.native(); }
@@ -127,9 +140,53 @@ void SdrViewModel::request_freq_input() {
 void SdrViewModel::request_ppm_input() {
     ppm_input_req_subject_.set(ppm_input_req_subject_.value() + 1);
 }
-void SdrViewModel::set_ppm_tenths(int tenths) { model_.set_ppm_tenths(tenths); bump_nav_refresh(); }
-void SdrViewModel::ppm_up()   { model_.ppm_up();   bump_nav_refresh(); }
-void SdrViewModel::ppm_down() { model_.ppm_down(); bump_nav_refresh(); }
+void SdrViewModel::set_ppm_tenths(int tenths) { model_.set_ppm_tenths(tenths); publish_cal_text(); }
+void SdrViewModel::ppm_up()   { model_.ppm_up();   publish_cal_text(); }
+void SdrViewModel::ppm_down() { model_.ppm_down(); publish_cal_text(); }
+
+void SdrViewModel::start_calibration() {
+    if (calibrating_) return;
+    stop_scan(); // the scan retunes on its own and would fight the alignment
+    calibrating_ = true;
+    cal_prev_span_khz_ = model_.span_khz();
+    // As far in as the zoom goes: the alignment needs every pixel. For this
+    // session only, so a quit, a hand-off or a power cut keeps the old zoom.
+    for (;;) {
+        const int32_t before = model_.span_khz();
+        model_.zoom_in(/*persist=*/false);
+        if (model_.span_khz() == before) break;
+    }
+    publish_vfo();
+    publish_cal_text();
+    bump_nav_refresh();
+}
+
+void SdrViewModel::finish_calibration() {
+    if (!calibrating_) return;
+    calibrating_ = false;
+    restore_span(cal_prev_span_khz_);
+    status_text_subject_.set("");
+    publish_vfo();
+    bump_nav_refresh();
+}
+
+void SdrViewModel::on_toolbar_page(int page) {
+    if (calibrating_ && page != static_cast<int>(Page::Settings)) finish_calibration();
+}
+
+void SdrViewModel::publish_cal_text() {
+    if (!calibrating_) return;
+    // "CAL -1.5 ppm = -195 Hz at 130.000": the correction, and how far it
+    // moves the signals at this frequency (a positive one moves them up).
+    const int t = model_.ppm_tenths();
+    const int a = t < 0 ? -t : t;
+    const long hz = std::lround(static_cast<double>(model_.vfo_hz()) * t * 1e-7);
+    char text[48];
+    std::snprintf(text, sizeof(text), hz != 0 ? "CAL %s%d.%d ppm = %+ld Hz at %.3f"
+                                              : "CAL %s%d.%d ppm = %ld Hz at %.3f",
+                  t < 0 ? "-" : "", a / 10, a % 10, hz, model_.vfo_hz() / 1e6);
+    status_text_subject_.set(text);
+}
 int SdrViewModel::ppm_tenths() const { return model_.ppm_tenths(); }
 
 // Squelch: opens at the level, closes 8 points below it after a 2.5 s hold, so
@@ -184,7 +241,7 @@ void SdrViewModel::stop_scan() {
     if (!scan_) return;
     scan_.reset();
     model_.persist(); // keep the channel the scan stopped on for the next launch
-    scan_text_subject_.set("");
+    status_text_subject_.set("");
     if (lv_subject_get_int(toolbar_page_subject()) >= static_cast<int>(Page::Scan)) {
         lv_subject_set_int(toolbar_page_subject(), 0);
     }
@@ -267,8 +324,8 @@ void SdrViewModel::publish_scan_text() {
         text += " " + std::to_string(scan_->group_index() + 1) + "/" +
                 std::to_string(scan_->group_count());
     }
-    if (std::strcmp(text.c_str(), lv_subject_get_string(scan_text_subject_.native())) != 0) {
-        scan_text_subject_.set(text.c_str());
+    if (std::strcmp(text.c_str(), lv_subject_get_string(status_text_subject_.native())) != 0) {
+        status_text_subject_.set(text.c_str());
     }
 }
 
@@ -293,8 +350,8 @@ void SdrViewModel::scan_lock_out() {
 }
 int64_t SdrViewModel::tuner_hz() const { return model_.corrected_hz(model_.vfo_hz()); }
 
-void SdrViewModel::zoom_in()   { model_.zoom_in();   publish_vfo(); }
-void SdrViewModel::zoom_out()  { model_.zoom_out();  publish_vfo(); }
+void SdrViewModel::zoom_in()   { model_.zoom_in(!calibrating_);  publish_vfo(); }
+void SdrViewModel::zoom_out()  { model_.zoom_out(!calibrating_); publish_vfo(); }
 void SdrViewModel::cycle_band(){ stop_scan(); model_.cycle_band(); publish_vfo(); }
 
 void SdrViewModel::toggle_freq_grid() { model_.toggle_freq_grid(); publish_grids(); }
@@ -369,7 +426,7 @@ Passband  SdrViewModel::passband() const    { return model_.passband(); }
 
 // --- NavProvider ---
 int SdrViewModel::nav_page_count() const {
-    return scanning() ? 8 : 7; // the SCAN page exists only while a scan runs
+    return scanning() ? 7 : 6; // the SCAN page exists only while a scan runs
 }
 
 void SdrViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
@@ -404,12 +461,20 @@ void SdrViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
             out[4] = {vol_label_.c_str(), true, true};       // volume readout (display only)
             break;
         case Page::Settings:
+            if (calibrating_) {
+                // The correction itself shows over the waterfall.
+                out[1] = {view::ICON_MINUS, false, true};    // -0.1 ppm
+                out[2] = {view::ICON_KEYBOARD, false, true}; // type a correction
+                out[3] = {view::ICON_PLUS, false, true};     // +0.1 ppm
+                out[4] = {"OK", true, true};                 // done
+                break;
+            }
             gain_label_ = gain_auto() ? std::string("auto")
                                       : (std::to_string(gain_tenth_db() / 10) + "d");
             out[1] = {view::ICON_MINUS, false, true};        // gain down
             out[2] = {view::ICON_PLUS, false, true};         // gain up
             out[3] = {gain_label_.c_str(), true, true};      // gain readout + auto toggle
-            out[4] = {view::ICON_SIGN_OUT, false, true};     // exit
+            out[4] = {"CAL", true, true};                    // calibrate
             break;
         case Page::Squelch:
             squelch_label_ = model_.squelch_on() ? std::to_string(model_.squelch_threshold())
@@ -425,25 +490,6 @@ void SdrViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
             out[3] = {view::ICON_SPEAKER_MUTE, false, scan_ && scan_->active() >= 0}; // lock out
             out[4] = {"OFF", true, true};                      // stop the scan
             break;
-        case Page::Calib: {
-            char text[16];
-            const int t = model_.ppm_tenths();
-            // ppm, short enough for the 32 px slot: one decimal below 10 ppm
-            // ("2.4", "-2.4"), whole ppm from 10 up ("12", "-200"). The entry
-            // dialog shows the exact value.
-            const int a = t < 0 ? -t : t;
-            if (a < 100) {
-                std::snprintf(text, sizeof(text), "%s%d.%d", t < 0 ? "-" : "", a / 10, a % 10);
-            } else {
-                std::snprintf(text, sizeof(text), "%s%d", t < 0 ? "-" : "", (a + 5) / 10);
-            }
-            ppm_label_ = text;
-            out[1] = {view::ICON_MINUS, false, true};        // -0.1 ppm
-            out[2] = {view::ICON_KEYBOARD, false, true};     // type a correction
-            out[3] = {view::ICON_PLUS, false, true};         // +0.1 ppm
-            out[4] = {ppm_label_.c_str(), true, true};       // readout (display only)
-            break;
-        }
     }
 }
 
@@ -474,10 +520,17 @@ void SdrViewModel::nav_activate(int page, int slot) {
             // slot 4 is the display-only volume readout
             break;
         case Page::Settings:
-            if (slot == 1) gain_down();
-            else if (slot == 2) gain_up();
-            else if (slot == 3) toggle_gain_auto();
-            else if (slot == 4) request_quit();
+            if (calibrating_) {
+                if (slot == 1) ppm_down();
+                else if (slot == 2) request_ppm_input();
+                else if (slot == 3) ppm_up();
+                else if (slot == 4) finish_calibration();
+            } else {
+                if (slot == 1) gain_down();
+                else if (slot == 2) gain_up();
+                else if (slot == 3) toggle_gain_auto();
+                else if (slot == 4) start_calibration();
+            }
             break;
         case Page::Squelch:
             if (slot == 1) squelch_down();
@@ -491,12 +544,6 @@ void SdrViewModel::nav_activate(int page, int slot) {
             else if (slot == 3) scan_lock_out();
             else if (slot == 4) stop_scan();
             break;
-        case Page::Calib:
-            if (slot == 1) ppm_down();
-            else if (slot == 2) request_ppm_input();
-            else if (slot == 3) ppm_up();
-            // slot 4 is the display-only readout
-            break;
     }
 }
 
@@ -506,9 +553,8 @@ const char* SdrViewModel::nav_page_name(int page) const {
         case Page::Zoom: return "ZOOM";
         case Page::Visual: return "VIEW";
         case Page::Audio: return "AUDIO";
-        case Page::Settings: return "GAIN";
+        case Page::Settings: return calibrating_ ? "CAL" : "GAIN";
         case Page::Squelch: return "SQL";
-        case Page::Calib: return "CAL";
         case Page::Scan: return "SCAN";
     }
     return nullptr;
@@ -601,6 +647,35 @@ toolkit::i18n::Text SdrViewModel::nav_hint(int page, int slot) const {
             }
             break;
         case Page::Settings:
+            if (calibrating_) {
+                switch (slot) {
+                    case 1: return {"Frequency correction down by 0.1 ppm",
+                                     "Correzione di frequenza giù di 0,1 ppm",
+                                     "Correction de fréquence moins 0,1 ppm",
+                                     "Frequenzkorrektur um 0,1 ppm verringern",
+                                     "Corrección de frecuencia menos 0,1 ppm",
+                                     "周波数補正を 0.1 ppm 下げる", "频率校正减少 0.1 ppm"};
+                    case 2: return {"Type the frequency correction in ppm, as rtl_test -p reports it",
+                                     "Inserisci la correzione di frequenza in ppm, come la riporta rtl_test -p",
+                                     "Saisit la correction de fréquence en ppm, comme l’indique rtl_test -p",
+                                     "Frequenzkorrektur in ppm eingeben, wie rtl_test -p sie meldet",
+                                     "Introduce la corrección de frecuencia en ppm, como la da rtl_test -p",
+                                     "周波数補正を ppm で入力（rtl_test -p の値）", "以 ppm 输入频率校正（rtl_test -p 的数值）"};
+                    case 3: return {"Frequency correction up by 0.1 ppm",
+                                     "Correzione di frequenza su di 0,1 ppm",
+                                     "Correction de fréquence plus 0,1 ppm",
+                                     "Frequenzkorrektur um 0,1 ppm erhöhen",
+                                     "Corrección de frecuencia más 0,1 ppm",
+                                     "周波数補正を 0.1 ppm 上げる", "频率校正增加 0.1 ppm"};
+                    case 4: return {"Done: back to the gain keys and the zoom you had",
+                                     "Fatto: torna ai tasti del guadagno e allo zoom di prima",
+                                     "Terminé : retour aux touches du gain et au zoom d’avant",
+                                     "Fertig: zurück zu den Verstärkungstasten und zum vorherigen Zoom",
+                                     "Listo: vuelve a las teclas de ganancia y al zoom anterior",
+                                     "完了：ゲインのキーと元のズームに戻る", "完成：返回增益按键和原来的缩放"};
+                }
+                break;
+            }
             switch (slot) {
                 case 1: return {"Lower the tuner gain", "Riduci il guadagno del tuner",
                                  "Baisse le gain du tuner", "Senkt die Tuner-Verstärkung",
@@ -616,7 +691,12 @@ toolkit::i18n::Text SdrViewModel::nav_hint(int page, int slot) const {
                                  "Schaltet die automatische Verstärkung ein oder aus",
                                  "Activa o desactiva la ganancia automática",
                                  "自動ゲインをオン／オフ", "开启或关闭自动增益"};
-                case 4: return h::kBackToMenu;
+                case 4: return {"Calibrate the frequency: zooms in and shows the correction keys",
+                                 "Calibra la frequenza: zooma al massimo e mostra i tasti della correzione",
+                                 "Calibre la fréquence : zoome au maximum et affiche les touches de correction",
+                                 "Frequenz kalibrieren: zoomt ganz hinein und zeigt die Korrekturtasten",
+                                 "Calibra la frecuencia: amplía al máximo y muestra las teclas de corrección",
+                                 "周波数を校正：最大までズームし補正キーを表示", "校准频率：放大到最大并显示校正按键"};
             }
             break;
         case Page::Squelch:
@@ -675,34 +755,6 @@ toolkit::i18n::Text SdrViewModel::nav_hint(int page, int slot) const {
                                  "スキャンを止めてこのチャンネルに留まる", "停止扫描并停留在此频道"};
             }
             break;
-        case Page::Calib:
-            switch (slot) {
-                case 1: return {"Frequency correction down by 0.1 ppm",
-                                 "Correzione di frequenza giù di 0,1 ppm",
-                                 "Correction de fréquence moins 0,1 ppm",
-                                 "Frequenzkorrektur um 0,1 ppm verringern",
-                                 "Corrección de frecuencia menos 0,1 ppm",
-                                 "周波数補正を 0.1 ppm 下げる", "频率校正减少 0.1 ppm"};
-                case 2: return {"Type the frequency correction in ppm, as rtl_test -p reports it",
-                                 "Inserisci la correzione di frequenza in ppm, come la riporta rtl_test -p",
-                                 "Saisit la correction de fréquence en ppm, comme l’indique rtl_test -p",
-                                 "Frequenzkorrektur in ppm eingeben, wie rtl_test -p sie meldet",
-                                 "Introduce la corrección de frecuencia en ppm, como la da rtl_test -p",
-                                 "周波数補正を ppm で入力（rtl_test -p の値）", "以 ppm 输入频率校正（rtl_test -p 的数值）"};
-                case 3: return {"Frequency correction up by 0.1 ppm",
-                                 "Correzione di frequenza su di 0,1 ppm",
-                                 "Correction de fréquence plus 0,1 ppm",
-                                 "Frequenzkorrektur um 0,1 ppm erhöhen",
-                                 "Corrección de frecuencia más 0,1 ppm",
-                                 "周波数補正を 0.1 ppm 上げる", "频率校正增加 0.1 ppm"};
-                case 4: return {"The current frequency correction. This key does nothing.",
-                                 "La correzione di frequenza attuale. Questo tasto non fa nulla.",
-                                 "La correction de fréquence actuelle. Cette touche n’a pas d’effet.",
-                                 "Die aktuelle Frequenzkorrektur. Diese Taste hat keine Funktion.",
-                                 "La corrección de frecuencia actual. Esta tecla no hace nada.",
-                                 "現在の周波数補正。このキーは使いません。", "当前频率校正。此键无功能。"};
-            }
-            break;
     }
     return {};
 }
@@ -734,6 +786,7 @@ void SdrViewModel::publish_vfo() {
     if (q3 > INT32_MAX) q3 = INT32_MAX;
     format_freq_plain(buffer, sizeof(buffer), static_cast<int32_t>(q3));
     grid_high_text_subject_.set(buffer);
+    publish_cal_text(); // its Hz depend on the frequency
 }
 
 void SdrViewModel::publish_mode() {

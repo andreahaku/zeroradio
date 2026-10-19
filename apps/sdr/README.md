@@ -24,9 +24,10 @@ resolution (320×170).
 - **Audio demodulation** — `AudioDemod` reads the same IQ stream and outputs 48 kHz mono through SDL
   on the desktop or **ALSA on the device**. Modes: **WFM**, **NFM** (narrow FM), **AM** (envelope + AGC),
   **USB/LSB** (Weaver), **CW**.
-- **7-page toolbar** — the 5 physical keys (`4`–`8`) drive tuning, zoom/band, visual options,
-  **audio** (mute / volume), **squelch**, **settings** (gain / exit) and **calibration** (frequency
-  correction in ppm). No pointer is needed.
+- **6-page toolbar** — the 5 physical keys (`4`–`8`) drive tuning, zoom/band, visual options,
+  **audio** (mute / volume), **squelch** and **settings** (gain / calibration). Calibration swaps the
+  settings keys for the frequency correction in ppm and zooms in as far as it goes. No pointer is
+  needed.
 - **Squelch** — mutes the audio until the signal in the passband reaches a level (5–95 on the
   S-meter scale). It closes 8 points below the level after a 2.5 s hold, so pauses in speech pass.
   `Squelch` and `channel_level()` in `src/sdr/squelch.h` are pure and tested by `squelch_test`.
@@ -70,8 +71,8 @@ thread uses the same sample stream twice, so the UI never blocks:
 over a marker line, and an **S-meter** on the right. The **spectrum** chart sits below it, and the
 **waterfall** fills the rest of the screen. A translucent green band marks the **passband**.
 
-**How you drive it.** Keys `4`–`8` map to a bottom toolbar. Key `4` cycles seven tool pages (Tuning,
-Zoom/Band, Visual, Audio, Squelch, Settings, Calibration), and the other four keys act on the current page. Tuning or
+**How you drive it.** Keys `4`–`8` map to a bottom toolbar. Key `4` cycles six tool pages (Tuning,
+Zoom/Band, Visual, Audio, Squelch, Settings), and the other four keys act on the current page. Tuning or
 zooming retunes the dongle in real time, so the waterfall and the audio follow at once.
 
 ## Screenshots
@@ -128,15 +129,15 @@ Environment overrides:
 ## Controls
 
 The bottom NavBar maps the five physical keys `4`–`8` to five slots. The **leftmost key (`4`)
-cycles the tool page** (1→7) and shows the page name.
+cycles the tool page** (1→6) and shows the page name.
 
-| Key | P1 · Tuning | P2 · Zoom/Band | P3 · Visual | P4 · Audio | P5 · Squelch | P6 · Settings | P7 · Calibration |
+| Key | P1 · Tuning | P2 · Zoom/Band | P3 · Visual | P4 · Audio | P5 · Squelch | P6 · Settings | P6 · Calibrating |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `4` | page switch | page switch | page switch | page switch | page switch | page switch | page switch |
 | `5` | tune − | zoom − | dark/light | mute | level −5 (turns it on) | gain − | correction −0.1 ppm |
 | `6` | **frequency entry** | band preset | freq grid | volume − | **on/off** | gain + | **correction entry** (ppm) |
 | `7` | tune + | zoom + | **waterfall/spectrum split** (80/50/0/100 %) | volume + | level +5 (turns it on) | gain auto / value | correction +0.1 ppm |
-| `8` | coarse/fine (step) | **demod mode** | peak hold | volume % | level | exit | correction (ppm) |
+| `8` | coarse/fine (step) | **demod mode** | peak hold | volume % | level | **calibrate** (CAL) | done (OK) |
 
 Global keys, shared by every ZeroRadio app:
 

@@ -182,17 +182,23 @@ int32_t SdrModel::span_khz() const {
     return kSpanLadder[static_cast<size_t>(span_level_)];
 }
 
-void SdrModel::zoom_in() {
+void SdrModel::zoom_in(bool persist) {
     if (span_level_ < static_cast<int>(kSpanLadder.size()) - 1) {
         ++span_level_;
-        save_state();
+        if (persist) {
+            saved_span_level_ = span_level_;
+            save_state();
+        }
     }
 }
 
-void SdrModel::zoom_out() {
+void SdrModel::zoom_out(bool persist) {
     if (span_level_ > 0) {
         --span_level_;
-        save_state();
+        if (persist) {
+            saved_span_level_ = span_level_;
+            save_state();
+        }
     }
 }
 
@@ -311,6 +317,7 @@ void SdrModel::load_state() {
     if (in >> span_lvl >> band_idx) {
         if (span_lvl >= 0 && span_lvl < static_cast<int>(kSpanLadder.size())) {
             span_level_ = span_lvl;
+            saved_span_level_ = span_lvl;
         }
         if (band_idx >= 0 && band_idx < kBandPresetCount) {
             band_index_ = band_idx;
@@ -353,7 +360,7 @@ void SdrModel::save_state() const {
     if (out) {
         out << kStateVersion << ' ' << saved_vfo_hz_ << ' ' << static_cast<int>(saved_mode_)
             << ' ' << volume_ << ' ' << (muted_ ? 1 : 0)
-            << ' ' << span_level_ << ' ' << band_index_
+            << ' ' << saved_span_level_ << ' ' << band_index_
             << ' ' << (fine_tune_ ? 1 : 0) << ' ' << (dark_mode_ ? 1 : 0)
             << ' ' << (freq_grid_ ? 1 : 0) << ' ' << (time_grid_ ? 1 : 0)
             << ' ' << (peak_hold_ ? 1 : 0)

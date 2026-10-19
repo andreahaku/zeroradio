@@ -2,6 +2,10 @@
 
 All notable changes to ZeroRadio. Versions follow semantic versioning.
 
+## Unreleased
+
+- SDR: calibration moves from its own page to key 8 of the GAIN page (CAL), in place of exit, which Esc already does. It zooms in as far as it goes, shows the correction in ppm and in Hz over the spectrum, and OK puts the zoom back.
+
 ## 1.2.0
 
 - Memories: a new app lists your saved frequencies, grouped by tag, and opens one in the SDR with its mode. The list lives in `~/.config/zeroradio/memories.json`, shared by the whole suite. The repository has an example list with the airband, marine VHF and NAVTEX frequencies around Malta, and the app README explains how to copy it to the device.
