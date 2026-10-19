@@ -55,6 +55,14 @@ public:
         return {};
     }
 
+    // Whether slot `slot` (1..4) on `page` repeats while held, for keys that
+    // step a value (tune up/down). A slot with a hold action never repeats.
+    virtual bool nav_repeats(int page, int slot) const {
+        (void)page;
+        (void)slot;
+        return false;
+    }
+
     // What slot `slot` (1..4) does on `page`, for the key tooltip (SYM + 4-8).
     // Empty = no tooltip. Slot 0 is described by the shell.
     virtual i18n::Text nav_hint(int page, int slot) const {

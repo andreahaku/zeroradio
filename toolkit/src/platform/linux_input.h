@@ -25,6 +25,11 @@ constexpr uint32_t kEscHoldHomeMs = 3000;
 // page (the ZeroTracker value).
 constexpr uint32_t kNavHoldMs = 400;
 
+// Auto-repeat: a key that steps a value (left/right, or a NavBar key the app
+// asks for) runs again after kRepeatDelayMs held, then every kRepeatPeriodMs.
+constexpr uint32_t kRepeatDelayMs = 400;
+constexpr uint32_t kRepeatPeriodMs = 100;
+
 // Key codes for the NavBar key tooltips: kKeyNavHint + slot (0..4). They sit in
 // the Unicode private use area, clear of LVGL's control keys and of text.
 constexpr uint32_t kKeyNavHint = 0xE000;
@@ -56,6 +61,10 @@ void set_arrow_handler(void (*handler)(uint32_t key, void* ctx), void* ctx);
 // kNavHoldMs calls `on_hold(slot)`. Other keys act on press, as before.
 void set_nav_hold_handler(bool (*has_hold)(int slot, void* ctx),
                           void (*on_hold)(int slot, void* ctx), void* ctx);
+
+// NavBar keys that auto-repeat while held (see kRepeatDelayMs), outside a key
+// capture: `repeats(slot)` decides per slot. Left/right always repeat.
+void set_nav_repeat_handler(bool (*repeats)(int slot, void* ctx), void* ctx);
 
 // SYM + 4..8 outside a key capture (Shift + 4..8 on a desktop keyboard): show
 // what NavBar slot `slot` (0..4) does.

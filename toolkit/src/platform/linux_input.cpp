@@ -52,6 +52,15 @@ void* key_activity_ctx = nullptr;
 bool (*nav_has_hold)(int, void*) = nullptr;
 void (*nav_hold_handler)(int, void*) = nullptr;
 void* nav_hold_ctx = nullptr;
+bool (*nav_repeats)(int, void*) = nullptr;
+void* nav_repeat_ctx = nullptr;
+
+// Auto-repeat tracking (see kRepeatDelayMs).
+lv_indev_t* repeat_indev = nullptr;
+uint32_t repeat_key = 0;
+uint32_t repeat_started_at = 0;
+uint32_t repeat_count = 0;
+lv_timer_t* repeat_timer = nullptr;
 
 // NavBar key hold tracking (see set_nav_hold_handler).
 lv_indev_t* hold_indev = nullptr;
@@ -218,6 +227,44 @@ bool slot_has_hold(uint32_t key) {
            nav_has_hold(static_cast<int>(slot), nav_hold_ctx);
 }
 
+bool key_repeats(uint32_t key) {
+    if (key == LV_KEY_LEFT || key == LV_KEY_RIGHT) return true;
+    const auto slot = nav_key_to_index(key);
+    return slot < kNavKeyCount && nav_repeats && nav_repeats(static_cast<int>(slot), nav_repeat_ctx);
+}
+
+void repeat_timer_cb(lv_timer_t* timer) {
+    const bool held = repeat_indev && !key_capture &&
+                      lv_indev_get_state(repeat_indev) == LV_INDEV_STATE_PRESSED &&
+                      lv_indev_get_key(repeat_indev) == repeat_key;
+    if (!held) {
+        lv_timer_pause(timer);
+        repeat_indev = nullptr;
+        return;
+    }
+    // Repeats due by now, counted from the press, so a slow frame catches up
+    // instead of slowing the repeat down.
+    const uint32_t elapsed = lv_tick_elaps(repeat_started_at);
+    if (elapsed < kRepeatDelayMs) return;
+    const uint32_t due = (elapsed - kRepeatDelayMs) / kRepeatPeriodMs + 1;
+    while (repeat_count < due) {
+        ++repeat_count;
+        dispatch_nav_key(repeat_key);
+        if (key_capture) break; // the key opened a dialog: stop here
+    }
+}
+
+// A key that steps a value, just dispatched once on its press: repeat it while
+// it stays down.
+void start_repeat(lv_indev_t* indev, uint32_t key) {
+    repeat_indev = indev;
+    repeat_key = key;
+    repeat_started_at = lv_tick_get();
+    repeat_count = 0;
+    if (!repeat_timer) repeat_timer = lv_timer_create(repeat_timer_cb, 20, nullptr);
+    lv_timer_resume(repeat_timer);
+}
+
 // ESC down with no capture: decide short vs hold in esc_timer_cb.
 void start_esc_hold(lv_indev_t* indev) {
     esc_indev = indev;
@@ -253,6 +300,7 @@ void key_event_cb(lv_event_t* event) {
             if (!hold_indev) start_nav_hold(indev, key);
         } else if (key != LV_KEY_ESC || key_capture) {
             dispatch_nav_key(key);
+            if (!key_capture && key_repeats(key)) start_repeat(indev, key);
         }
     }
 
@@ -544,6 +592,11 @@ void set_nav_hold_handler(bool (*has_hold)(int slot, void* ctx),
     nav_has_hold = has_hold;
     nav_hold_handler = on_hold;
     nav_hold_ctx = ctx;
+}
+
+void set_nav_repeat_handler(bool (*repeats)(int slot, void* ctx), void* ctx) {
+    nav_repeats = repeats;
+    nav_repeat_ctx = ctx;
 }
 
 void set_nav_hint_handler(void (*handler)(int slot, void* ctx), void* ctx) {
