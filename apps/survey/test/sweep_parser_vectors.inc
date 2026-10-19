@@ -142,6 +142,38 @@ static const SpotExpect SPOTS_crlf_eof_flush[] = {{10, 4, -80.0f}, {10, 8, -80.0
 
 static const PeakExpect PEAKS_crlf_eof_flush[] = {{100550000ll, -33.0f}};
 
+static const char CSV_rtl_endpoint_bins[] =
+    "2026-07-07, 10:00:00, 127300000, 127500000, 25000, 32, -80.0, -79.0, -80.0, -79.0, -30.0, -79.0, -80.0, -79.0, -79.0\n";
+
+static const SpotExpect SPOTS_rtl_endpoint_bins[] = {{9, 0, -80.0f}, {9, 4, -30.0f}, {9, 8, -150.0f}};
+
+static const PeakExpect PEAKS_rtl_endpoint_bins[] = {{127400000ll, -30.0f}};
+
+static const char CSV_rtl_wrap_hops[] =
+    "2026-07-07, 10:00:00, 100000000, 100400000, 100000, 32, -80.0, -79.0, -80.0, -79.0, -79.0\n"
+    "2026-07-07, 10:00:00, 100400000, 100800000, 100000, 32, -80.0, -30.0, -80.0, -79.0, -79.0\n"
+    "2026-07-07, 10:00:00, 100000000, 100400000, 100000, 32, -80.0, -79.0, -80.0, -79.0, -79.0\n";
+
+static const SpotExpect SPOTS_rtl_wrap_hops[] = {{8, 0, -80.0f}, {8, 5, -30.0f}, {8, 7, -79.0f}};
+
+static const PeakExpect PEAKS_rtl_wrap_hops[] = {{100500000ll, -30.0f}};
+
+static const char CSV_rtl_rms_giant_bins[] =
+    "2026-07-07, 10:00:00, 100000000, 101000000, 1000000, 32, -80.0, -80.0\n"
+    "2026-07-07, 10:00:00, 101000000, 102000000, 1000000, 32, -40.0, -40.0\n"
+    "2026-07-07, 10:00:00, 102000000, 103000000, 1000000, 32, -79.0, -79.0\n";
+
+static const SpotExpect SPOTS_rtl_rms_giant_bins[] = {{3, 0, -80.0f}, {3, 1, -40.0f}, {3, 2, -79.0f}};
+
+static const PeakExpect PEAKS_rtl_rms_giant_bins[] = {{101500000ll, -40.0f}};
+
+static const char CSV_count_tie_rounds_up[] =
+    "2026-07-07, 10:00:00, 100000000, 100062500, 25000, 32, -80.0, -30.0, -80.0\n";
+
+static const SpotExpect SPOTS_count_tie_rounds_up[] = {{4, 0, -80.0f}, {4, 1, -30.0f}, {4, 2, -80.0f}};
+
+static const PeakExpect PEAKS_count_tie_rounds_up[] = {{100037500ll, -30.0f}};
+
 static const char CSV_real_fm_broadcast[] =
     "2026-07-07, 10:34:40, 88000000, 90500000, 78125.00, 3328, 6.30, 7.41, 7.96, 7.95, 7.58, 7.55, 7.05, 11.14, 12.18, 8.82, 16.03, 13.03, 7.60, 7.58, 6.98, 6.42, 6.71, 6.71, 7.23, 7.41, 7.34, 8.94, 13.64, 7.13, 7.80, 8.43, 8.85, 7.39, 7.34, 9.44, 8.85, 7.10, 7.10\n"
     "2026-07-07, 10:34:40, 90500000, 93000000, 78125.00, 3328, 4.63, 3.98, 3.07, 3.97, 7.90, 3.18, 2.22, 2.79, 3.85, 2.61, 2.36, 2.55, 2.43, 2.60, 5.03, 4.02, 2.07, 2.07, 2.36, 2.48, 2.17, 2.57, 3.38, 3.31, 3.03, 3.35, 3.87, 5.10, 10.22, 19.03, 17.46, 9.02, 9.02\n"
@@ -152,9 +184,9 @@ static const char CSV_real_fm_broadcast[] =
     "2026-07-07, 10:34:40, 103000000, 105500000, 78125.00, 3328, 5.52, 2.04, 7.35, 10.03, 7.63, 2.26, 2.28, 3.16, 4.57, 2.40, 2.37, 3.07, 4.24, 9.28, 4.31, 10.49, 3.34, 3.34, 4.45, 9.87, 5.79, 2.48, 2.53, 2.70, 2.40, 2.78, 7.29, 12.11, 5.51, 2.59, 1.68, 1.60, 1.60\n"
     "2026-07-07, 10:34:40, 105500000, 108000000, 78125.00, 3328, 6.63, 6.28, 6.52, 6.87, 6.79, 8.09, 15.01, 14.17, 10.66, 16.79, 11.01, 7.20, 6.82, 10.28, 6.18, 6.06, 5.82, 5.82, 6.03, 7.47, 6.53, 5.57, 5.75, 6.23, 5.62, 5.35, 6.02, 6.81, 5.66, 5.85, 5.77, 6.27, 6.27\n";
 
-static const SpotExpect SPOTS_real_fm_broadcast[] = {{320, 0, 6.3f}, {320, 100, 1.4f}, {320, 200, 7.29f}, {320, 319, 6.27f}};
+static const SpotExpect SPOTS_real_fm_broadcast[] = {{320, 0, 6.3f}, {320, 100, 1.4f}, {320, 200, 7.29f}, {320, 319, -150.0f}};
 
-static const PeakExpect PEAKS_real_fm_broadcast[] = {{99601562ll, 19.32f}, {92804688ll, 19.03f}, {102726562ll, 18.74f}, {95929688ll, 18.54f}, {94914062ll, 17.22f}};
+static const PeakExpect PEAKS_real_fm_broadcast[] = {{99562500ll, 19.32f}, {92765625ll, 19.03f}, {102687500ll, 18.74f}, {95890625ll, 18.54f}, {94875000ll, 17.22f}};
 
 static const SweepVec kSweepVectors[] = {
   {"rtl_wrap_carrier", "SYNTH", CSV_rtl_wrap_carrier, sizeof(CSV_rtl_wrap_carrier) - 1, 0, false, 1, true, 100000000ll, 101000000ll, 5.0f,
@@ -181,6 +213,14 @@ static const SweepVec kSweepVectors[] = {
    SPOTS_sparse_cells, 3, PEAKS_sparse_cells, 1},
   {"crlf_eof_flush", "SYNTH", CSV_crlf_eof_flush, sizeof(CSV_crlf_eof_flush) - 1, 0, true, 1, true, 100000000ll, 101000000ll, 5.0f,
    SPOTS_crlf_eof_flush, 2, PEAKS_crlf_eof_flush, 1},
+  {"rtl_endpoint_bins", "SYNTH", CSV_rtl_endpoint_bins, sizeof(CSV_rtl_endpoint_bins) - 1, 0, true, 1, true, 127300000ll, 127525000ll, 10.0f,
+   SPOTS_rtl_endpoint_bins, 3, PEAKS_rtl_endpoint_bins, 1},
+  {"rtl_wrap_hops", "SYNTH", CSV_rtl_wrap_hops, sizeof(CSV_rtl_wrap_hops) - 1, 0, false, 1, true, 100000000ll, 100800000ll, 10.0f,
+   SPOTS_rtl_wrap_hops, 3, PEAKS_rtl_wrap_hops, 1},
+  {"rtl_rms_giant_bins", "SYNTH", CSV_rtl_rms_giant_bins, sizeof(CSV_rtl_rms_giant_bins) - 1, 0, true, 1, true, 100000000ll, 103000000ll, 10.0f,
+   SPOTS_rtl_rms_giant_bins, 3, PEAKS_rtl_rms_giant_bins, 1},
+  {"count_tie_rounds_up", "SYNTH", CSV_count_tie_rounds_up, sizeof(CSV_count_tie_rounds_up) - 1, 0, true, 1, true, 100000000ll, 100100000ll, 10.0f,
+   SPOTS_count_tie_rounds_up, 3, PEAKS_count_tie_rounds_up, 1},
   {"real_fm_broadcast", "CAPTURED", CSV_real_fm_broadcast, sizeof(CSV_real_fm_broadcast) - 1, 0, true, 1, true, 88000000ll, 108000000ll, 12.0f,
    SPOTS_real_fm_broadcast, 4, PEAKS_real_fm_broadcast, 5},
 };

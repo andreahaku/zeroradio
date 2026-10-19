@@ -83,10 +83,24 @@ struct SweepAccumulator::Impl {
         prev_low = hz_low;
         have_prev = true;
 
-        for (size_t i = 6; i < fields.size(); ++i) {
+        // rtl_power (csv_dbm) writes its `intervals` FFT bins, centred at
+        // hz_low + i*step, then the last one AGAIN: intervals + 1 values, the
+        // last a duplicate to drop. With one interval (giant bins, >= 1 MHz)
+        // the single value is an RMS power over the hop: its centre is the
+        // middle. hackrf_sweep writes one value per interval, centred in it.
+        // The count rounds half up, the same as the oracle.
+        const auto intervals =
+            static_cast<long long>(std::floor((hz_high - hz_low) / hz_step + 0.5));
+        size_t last = fields.size();
+        double offset = hz_step / 2.0;
+        if (static_cast<long long>(last - 6) == intervals + 1) {
+            --last; // the duplicate
+            if (intervals != 1) offset = 0.0;
+        }
+        for (size_t i = 6; i < last; ++i) {
             double dbm = 0.0;
             if (!parse_num(fields[i].first, fields[i].second, &dbm)) dbm = kNoDataDbm;
-            const double centre = hz_low + hz_step * (i - 6) + hz_step / 2.0;
+            const double centre = hz_low + hz_step * (i - 6) + offset;
             if (centre >= static_cast<double>(start) && centre < static_cast<double>(stop)) {
                 pending[centre] = static_cast<float>(dbm);
             }
