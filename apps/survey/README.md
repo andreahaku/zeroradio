@@ -46,7 +46,7 @@ thread. It publishes the latest frame under a mutex and respawns the tool with b
 - **Peaks** (page 2) — "who is transmitting": a table **FREQ MHz | POWER | AGE** with an accent
   selection band. Keys `5`/`6` move the cursor. Key `8` **cycles the sort** through the three columns,
   descending and ascending. The header shows the full name (e.g. `PWR v`) and the nav button a short
-  code. Key `7` (**Open in SDR**) quits the Scanner and starts `sdr_app` tuned to the selected peak
+  code. Key `7` (**Open in SDR**), or `Enter`, quits the Scanner and starts `sdr_app` tuned to the selected peak
   through `SDR_FREQ`. The rest of the environment passes through, and the dongle moves to the SDR app.
 
 Global keys, shared by every ZeroRadio app:

@@ -16,7 +16,7 @@ Key 4 switches between two pages.
 
 Tune dialog (SWEEP, key 6): the fields show the current values, and typing replaces them. Type the centre in MHz, Enter, then the total span in MHz, Enter. F/X move between the two fields. The sweep covers centre +/- span/2. Digits, dot (SYM + .), up to 3 decimals, and Backspace edit. Esc cancels.
 
-Open in SDR (Peaks, key 7): quits the Scanner and starts the SDR app tuned to the selected peak.
+Open in SDR (Peaks, key 7 or Enter): quits the Scanner and starts the SDR app tuned to the selected peak.
 
 Sort (Peaks, key 8): power, frequency, age, each descending then ascending. The header shows the full name (e.g. PWR v), the key a short code.
 
@@ -24,6 +24,7 @@ Sort (Peaks, key 8): power, frequency, age, each descending then ascending. The 
 
 - 4: the next page of keys. The key shows the page name: SWEEP, PEAKS. Hold 4 for the page before.
 - F/X (up/down arrows): zoom in/out on the Waterfall page, move the cursor on the Peaks page.
+- Enter: on the Peaks page, open the selected peak in the SDR.
 - Z/C (left/right arrows): move the swept band down/up by a quarter of its span on the Waterfall page.
 - TAB: switch to the SDR app.
 - SYM + 4 to 8: a tooltip that says what that key does on this page, in your language (English, Italian, French, German, Spanish, Japanese or Chinese).
