@@ -1,0 +1,225 @@
+{
+  "version": 1,
+  "memories": [
+    {
+      "name": "Luqa Radar",
+      "hz": 128150000,
+      "mode": "AM",
+      "tags": [
+        "luqa",
+        "airband"
+      ],
+      "note": "Approach: arrivals and departures"
+    },
+    {
+      "name": "Luqa Radar alt",
+      "hz": 118350000,
+      "mode": "AM",
+      "tags": [
+        "luqa",
+        "airband"
+      ],
+      "note": "Approach, alternative frequency"
+    },
+    {
+      "name": "Luqa Tower",
+      "hz": 135100000,
+      "mode": "AM",
+      "tags": [
+        "luqa",
+        "airband"
+      ],
+      "note": "Aircraft in sight of Luqa. Alternative 133.900"
+    },
+    {
+      "name": "Luqa Ground",
+      "hz": 121600000,
+      "mode": "AM",
+      "tags": [
+        "luqa",
+        "airband"
+      ],
+      "note": "Ground movements"
+    },
+    {
+      "name": "Luqa Apron",
+      "hz": 121825000,
+      "mode": "AM",
+      "tags": [
+        "luqa",
+        "airband"
+      ],
+      "note": "Apron and clearance delivery"
+    },
+    {
+      "name": "Luqa ATIS arr",
+      "hz": 127400000,
+      "mode": "AM",
+      "tags": [
+        "luqa",
+        "airband"
+      ],
+      "note": "Recorded arrival ATIS in a loop: quick antenna test"
+    },
+    {
+      "name": "Luqa ATIS dep",
+      "hz": 127000000,
+      "mode": "AM",
+      "tags": [
+        "luqa",
+        "airband"
+      ],
+      "note": "Recorded departure ATIS"
+    },
+    {
+      "name": "Air emergency",
+      "hz": 121500000,
+      "mode": "AM",
+      "tags": [
+        "luqa",
+        "airband"
+      ],
+      "note": "International guard, silent unless something happens"
+    },
+    {
+      "name": "Ch 10 Mgarr Port",
+      "hz": 156500000,
+      "mode": "NFM",
+      "tags": [
+        "marine",
+        "mgarr"
+      ],
+      "note": "Mgarr Port Control (Gozo): ferry manoeuvres"
+    },
+    {
+      "name": "Ch 11 Notices",
+      "hz": 156550000,
+      "mode": "NFM",
+      "tags": [
+        "marine"
+      ],
+      "note": "Transport Malta notices to mariners and weather"
+    },
+    {
+      "name": "Ch 16 Distress",
+      "hz": 156800000,
+      "mode": "NFM",
+      "tags": [
+        "marine"
+      ],
+      "note": "Calling and distress"
+    },
+    {
+      "name": "Ch 70 DSC",
+      "hz": 156525000,
+      "mode": "NFM",
+      "tags": [
+        "marine"
+      ],
+      "note": "Digital selective calling: needs a decoder"
+    },
+    {
+      "name": "Ch 12 Valletta VTS",
+      "hz": 156600000,
+      "mode": "NFM",
+      "tags": [
+        "marine"
+      ],
+      "note": "Grand Harbour traffic"
+    },
+    {
+      "name": "Ch 14 Marsaxlokk VTS",
+      "hz": 156700000,
+      "mode": "NFM",
+      "tags": [
+        "marine"
+      ],
+      "note": "Container port"
+    },
+    {
+      "name": "Ch 13 Bridge",
+      "hz": 156650000,
+      "mode": "NFM",
+      "tags": [
+        "marine"
+      ],
+      "note": "Ship to ship, navigation safety"
+    },
+    {
+      "name": "Ch 06 SAR",
+      "hz": 156300000,
+      "mode": "NFM",
+      "tags": [
+        "marine"
+      ],
+      "note": "On-scene search and rescue coordination"
+    },
+    {
+      "name": "Ch 08 Ship-ship",
+      "hz": 156400000,
+      "mode": "NFM",
+      "tags": [
+        "marine"
+      ],
+      "note": "Ship to ship: fishing boats"
+    },
+    {
+      "name": "Ch 72 Ship-ship",
+      "hz": 156625000,
+      "mode": "NFM",
+      "tags": [
+        "marine"
+      ],
+      "note": "Ship to ship: leisure craft"
+    },
+    {
+      "name": "Ch 77 Ship-ship",
+      "hz": 156875000,
+      "mode": "NFM",
+      "tags": [
+        "marine"
+      ],
+      "note": "Ship to ship: leisure craft"
+    },
+    {
+      "name": "AIS A",
+      "hz": 161975000,
+      "mode": "NFM",
+      "tags": [
+        "ais",
+        "marine"
+      ],
+      "note": "Data, use the AIS app to decode"
+    },
+    {
+      "name": "AIS B",
+      "hz": 162025000,
+      "mode": "NFM",
+      "tags": [
+        "ais",
+        "marine"
+      ],
+      "note": "Data, use the AIS app to decode"
+    },
+    {
+      "name": "NAVTEX intl",
+      "hz": 518000,
+      "mode": "USB",
+      "tags": [
+        "navtex",
+        "hf"
+      ],
+      "note": "International NAVTEX, English text: needs direct sampling"
+    },
+    {
+      "name": "NAVTEX national",
+      "hz": 490000,
+      "mode": "USB",
+      "tags": [
+        "navtex",
+        "hf"
+      ],
+      "note": "National NAVTEX, local language"
+    }
+  ]
+}

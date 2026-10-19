@@ -12,6 +12,7 @@ lifecycle. An app adds a **parser, a field mapping and a NavProvider** on top of
 | `app/run_app` | `run_app()`: `lv_init`, display, theme and key handlers, then builds the screen and runs the loop. It opens the help page on H and returns `ShellViewModel::exit_code()`. |
 | `app/shell_viewmodel` | `ShellViewModel`: generic shell subjects (dark mode, toolbar page, quit, title, nav-refresh) and the per-app hooks. `on_tab()`, `on_up()`, `on_down()`, `on_left()` and `on_right()` are virtual no-ops that an app overrides. `nav_hint(slot)` gives the key tooltip text. `set_help_doc()` names the app's help page. `request_home()` quits with `kExitHome` (the 3 s ESC hold). `request_handoff()` asks for a sibling app (see `app/handoff`). |
 | `app/handoff` | `run_handoff()`: after `run_app()` returns, `exec`s the sibling app that `request_handoff()` named, in place (same PID), with the extra environment. `find_sibling()` finds the binary next to this executable, else in the dev build tree. Scanner uses it for "Open in SDR", and SDR and Scanner for TAB. |
+| `app/memories_store` | The frequency memories the suite shares, in `~/.config/zeroradio/memories.json`: `load_memories()`, `save_memories()` (atomic: temporary file, then rename), `add_memory()` and `remove_memory()`. A `Memory` holds a name, a frequency in Hz, an SDR mode name, tags and a note, and is identified by its frequency and name. A missing or bad file reads as an empty list. The Memories app lists them and opens one in the SDR. |
 | `app/docs` | `read_doc(path)`: reads a help page, `CHANGELOG.md` or `CREDITS.md` by its repository-relative path. The desktop build reads the source tree. The device build reads `/usr/share/zeroradio`. |
 | `app/` (other) | `NavProvider` (the interface an app implements to populate the NavBar, name its pages for the key 4 tab and describe its keys), `AssetManager`, `persisted_state` (atomic save/restore of app settings under `~/.config/zeroradio/<app>/`, and the hub's last app). |
 | `app/i18n` | `i18n::Text` holds a string in English, Italian, French, German, Spanish, Japanese and Chinese (Simplified). The overlays draw Japanese and Chinese with a system CJK font (Noto Sans CJK, Droid Sans Fallback) as the fallback of Inter. `i18n::pick()` returns it in the user's language (`ZERORADIO_LANG`, `LC_ALL`, `LC_MESSAGES`, `LANG`), with English as the fallback. `app/nav_hints.h` holds the tooltip texts the apps share. |
@@ -36,7 +37,7 @@ lifecycle. An app adds a **parser, a field mapping and a NavProvider** on top of
 | `config/` | `app_config.h` (config-file path helper) and the LVGL configs (`lv_conf_desktop.h` for the SDL simulator, `lv_conf_cm0.h` for the device). |
 
 Tests live in `toolkit/test/`: `waterfall_scroll_test`, `map_render_test` (culling must not change a
-pixel) and `location_test`.
+pixel), `location_test` and `memories_store_test`.
 
 ## Conventions
 

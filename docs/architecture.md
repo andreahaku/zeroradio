@@ -147,8 +147,8 @@ An app can switch to a sibling without going through the menu.
 `ShellViewModel::request_handoff(bin, app_dir, env)` quits the app, and `main()` then calls
 `toolkit::run_handoff()`. That call runs after `run_app()` has released the display and devices, and
 it `exec`s the sibling in place. The PID stays the same, so the hub keeps waiting on it and only one
-process draws at a time. Scanner uses it for "Open in SDR" (with `SDR_FREQ=<peak>`), and SDR and
-Scanner use it for TAB.
+process draws at a time. Scanner uses it for "Open in SDR" (with `SDR_FREQ=<peak>`), Memories to open a memory (with
+`SDR_FREQ` and `SDR_MODE`), and SDR and Scanner use it for TAB.
 
 ## Location
 

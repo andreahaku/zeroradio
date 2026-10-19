@@ -504,6 +504,16 @@ if(NOT nlohmann_json_FOUND)
     FetchContent_MakeAvailable(nlohmann_json)
 endif()
 
+# The shared frequency memories (toolkit/src/app/memories_store.cpp) parse JSON.
+target_link_libraries(radio_toolkit PRIVATE nlohmann_json::nlohmann_json)
+
+# The memories store round trip, on a temporary config directory.
+if(USE_DESKTOP)
+    add_executable(memories_store_test ${CMAKE_CURRENT_SOURCE_DIR}/toolkit/test/memories_store_test.cpp)
+    target_link_libraries(memories_store_test PRIVATE radio_toolkit)
+    add_test(NAME memories_store_test COMMAND memories_store_test)
+endif()
+
 add_subdirectory(apps/adsb)
 add_subdirectory(apps/sdr)
 add_subdirectory(apps/meshtastic)
@@ -511,6 +521,7 @@ add_subdirectory(apps/radio)
 add_subdirectory(apps/ais)
 add_subdirectory(apps/survey)
 add_subdirectory(apps/ism)
+add_subdirectory(apps/memories)
 
 # ====================================================
 # Packaging: the `zeroradio` Debian package (ZeroRadio in the AppStore)
@@ -534,7 +545,7 @@ if(CMAKE_CROSSCOMPILING)
     # Meshtastic is not shipped yet: it needs meshtasticd, a root system service
     # from a third-party repo, plus the optional Cap LoRa hardware. The hub hides
     # apps whose binary is absent.
-    install(TARGETS radio_app sdr_app adsb_app ais_app survey_app ism_app
+    install(TARGETS radio_app sdr_app adsb_app ais_app survey_app ism_app memories_app
             RUNTIME DESTINATION "${RADIO_PKG_BINDIR}")
 
     # Launch wrapper — carries the SDR runtime env (sample-rate cap, pipewire audio).
