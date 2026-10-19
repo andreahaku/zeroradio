@@ -6,7 +6,7 @@
 
 cmake_minimum_required(VERSION 3.31)
 
-project(zeroradio VERSION 1.1.0 LANGUAGES C CXX)
+project(zeroradio VERSION 1.2.0 LANGUAGES C CXX)
 
 # Public source repository: the hub About page (text + QR) and the package homepage.
 set(RADIO_REPO_URL "https://github.com/andreahaku/zeroradio")
@@ -579,7 +579,7 @@ if(CMAKE_CROSSCOMPILING)
     set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
     set(CPACK_PACKAGE_CONTACT "Andrea Salvatore <andreahaku@gmail.com>")
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
-        "SDR, ADS-B, AIS, spectrum survey and ISM radio tools for CardputerZero")
+        "SDR, scanner, frequency memories, ADS-B, AIS and ISM radio tools for CardputerZero")
     set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "${RADIO_REPO_URL}")
     set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
     set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "arm64")

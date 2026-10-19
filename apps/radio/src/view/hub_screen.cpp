@@ -212,7 +212,7 @@ void HubScreen::open_about() {
     Page info;
     info.title = "About";
     info.markdown = "# ZeroRadio " APP_VERSION "\n"
-                    "Radio tools for the M5Stack CardputerZero: SDR, spectrum survey, ISM, ADS-B and AIS.\n"
+                    "Radio tools for the M5Stack CardputerZero: SDR, scanner, memories, ISM, ADS-B and AIS.\n"
                     "## Developer\n"
                     "Andrea Salvatore (IU4APC)\n"
                     "## Source code\n" +

@@ -20,9 +20,9 @@ ZeroRadio is one entry in the CardputerZero launcher. It opens a hub that starts
 
 | App | What it does | Decoder on the device |
 | --- | --- | --- |
-| **SDR** | Spectrum, waterfall and audio: WFM, NFM, AM, USB, LSB, CW. Frequency entry, zoom, band presets. | `rtl_tcp` |
+| **SDR** | Spectrum, waterfall and audio: WFM, NFM, AM, USB, LSB, CW. Frequency entry, zoom, band presets, squelch, frequency correction. | `rtl_tcp` |
 | **Scanner** | Sweeps a wide band, lists the strongest signals, and opens one in the SDR app. | `rtl_power` / `hackrf_sweep` |
-| **Memories** | Your saved frequencies, grouped by tag. Opens one in the SDR app with its mode. | none (uses the SDR app) |
+| **Memories** | Your saved frequencies, grouped by tag. Opens one in the SDR app with its mode, or scans a group and stops where a signal comes in. | none (uses the SDR app) |
 | **ISM** | Lists 433/868 MHz devices: weather sensors, tyre pressure sensors, remotes. | `rtl_433` |
 | **ADS-B** | Aircraft list, radar and world map at 1090 MHz. | `readsb` (bundled) |
 | **AIS** | Ship list, radar and world map at 162 MHz. | `AIS-catcher` (bundled) |
@@ -42,7 +42,7 @@ The dongle draws a lot of power. Every app shows the battery level in its header
 From the CardputerZero AppStore, install **ZeroRadio**. To install a package by hand:
 
 ```bash
-sudo apt install ./zeroradio_1.0.0_arm64.deb
+sudo apt install ./zeroradio_1.2.0_arm64.deb
 ```
 
 The package pulls its Debian dependencies (`rtl-sdr`, `rtl-433`, `hackrf`, `pipewire-alsa` and the shared libraries) and installs everything under `/usr/share/zeroradio`.
@@ -110,7 +110,7 @@ apps/survey/      Scanner
 apps/ism/         ISM
 apps/adsb/        ADS-B
 apps/ais/         AIS
-apps/meshtastic/  Meshtastic client (not in the 1.0.0 package, see its README)
+apps/meshtastic/  Meshtastic client (not in the package, see its README)
 docs/help/        the in-app help pages
 docker/           the device build container
 cmake/            toolchain and the bundled decoders
