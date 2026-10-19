@@ -2,7 +2,7 @@
 
 All notable changes to ZeroRadio. Versions follow semantic versioning.
 
-## Unreleased
+## 1.2.0
 
 - Memories: a new app lists your saved frequencies, grouped by tag, and opens one in the SDR with its mode. The list lives in `~/.config/zeroradio/memories.json`, shared by the whole suite. The repository has an example list with the airband, marine VHF and NAVTEX frequencies around Malta, and the app README explains how to copy it to the device.
 - Memory scan: mark memories (or pick a group) in the Memories app and scan them in the SDR. The scan stops on a channel where the squelch opens, listens until the transmission ends, then moves on. Keys pause, skip, lock out a busy channel or stop. Channels close together are checked from one frame without retuning.

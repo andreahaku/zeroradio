@@ -1,12 +1,12 @@
 {
   "package_name": "zeroradio",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "app_name": "ZeroRadio",
   "bin_name": "radio_app",
   "description": "SDR, scanner, frequency memories, ADS-B, AIS and ISM radio tools for CardputerZero",
   "store": {
     "summary": "Pocket radio lab: SDR, scanner, memories, ADS-B, AIS and ISM",
-    "description": "ZeroRadio turns the CardputerZero into a pocket receiver. Plug an RTL-SDR dongle (for example the RTL-SDR Blog V4) into the USB-A port and open the hub.\n\n- SDR: spectrum, waterfall and WFM/FM/AM/USB/LSB/CW audio on the speaker.\n- Scanner: sweep a wide band, list the strongest signals, open one in the SDR.\n- Memories: browse saved frequencies and open one in SDR with its saved mode.\n- ISM: 433/868 MHz weather sensors, tyre pressure sensors and remotes.\n- ADS-B: aircraft list, radar and world map at 1090 MHz.\n- AIS: ship list, radar and world map at 162 MHz.\n\nEvery decoder runs on the device, with no computer or network. Set your position by city, coordinates or GPS (Cap LoRa-1262-GPS or a USB GPS). Press H in any app for its help. The package bundles readsb and AIS-catcher (GPL-3.0); see Credits in the app.",
+    "description": "ZeroRadio turns the CardputerZero into a pocket receiver. Plug an RTL-SDR dongle (for example the RTL-SDR Blog V4) into the USB-A port and open the hub.\n\n- SDR: spectrum, waterfall and WFM/FM/AM/USB/LSB/CW audio on the speaker, with squelch and a frequency correction for the dongle.\n- Scanner: sweep a wide band, list the strongest signals, open one in the SDR.\n- Memories: browse saved frequencies, open one in the SDR with its mode, or scan a group of them and stop where a signal comes in.\n- ISM: 433/868 MHz weather sensors, tyre pressure sensors and remotes.\n- ADS-B: aircraft list, radar and world map at 1090 MHz.\n- AIS: ship list, radar and world map at 162 MHz.\n\nEvery decoder runs on the device, with no computer or network. Set your position by city, coordinates or GPS (Cap LoRa-1262-GPS or a USB GPS). Press H in any app for its help. The package bundles readsb and AIS-catcher (GPL-3.0); see Credits in the app.",
     "locales": {
       "en": { "summary": "Pocket radio lab: SDR, scanner, memories, ADS-B, AIS and ISM" },
       "it": { "summary": "Laboratorio radio tascabile: SDR, scanner, memorie, ADS-B, AIS e ISM" },
