@@ -4,6 +4,7 @@ All notable changes to ZeroRadio. Versions follow semantic versioning.
 
 ## Unreleased
 
+- SDR: the audio no longer drops out every few seconds. The capture rate is now always a multiple of 240 kHz, so the audio comes out at exactly 48 kHz. Before, the device's 1.024 Msps (and 1 or 1.5 MHz zoom on the desktop) gave up to 51.2 kHz, faster than the speaker plays it.
 - SDR: calibration moves from its own page to key 8 of the GAIN page (CAL), in place of exit, which Esc already does. It zooms in as far as it goes, shows the correction in ppm and in Hz over the spectrum, and OK puts the zoom back.
 
 ## 1.2.0

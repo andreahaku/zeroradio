@@ -5,6 +5,7 @@
  */
 
 #include "audio_demod.h"
+#include "sample_rate.h"
 
 // The SDL2-backed audio player is built only when SDR_HAVE_AUDIO is set (desktop).
 // On the device the rtl_tcp spectrum backend is built WITHOUT SDL2 (SDR_HAVE_RTLTCP
@@ -170,9 +171,9 @@ struct AudioDemod::Impl {
 
     explicit Impl(double rate) : input_rate(rate) {
         // Stage 1: decimate to ~240 kHz, cutoff ~100 kHz.
-        m1 = static_cast<int>(std::lround(input_rate / 240000.0));
-        if (m1 < 1) m1 = 1;
-        r1 = input_rate / m1;
+        const AudioDecimation d = audio_decimation(input_rate);
+        m1 = d.m1;
+        r1 = d.mid_hz;
         stage1.init(make_lowpass(47, 100000.0 / input_rate), m1);
 
         build_chain(WFM);
@@ -235,9 +236,9 @@ struct AudioDemod::Impl {
     void set_input_rate(double rate) {
         if (rate <= 0.0 || rate == input_rate) return;
         input_rate = rate;
-        m1 = static_cast<int>(std::lround(input_rate / 240000.0));
-        if (m1 < 1) m1 = 1;
-        r1 = input_rate / m1;
+        const AudioDecimation d = audio_decimation(input_rate);
+        m1 = d.m1;
+        r1 = d.mid_hz;
         stage1.init(make_lowpass(47, 100000.0 / input_rate), m1);
         build_chain(mode); // rebuild the mode filters for the new intermediate rate
     }
@@ -278,8 +279,11 @@ struct AudioDemod::Impl {
 
     void build_chain(int m) {
         mode = m;
-        const int m2 = static_cast<int>(std::lround(r1 / kAudioHz)); // ~5
-        const double fa = r1 / m2;
+        // Exactly kAudioHz only when the input rate is a multiple of
+        // kAudioRateStep, which rate_for_span() guarantees.
+        const AudioDecimation d = audio_decimation(input_rate);
+        const int m2 = d.m2; // ~5
+        const double fa = d.audio_hz;
 
         if (m == WFM) {
             wfm_audio.init(make_lowpass(47, 15000.0 / r1), m2);

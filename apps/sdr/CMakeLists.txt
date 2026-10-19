@@ -14,6 +14,7 @@
 add_library(sdr_core STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/sdr/squelch.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/sdr/memory_scan.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/sdr/sample_rate.cpp
 )
 target_include_directories(sdr_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/sdr)
 
@@ -24,6 +25,9 @@ if(USE_DESKTOP)
     add_executable(memory_scan_test ${CMAKE_CURRENT_SOURCE_DIR}/test/memory_scan_test.cpp)
     target_link_libraries(memory_scan_test PRIVATE sdr_core)
     add_test(NAME memory_scan_test COMMAND memory_scan_test)
+    add_executable(sample_rate_test ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_rate_test.cpp)
+    target_link_libraries(sample_rate_test PRIVATE sdr_core)
+    add_test(NAME sample_rate_test COMMAND sample_rate_test)
 endif()
 
 file(GLOB_RECURSE SDR_SOURCES CONFIGURE_DEPENDS
@@ -33,7 +37,7 @@ file(GLOB_RECURSE SDR_SOURCES CONFIGURE_DEPENDS
 # These live in sdr_core (linked below): don't compile them twice. Filter by
 # regex, as adsb_app does, so a differently normalised glob result cannot slip
 # a second copy in.
-list(FILTER SDR_SOURCES EXCLUDE REGEX "/sdr/(squelch|memory_scan)\\.cpp$")
+list(FILTER SDR_SOURCES EXCLUDE REGEX "/sdr/(squelch|memory_scan|sample_rate)\\.cpp$")
 
 add_executable(sdr_app ${SDR_SOURCES})
 

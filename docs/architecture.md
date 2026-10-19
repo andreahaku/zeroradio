@@ -193,7 +193,8 @@ thread. The same stream feeds an FFT (FFTW, single precision) for the spectrum a
 demodulator (`AudioDemod`: WFM/NFM/AM/SSB-Weaver/CW) for audio at 48 kHz: SDL on the desktop, ALSA
 on the device through the `pipewire` PCM. Tuning and zoom retune the hardware and re-crop the FFT
 window. The sample rate follows the zoom span, capped by `SDR_SAMPLE_RATE` (the launcher sets
-1.024 Msps). Builds without FFTW (`SDR_HAVE_RTLTCP` unset) use a synthetic mock.
+1.024 Msps), and is always a multiple of 240 kHz: the audio chain decimates by whole factors to
+240 kHz and then to 48 kHz, and any other rate overruns the 48 kHz output (`sample_rate.h`). Builds without FFTW (`SDR_HAVE_RTLTCP` unset) use a synthetic mock.
 
 **Scanner** (`apps/survey`). `CsvSweepSource` runs `rtl_power` or `hackrf_sweep` on a worker thread
 and restarts it after a pause if it exits. The pure `SweepAccumulator` stitches the CSV rows into a
@@ -237,6 +238,7 @@ independent sources must produce the same vectors, and nobody edits the vectors 
 - `map_render_test`: culled and unculled `draw_base` output must match pixel for pixel.
 - `location_test`: city search, coordinates, NMEA parsing, a USB GPS on a pseudo-terminal, and
   save/load.
+- `sample_rate_test`: every SDR capture rate the zoom can pick gives exactly 48 kHz of audio.
 
 ```bash
 ctest --test-dir build/linux-x86-64 -C Debug --output-on-failure

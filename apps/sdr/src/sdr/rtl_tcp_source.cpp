@@ -13,6 +13,7 @@
 
 #include "audio_demod.h"
 #include "child_service.h"
+#include "sample_rate.h"
 
 #include <fftw3.h>
 
@@ -70,17 +71,6 @@ uint32_t effective_sample_rate() {
         }
     }
     return kSampleRate;
-}
-
-// RTL capture rate for a given visible span (page-2 zoom): match the span so we
-// only stream what's shown, clamped to the RTL2832U minimum (300k-900k is an
-// invalid gap) and the host's drain ceiling `cap`.
-uint32_t rate_for_span(int32_t span_hz, uint32_t cap) {
-    constexpr uint32_t kMinRate = 960000;
-    uint32_t r = span_hz > 0 ? static_cast<uint32_t>(span_hz) : cap;
-    if (r < kMinRate) r = kMinRate;
-    if (r > cap)      r = cap;
-    return r;
 }
 
 } // namespace
