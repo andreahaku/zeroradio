@@ -4,7 +4,7 @@ A live receiver: spectrum, waterfall and demodulated audio (WFM, NFM, AM, USB, L
 
 ## Pages
 
-Key 4 cycles seven tool pages. The screen stays the same: mode on the left, tuned frequency in the middle, S-meter on the right, then spectrum and waterfall. The S-meter shows the signal inside the green passband. The green band is the demodulated passband.
+Key 4 cycles six tool pages. The screen stays the same: mode on the left, tuned frequency in the middle, S-meter on the right, then spectrum and waterfall. The S-meter shows the signal inside the green passband. The green band is the demodulated passband.
 
 - 1 Tuning: tune the frequency.
 - 2 Zoom: span, band preset, mode.

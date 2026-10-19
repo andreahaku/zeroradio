@@ -74,12 +74,23 @@ SdrViewModel::SdrViewModel() {
 
 SdrViewModel::~SdrViewModel() {
     // Quitting while calibrating: keep the zoom the user had.
-    if (calibrating_) {
-        while (model_.span_khz() < cal_prev_span_khz_) {
-            const int32_t before = model_.span_khz();
-            model_.zoom_out();
-            if (model_.span_khz() == before) break;
-        }
+    if (calibrating_) restore_span(cal_prev_span_khz_);
+}
+
+void SdrViewModel::on_tab() {
+    // The hand-off replaces this process without running the destructor.
+    finish_calibration();
+    request_handoff("survey_app", "survey");
+}
+
+void SdrViewModel::restore_span(int32_t span_khz) {
+    // The arrows zoom during a calibration too, so the span may sit on
+    // either side of the one to restore.
+    for (;;) {
+        const int32_t before = model_.span_khz();
+        if (before < span_khz) model_.zoom_out();
+        else if (before > span_khz) model_.zoom_in();
+        if (model_.span_khz() == before) break;
     }
 }
 
@@ -163,11 +174,7 @@ void SdrViewModel::start_calibration() {
 void SdrViewModel::finish_calibration() {
     if (!calibrating_) return;
     calibrating_ = false;
-    while (model_.span_khz() < cal_prev_span_khz_) {
-        const int32_t before = model_.span_khz();
-        model_.zoom_out();
-        if (model_.span_khz() == before) break;
-    }
+    restore_span(cal_prev_span_khz_);
     status_text_subject_.set("");
     publish_vfo();
     bump_nav_refresh();

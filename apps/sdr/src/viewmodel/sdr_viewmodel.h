@@ -145,7 +145,7 @@ public:
     toolkit::i18n::Text nav_hint(int page, int slot) const override;
 
     // TAB: switch to the Spectrum Survey app (see toolkit::run_handoff).
-    void on_tab() override { request_handoff("survey_app", "survey"); }
+    void on_tab() override;
 
     // Arrows on every page: left/right tune by one step, up/down zoom in/out.
     void on_left() override { tune_down(); }
@@ -199,6 +199,7 @@ private:
     void publish_cal_text();
     bool calibrating_ = false;
     int32_t cal_prev_span_khz_ = 0; // the zoom to put back after calibrating
+    void restore_span(int32_t span_khz);
     void apply_squelch_settings();
     Squelch squelch_;
     mutable std::string gain_label_;
