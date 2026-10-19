@@ -629,14 +629,15 @@ void SpectrumScreen::tick() {
     // The level in the tuned channel drives the S-meter and the squelch. A
     // closed squelch mutes the audio like the mute key, without changing it.
     const auto pb = vm_.passband();
-    const double frame_span = source_->frame_span_hz(static_cast<int32_t>(vm_.span_khz()) * 1000);
+    const int32_t span = vm_.span_khz() * 1000;
+    const double frame_span = static_cast<double>(span);
     const auto now = static_cast<int64_t>(lv_tick_get());
     const int level = channel_level(frame_.data(), kBins, frame_span, pb.low_hz, pb.high_hz);
     bool open = vm_.update_channel_level(level, now);
     // A memory scan reads its channels from this frame and may retune (the
     // source follows on the next tick). Between channels it keeps quiet.
     const int64_t vfo_before = vm_.vfo_hz();
-    vm_.scan_tick(frame_.data(), kBins, frame_span, now);
+    vm_.scan_tick(frame_.data(), kBins, frame_span, source_->captured_span_hz(span), now);
     // A retune just reset the squelch: the level read above belongs to the old
     // frequency, so keep this frame quiet.
     if (vm_.vfo_hz() != vfo_before) open = false;

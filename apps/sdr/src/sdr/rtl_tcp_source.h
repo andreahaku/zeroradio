@@ -39,7 +39,7 @@ public:
     RtlTcpSource& operator=(const RtlTcpSource&) = delete;
 
     void next_frame(float* mags, int n_bins) override;
-    double frame_span_hz(int32_t span_hz) const override;
+    double captured_span_hz(int32_t span_hz) const override;
     void set_tuning(int64_t center_hz, int32_t span_hz) override;
     void set_mode(int mode) override;  // routes to the audio demodulator
     void set_volume(float vol) override;

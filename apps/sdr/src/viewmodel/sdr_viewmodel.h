@@ -96,8 +96,9 @@ public:
     bool scanning() const { return scan_.has_value(); }
     // Once per frame, after update_channel_level(): reads the channels in the
     // frame, retunes when the scan moves. `mags` are the frame's display bins
-    // over `frame_span_hz`.
-    void scan_tick(const float* mags, int n_bins, double frame_span_hz, int64_t now_ms);
+    // over `frame_span_hz`, with signal in the middle `captured_hz` of it.
+    void scan_tick(const float* mags, int n_bins, double frame_span_hz, double captured_hz,
+                   int64_t now_ms);
     // The scan is between channels: keep the audio muted.
     bool scan_mutes_audio() const;
     void toggle_scan_pause();
@@ -192,7 +193,7 @@ private:
     void publish_scan_text();
     std::optional<MemoryScan> scan_;
     std::map<int64_t, std::string> scan_names_; // memory names by frequency, for the label
-    double scan_span_hz_ = -1.0;                // frame span the groups were built for
+    double scan_span_hz_ = -1.0;                // captured band the groups were built for
     int64_t scan_now_ms_ = 0;
     reactive::StringSubject<48> status_text_subject_{""};
     void publish_cal_text();

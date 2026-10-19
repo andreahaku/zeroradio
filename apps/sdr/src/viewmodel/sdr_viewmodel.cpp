@@ -252,24 +252,25 @@ bool SdrViewModel::scan_mutes_audio() const {
     return scan_ && !scan_->paused() && scan_->active() < 0;
 }
 
-void SdrViewModel::scan_tick(const float* mags, int n_bins, double frame_span_hz, int64_t now_ms) {
+void SdrViewModel::scan_tick(const float* mags, int n_bins, double frame_span_hz,
+                             double captured_hz, int64_t now_ms) {
     if (!scan_) return;
     scan_now_ms_ = now_ms;
     if (scan_->exhausted()) {
         stop_scan(); // every channel locked out: nothing left to scan
         return;
     }
-    // Rebuild the groups when the zoom changes what a frame covers. The edge
-    // keeps the widest passband of the list inside the frame.
-    if (frame_span_hz != scan_span_hz_) {
+    // Rebuild the groups when the zoom changes what a frame captures. The
+    // edge keeps the widest passband of the list inside the captured band.
+    if (captured_hz != scan_span_hz_) {
         int32_t edge = 0;
         for (const auto& ch : scan_->channels()) {
             const int m = mode_index(ch.mode);
             const auto pb = mode_passband(m >= 0 ? static_cast<RadioMode>(m) : model_.mode());
             edge = std::max({edge, -pb.low_hz, pb.high_hz});
         }
-        scan_->regroup(frame_span_hz, edge, now_ms);
-        scan_span_hz_ = frame_span_hz;
+        scan_->regroup(captured_hz, edge, now_ms);
+        scan_span_hz_ = captured_hz;
     }
 
     const int64_t vfo = model_.vfo_hz();
