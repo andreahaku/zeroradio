@@ -64,11 +64,18 @@ class Oracle:
             self._publish()
             done = 1
         self.prev_low = hz_low
-        # rtl_power writes one value per FFT bin centre from hz_low to
-        # hz_high inclusive (intervals + 1 values, centre = hz_low + i*step);
-        # hackrf_sweep one value per interval (centre = its middle).
-        intervals = round((hz_high - hz_low) / hz_step)
-        offset = 0.0 if len(bins) == intervals + 1 else hz_step / 2.0
+        # rtl_power (csv_dbm) writes its `intervals` FFT bins, centred at
+        # hz_low + i*step, then the last one AGAIN: intervals + 1 values, the
+        # last a duplicate to drop. With one interval (giant bins, >= 1 MHz)
+        # the single value is an RMS power over the hop: its centre is the
+        # middle. hackrf_sweep writes one value per interval, centred in it.
+        # The count rounds half up (floor(x + 0.5)), the same in the C++.
+        intervals = math.floor((hz_high - hz_low) / hz_step + 0.5)
+        if len(bins) == intervals + 1:
+            bins = bins[:-1]
+            offset = hz_step / 2.0 if intervals == 1 else 0.0
+        else:
+            offset = hz_step / 2.0
         for i, dbm in enumerate(bins):
             centre = hz_low + hz_step * i + offset
             if self.start <= centre < self.stop:
@@ -255,17 +262,48 @@ csv12 = ("\r\n".join([
 VECTORS.append(("crlf_eof_flush", "SYNTH", csv12, 0, True,
                 100_000_000, 101_000_000, 5.0, 10, [4, 8]))
 
-# 13. CAPTURED real rtl_power FM broadcast sweep (one-shot -1: flush publishes)
-FM = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fm_capture.csv")
-# 13. rtl_power layout: intervals + 1 values, bin centres at hz_low + i*step.
-# A carrier exactly on 127.400 MHz must come out at 127.400 MHz, not half a
-# bin above (the old +step/2 put it at 127.4125).
+# 13. rtl_power layout: intervals + 1 values, bin centres at hz_low + i*step,
+# the last value a duplicate of the one before. A carrier exactly on
+# 127.400 MHz must come out at 127.400 MHz, not half a bin above (the old
+# +step/2 put it at 127.4125).
 csv13 = "\n".join([
     row(127_300_000, 127_500_000, 25_000,
-        [FLOOR, FLOOR + 1, FLOOR, FLOOR + 1, -30.0, FLOOR + 1, FLOOR, FLOOR + 1, FLOOR]),
+        [FLOOR, FLOOR + 1, FLOOR, FLOOR + 1, -30.0, FLOOR + 1, FLOOR, FLOOR + 1, FLOOR + 1]),
 ]) + "\n"
 VECTORS.append(("rtl_endpoint_bins", "SYNTH", csv13, 0, True,
                 127_300_000, 127_525_000, 10.0, 9, [0, 4, 8]))
+
+# 14. rtl_power layout through the wrap rule (continuous -i mode): two hops
+# per sweep, the duplicate of each hop dropped, the carrier in the second hop.
+csv14 = "\n".join([
+    row(100_000_000, 100_400_000, 100_000, [-80.0, -79.0, -80.0, -79.0, -79.0]),
+    row(100_400_000, 100_800_000, 100_000, [-80.0, -30.0, -80.0, -79.0, -79.0]),
+    row(100_000_000, 100_400_000, 100_000, [-80.0, -79.0, -80.0, -79.0, -79.0]),  # wrap
+]) + "\n"
+VECTORS.append(("rtl_wrap_hops", "SYNTH", csv14, 0, False,
+                100_000_000, 100_800_000, 10.0, 8, [0, 5, 7]))
+
+# 15. rtl_power giant bins (>= 1 MHz, a Scanner span of 320 MHz or more): one
+# RMS value per hop, printed twice. The measurement belongs to the middle of
+# the hop, so a strong hop peaks at its centre.
+csv15 = "\n".join([
+    row(100_000_000, 101_000_000, 1_000_000, [-80.0, -80.0]),
+    row(101_000_000, 102_000_000, 1_000_000, [-40.0, -40.0]),
+    row(102_000_000, 103_000_000, 1_000_000, [-79.0, -79.0]),
+]) + "\n"
+VECTORS.append(("rtl_rms_giant_bins", "SYNTH", csv15, 0, True,
+                100_000_000, 103_000_000, 10.0, 3, [0, 1, 2]))
+
+# 16. a count ratio of exactly x.5 (0.5 Hz rounding tie): both sides round it
+# up, so 3 values over 2.5 intervals read as hackrf (one value per interval).
+csv16 = "\n".join([
+    row(100_000_000, 100_062_500, 25_000, [-80.0, -30.0, -80.0]),
+]) + "\n"
+VECTORS.append(("count_tie_rounds_up", "SYNTH", csv16, 0, True,
+                100_000_000, 100_100_000, 10.0, 4, [0, 1, 2]))
+
+# 17. CAPTURED real rtl_power FM broadcast sweep (one-shot -1: flush publishes)
+FM = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fm_capture.csv")
 
 if os.path.exists(FM):
     fm_csv = open(FM).read()

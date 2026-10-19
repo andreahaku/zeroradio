@@ -143,11 +143,36 @@ static const SpotExpect SPOTS_crlf_eof_flush[] = {{10, 4, -80.0f}, {10, 8, -80.0
 static const PeakExpect PEAKS_crlf_eof_flush[] = {{100550000ll, -33.0f}};
 
 static const char CSV_rtl_endpoint_bins[] =
-    "2026-07-07, 10:00:00, 127300000, 127500000, 25000, 32, -80.0, -79.0, -80.0, -79.0, -30.0, -79.0, -80.0, -79.0, -80.0\n";
+    "2026-07-07, 10:00:00, 127300000, 127500000, 25000, 32, -80.0, -79.0, -80.0, -79.0, -30.0, -79.0, -80.0, -79.0, -79.0\n";
 
-static const SpotExpect SPOTS_rtl_endpoint_bins[] = {{9, 0, -80.0f}, {9, 4, -30.0f}, {9, 8, -80.0f}};
+static const SpotExpect SPOTS_rtl_endpoint_bins[] = {{9, 0, -80.0f}, {9, 4, -30.0f}, {9, 8, -150.0f}};
 
 static const PeakExpect PEAKS_rtl_endpoint_bins[] = {{127400000ll, -30.0f}};
+
+static const char CSV_rtl_wrap_hops[] =
+    "2026-07-07, 10:00:00, 100000000, 100400000, 100000, 32, -80.0, -79.0, -80.0, -79.0, -79.0\n"
+    "2026-07-07, 10:00:00, 100400000, 100800000, 100000, 32, -80.0, -30.0, -80.0, -79.0, -79.0\n"
+    "2026-07-07, 10:00:00, 100000000, 100400000, 100000, 32, -80.0, -79.0, -80.0, -79.0, -79.0\n";
+
+static const SpotExpect SPOTS_rtl_wrap_hops[] = {{8, 0, -80.0f}, {8, 5, -30.0f}, {8, 7, -79.0f}};
+
+static const PeakExpect PEAKS_rtl_wrap_hops[] = {{100500000ll, -30.0f}};
+
+static const char CSV_rtl_rms_giant_bins[] =
+    "2026-07-07, 10:00:00, 100000000, 101000000, 1000000, 32, -80.0, -80.0\n"
+    "2026-07-07, 10:00:00, 101000000, 102000000, 1000000, 32, -40.0, -40.0\n"
+    "2026-07-07, 10:00:00, 102000000, 103000000, 1000000, 32, -79.0, -79.0\n";
+
+static const SpotExpect SPOTS_rtl_rms_giant_bins[] = {{3, 0, -80.0f}, {3, 1, -40.0f}, {3, 2, -79.0f}};
+
+static const PeakExpect PEAKS_rtl_rms_giant_bins[] = {{101500000ll, -40.0f}};
+
+static const char CSV_count_tie_rounds_up[] =
+    "2026-07-07, 10:00:00, 100000000, 100062500, 25000, 32, -80.0, -30.0, -80.0\n";
+
+static const SpotExpect SPOTS_count_tie_rounds_up[] = {{4, 0, -80.0f}, {4, 1, -30.0f}, {4, 2, -80.0f}};
+
+static const PeakExpect PEAKS_count_tie_rounds_up[] = {{100037500ll, -30.0f}};
 
 static const char CSV_real_fm_broadcast[] =
     "2026-07-07, 10:34:40, 88000000, 90500000, 78125.00, 3328, 6.30, 7.41, 7.96, 7.95, 7.58, 7.55, 7.05, 11.14, 12.18, 8.82, 16.03, 13.03, 7.60, 7.58, 6.98, 6.42, 6.71, 6.71, 7.23, 7.41, 7.34, 8.94, 13.64, 7.13, 7.80, 8.43, 8.85, 7.39, 7.34, 9.44, 8.85, 7.10, 7.10\n"
@@ -190,6 +215,12 @@ static const SweepVec kSweepVectors[] = {
    SPOTS_crlf_eof_flush, 2, PEAKS_crlf_eof_flush, 1},
   {"rtl_endpoint_bins", "SYNTH", CSV_rtl_endpoint_bins, sizeof(CSV_rtl_endpoint_bins) - 1, 0, true, 1, true, 127300000ll, 127525000ll, 10.0f,
    SPOTS_rtl_endpoint_bins, 3, PEAKS_rtl_endpoint_bins, 1},
+  {"rtl_wrap_hops", "SYNTH", CSV_rtl_wrap_hops, sizeof(CSV_rtl_wrap_hops) - 1, 0, false, 1, true, 100000000ll, 100800000ll, 10.0f,
+   SPOTS_rtl_wrap_hops, 3, PEAKS_rtl_wrap_hops, 1},
+  {"rtl_rms_giant_bins", "SYNTH", CSV_rtl_rms_giant_bins, sizeof(CSV_rtl_rms_giant_bins) - 1, 0, true, 1, true, 100000000ll, 103000000ll, 10.0f,
+   SPOTS_rtl_rms_giant_bins, 3, PEAKS_rtl_rms_giant_bins, 1},
+  {"count_tie_rounds_up", "SYNTH", CSV_count_tie_rounds_up, sizeof(CSV_count_tie_rounds_up) - 1, 0, true, 1, true, 100000000ll, 100100000ll, 10.0f,
+   SPOTS_count_tie_rounds_up, 3, PEAKS_count_tie_rounds_up, 1},
   {"real_fm_broadcast", "CAPTURED", CSV_real_fm_broadcast, sizeof(CSV_real_fm_broadcast) - 1, 0, true, 1, true, 88000000ll, 108000000ll, 12.0f,
    SPOTS_real_fm_broadcast, 4, PEAKS_real_fm_broadcast, 5},
 };
