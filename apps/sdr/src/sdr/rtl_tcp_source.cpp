@@ -116,7 +116,7 @@ struct RtlTcpSource::Impl {
     std::thread thread;
 
     Impl(std::string h, uint16_t p, int64_t center, bool spawn)
-        : host(std::move(h)), port(p), audio(static_cast<double>(effective_sample_rate())) {
+        : host(std::move(h)), port(p), audio(static_cast<double>(rate_for_span(0, effective_sample_rate()))) {
         if (spawn) {
             server = std::make_unique<toolkit::ChildService>(std::vector<std::string>{
                 toolkit::find_tool("rtl_tcp"), "-a", host, "-p", std::to_string(port)});
