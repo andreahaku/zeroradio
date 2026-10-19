@@ -7,9 +7,13 @@
 #include "sdr_viewmodel.h"
 #include "nav_hints.h"
 
+#include "memories_store.h"
 #include "ui_const.h"
 
+#include <algorithm>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 namespace sdr {
 namespace {
@@ -46,6 +50,14 @@ SdrViewModel::SdrViewModel() {
     set_title("SDR");
     apply_squelch_settings();
 
+    // Memory scan from the Memories app. Read once, like SDR_FREQ/SDR_MODE:
+    // a later hand-off back to the SDR must not restart it.
+    if (const char* env = std::getenv("SDR_SCAN"); env && env[0] != '\0') {
+        auto channels = parse_scan_list(env);
+        ::unsetenv("SDR_SCAN");
+        if (!channels.empty()) start_scan(std::move(channels));
+    }
+
     // Sync the generic shell + SDR subjects from the persisted model.
     set_dark_mode(model_.dark_mode());
     mode_text_subject_.set(radio_mode_name(model_.mode()));
@@ -73,16 +85,19 @@ lv_subject_t* SdrViewModel::peak_hold_subject()      { return peak_hold_subject_
 lv_subject_t* SdrViewModel::wf_split_subject()       { return wf_split_subject_.native(); }
 lv_subject_t* SdrViewModel::freq_input_req_subject() { return freq_input_req_subject_.native(); }
 lv_subject_t* SdrViewModel::ppm_input_req_subject() { return ppm_input_req_subject_.native(); }
+lv_subject_t* SdrViewModel::scan_text_subject() { return scan_text_subject_.native(); }
 lv_subject_t* SdrViewModel::fine_tune_subject()      { return fine_tune_subject_.native(); }
 lv_subject_t* SdrViewModel::muted_subject()          { return muted_subject_.native(); }
 lv_subject_t* SdrViewModel::volume_subject()         { return volume_subject_.native(); }
 lv_subject_t* SdrViewModel::gain_text_subject()      { return gain_text_subject_.native(); }
 
 // --- actions ---
-void SdrViewModel::tune_up()   { model_.tune_up();   publish_vfo(); }
-void SdrViewModel::tune_down() { model_.tune_down(); publish_vfo(); }
+// Tuning by hand ends a memory scan: the user has picked a frequency.
+void SdrViewModel::tune_up()   { stop_scan(); model_.tune_up();   publish_vfo(); }
+void SdrViewModel::tune_down() { stop_scan(); model_.tune_down(); publish_vfo(); }
 
 void SdrViewModel::set_vfo_hz(int64_t hz) {
+    stop_scan();
     model_.set_vfo_hz(hz);
     publish_vfo();
 }
@@ -132,11 +147,148 @@ bool SdrViewModel::update_channel_level(int level, int64_t now_ms) {
     squelch_.update(level, now_ms);
     return squelch_.open();
 }
+
+// --- Memory scan ---
+namespace {
+// The SDR mode with this name, or -1.
+int mode_index(const std::string& name) {
+    for (int i = 0; i < kRadioModeCount; ++i) {
+        if (name == radio_mode_name(static_cast<RadioMode>(i))) return i;
+    }
+    return -1;
+}
+} // namespace
+
+void SdrViewModel::start_scan(std::vector<ScanChannel> channels) {
+    scan_.emplace(std::move(channels));
+    scan_span_hz_ = -1.0;
+    scan_names_.clear();
+    for (const auto& m : toolkit::load_memories()) scan_names_.emplace(m.hz, m.name);
+    // The scan stops where the squelch opens, so it needs the squelch on.
+    if (!model_.squelch_on()) model_.toggle_squelch();
+    apply_squelch_settings();
+    // Show the scan keys first.
+    lv_subject_set_int(toolbar_page_subject(), static_cast<int>(Page::Scan));
+    publish_scan_text();
+    bump_nav_refresh();
+}
+
+void SdrViewModel::stop_scan() {
+    if (!scan_) return;
+    scan_.reset();
+    model_.persist(); // keep the channel the scan stopped on for the next launch
+    scan_text_subject_.set("");
+    if (lv_subject_get_int(toolbar_page_subject()) >= static_cast<int>(Page::Scan)) {
+        lv_subject_set_int(toolbar_page_subject(), 0);
+    }
+    bump_nav_refresh();
+}
+
+bool SdrViewModel::scan_mutes_audio() const {
+    return scan_ && !scan_->paused() && scan_->active() < 0;
+}
+
+void SdrViewModel::scan_tick(const float* mags, int n_bins, double frame_span_hz, int64_t now_ms) {
+    if (!scan_) return;
+    scan_now_ms_ = now_ms;
+    if (scan_->exhausted()) {
+        stop_scan(); // every channel locked out: nothing left to scan
+        return;
+    }
+    // Rebuild the groups when the zoom changes what a frame covers. The edge
+    // keeps the widest passband of the list inside the frame.
+    if (frame_span_hz != scan_span_hz_) {
+        int32_t edge = 0;
+        for (const auto& ch : scan_->channels()) {
+            const int m = mode_index(ch.mode);
+            const auto pb = mode_passband(m >= 0 ? static_cast<RadioMode>(m) : model_.mode());
+            edge = std::max({edge, -pb.low_hz, pb.high_hz});
+        }
+        scan_->regroup(frame_span_hz, edge, now_ms);
+        scan_span_hz_ = frame_span_hz;
+    }
+
+    const int64_t vfo = model_.vfo_hz();
+    const auto level_of = [&](size_t i) {
+        const auto& ch = scan_->channels()[i];
+        const int m = mode_index(ch.mode);
+        const auto pb = mode_passband(m >= 0 ? static_cast<RadioMode>(m) : model_.mode());
+        return channel_level(mags, n_bins, frame_span_hz, pb.low_hz, pb.high_hz, ch.hz - vfo);
+    };
+    const int before_active = scan_->active();
+    scan_->tick(now_ms, level_of, model_.squelch_threshold(), squelch_.open());
+
+    // Follow the scan: session-only tuning, no state file write per channel.
+    const int64_t want = scan_->tune_hz();
+    if (want > 0 && want != vfo) {
+        model_.set_vfo_hz(want, /*persist=*/false);
+        publish_vfo();
+        squelch_.reset(); // a new channel starts closed
+    }
+    const int active = scan_->active();
+    if (active != before_active) {
+        bump_nav_refresh(); // the lockout key works only on a channel
+    }
+    if (active >= 0 && active != before_active) {
+        const int m = mode_index(scan_->channels()[static_cast<size_t>(active)].mode);
+        if (m >= 0 && static_cast<RadioMode>(m) != model_.mode()) {
+            model_.set_mode(static_cast<RadioMode>(m), /*persist=*/false);
+            publish_mode();
+        }
+    }
+    publish_scan_text();
+}
+
+void SdrViewModel::publish_scan_text() {
+    if (!scan_) return;
+    // "SCAN 2/5" while searching (group of the list), "SCAN Ch 16 Distress" on
+    // a channel (its memory name, else its frequency), "paused" when paused.
+    std::string text = "SCAN";
+    const int active = scan_->active();
+    if (scan_->paused()) text += " paused";
+    if (active >= 0) {
+        const int64_t hz = scan_->channels()[static_cast<size_t>(active)].hz;
+        const auto it = scan_names_.find(hz);
+        if (it != scan_names_.end()) {
+            text += " " + it->second;
+        } else {
+            char mhz[16];
+            format_freq_plain(mhz, sizeof(mhz), static_cast<int32_t>(hz));
+            text += std::string(" ") + mhz;
+        }
+    } else if (!scan_->paused()) {
+        text += " " + std::to_string(scan_->group_index() + 1) + "/" +
+                std::to_string(scan_->group_count());
+    }
+    if (std::strcmp(text.c_str(), lv_subject_get_string(scan_text_subject_.native())) != 0) {
+        scan_text_subject_.set(text.c_str());
+    }
+}
+
+void SdrViewModel::toggle_scan_pause() {
+    if (!scan_) return;
+    if (scan_->paused()) scan_->resume();
+    else scan_->pause();
+    publish_scan_text();
+    bump_nav_refresh();
+}
+void SdrViewModel::scan_skip() {
+    if (!scan_) return;
+    scan_->skip(scan_now_ms_);
+    publish_scan_text();
+    bump_nav_refresh();
+}
+void SdrViewModel::scan_lock_out() {
+    if (!scan_) return;
+    scan_->lock_out(scan_now_ms_);
+    publish_scan_text();
+    bump_nav_refresh();
+}
 int64_t SdrViewModel::tuner_hz() const { return model_.corrected_hz(model_.vfo_hz()); }
 
 void SdrViewModel::zoom_in()   { model_.zoom_in();   publish_vfo(); }
 void SdrViewModel::zoom_out()  { model_.zoom_out();  publish_vfo(); }
-void SdrViewModel::cycle_band(){ model_.cycle_band(); publish_vfo(); }
+void SdrViewModel::cycle_band(){ stop_scan(); model_.cycle_band(); publish_vfo(); }
 
 void SdrViewModel::toggle_freq_grid() { model_.toggle_freq_grid(); publish_grids(); }
 void SdrViewModel::toggle_time_grid() { model_.toggle_time_grid(); publish_grids(); }
@@ -210,7 +362,7 @@ Passband  SdrViewModel::passband() const    { return model_.passband(); }
 
 // --- NavProvider ---
 int SdrViewModel::nav_page_count() const {
-    return 7;
+    return scanning() ? 8 : 7; // the SCAN page exists only while a scan runs
 }
 
 void SdrViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
@@ -259,6 +411,12 @@ void SdrViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
             out[2] = {model_.squelch_on() ? "ON" : "OFF", true, true}; // on/off
             out[3] = {view::ICON_PLUS, false, true};         // level up
             out[4] = {squelch_label_.c_str(), true, true};   // readout (display only)
+            break;
+        case Page::Scan:
+            out[1] = {scan_ && scan_->paused() ? ">" : "II", true, true}; // pause / resume
+            out[2] = {view::ICON_CARET_RIGHT, false, true};    // skip
+            out[3] = {view::ICON_SPEAKER_MUTE, false, scan_ && scan_->active() >= 0}; // lock out
+            out[4] = {"OFF", true, true};                      // stop the scan
             break;
         case Page::Calib: {
             char text[16];
@@ -320,6 +478,12 @@ void SdrViewModel::nav_activate(int page, int slot) {
             else if (slot == 3) squelch_up();
             // slot 4 is the display-only readout
             break;
+        case Page::Scan:
+            if (slot == 1) toggle_scan_pause();
+            else if (slot == 2) scan_skip();
+            else if (slot == 3) scan_lock_out();
+            else if (slot == 4) stop_scan();
+            break;
         case Page::Calib:
             if (slot == 1) ppm_down();
             else if (slot == 2) request_ppm_input();
@@ -338,6 +502,7 @@ const char* SdrViewModel::nav_page_name(int page) const {
         case Page::Settings: return "GAIN";
         case Page::Squelch: return "SQL";
         case Page::Calib: return "CAL";
+        case Page::Scan: return "SCAN";
     }
     return nullptr;
 }
@@ -473,6 +638,34 @@ toolkit::i18n::Text SdrViewModel::nav_hint(int page, int slot) const {
                                  "Die Schwelle der Rauschsperre auf der S-Meter-Skala. Diese Taste hat keine Funktion.",
                                  "El nivel del squelch en la escala del S-metro. Esta tecla no hace nada.",
                                  "S メーター目盛りでのスケルチレベル。このキーは使いません。", "静噪电平（S 表刻度）。此键无功能。"};
+            }
+            break;
+        case Page::Scan:
+            switch (slot) {
+                case 1: return {"Pause the memory scan, or resume it",
+                                 "Metti in pausa la scansione delle memorie, o riprendila",
+                                 "Met en pause le balayage des mémoires, ou le reprend",
+                                 "Hält den Speicher-Suchlauf an oder setzt ihn fort",
+                                 "Pausa el escaneo de memorias, o lo reanuda",
+                                 "メモリースキャンを一時停止／再開", "暂停或继续存储频率扫描"};
+                case 2: return {"Skip to the next channel",
+                                 "Passa al canale successivo",
+                                 "Passe au canal suivant",
+                                 "Springt zum nächsten Kanal",
+                                 "Salta al canal siguiente",
+                                 "次のチャンネルへスキップ", "跳到下一个频道"};
+                case 3: return {"Leave this channel out until the scan ends",
+                                 "Escludi questo canale fino alla fine della scansione",
+                                 "Exclut ce canal jusqu’à la fin du balayage",
+                                 "Lässt diesen Kanal bis zum Ende des Suchlaufs aus",
+                                 "Excluye este canal hasta que termine el escaneo",
+                                 "スキャン終了までこのチャンネルを除外", "在扫描结束前跳过此频道"};
+                case 4: return {"Stop the scan and stay on this channel",
+                                 "Ferma la scansione e resta su questo canale",
+                                 "Arrête le balayage et reste sur ce canal",
+                                 "Beendet den Suchlauf und bleibt auf diesem Kanal",
+                                 "Detiene el escaneo y se queda en este canal",
+                                 "スキャンを止めてこのチャンネルに留まる", "停止扫描并停留在此频道"};
             }
             break;
         case Page::Calib:

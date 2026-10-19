@@ -26,6 +26,10 @@ public:
     int64_t hold_ms() const { return hold_ms_; }
 
     void update(int level, int64_t now_ms);
+    // Back to the state of a fresh channel: closed (open when disabled), no
+    // hold running. Call after a retune, so a hold from the previous channel
+    // does not carry over.
+    void reset();
     bool open() const { return open_; }
 
 private:
@@ -44,6 +48,11 @@ private:
 // passband narrower than one bin still reads a level. `span_hz` must be the
 // width the frame really covers (SpectrumSource::frame_span_hz()). The S-meter
 // and the squelch both use it.
-int channel_level(const float* mags, int n_bins, double span_hz, int32_t low_hz, int32_t high_hz);
+//
+// `offset_hz` reads a channel that is not on the VFO but inside the same frame
+// (the memory scan): the passband is taken around VFO + offset_hz. A channel
+// outside the frame reads 0.
+int channel_level(const float* mags, int n_bins, double span_hz, int32_t low_hz, int32_t high_hz,
+                  int64_t offset_hz = 0);
 
 } // namespace sdr

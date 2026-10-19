@@ -113,6 +113,9 @@ private:
     int                 sq_marker_level_ = -1; // level drawn, -1 = hidden
     int                 sq_shown_open_   = -1; // indicator colour state drawn
     void update_squelch_view(bool open);
+    lv_obj_t*           scan_label_ = nullptr; // "SCAN ..." while a memory scan runs
+    lv_observer_t*      scan_text_observer_ = nullptr;
+    static void scan_text_cb(lv_observer_t* observer, lv_subject_t* subject);
 
     lv_obj_t*           freq_dialog_      = nullptr;
     lv_obj_t*           freq_value_label_ = nullptr;

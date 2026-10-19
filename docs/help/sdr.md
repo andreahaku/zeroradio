@@ -34,13 +34,19 @@ The squelch keeps the speaker quiet until a signal comes in, so narrow FM and AM
 
 The audio opens when the S-meter reaches the tick. It closes when the signal drops 8 points below the tick for 2.5 s, so a short pause in a conversation does not cut it. To set it, tune to a quiet channel, then raise the level until the noise stops.
 
+## Memory scan
+
+The Memories app starts a scan of the channels you pick (SCAN page there). The SDR then shows a SCAN page with these keys: 5 pause or resume, 6 skip to the next channel, 7 leave this channel out until the scan ends, 8 stop the scan and stay on this channel. A label at the top left says what the scan is doing: the group it is checking ("SCAN 2/5"), or the channel it stopped on.
+
+The scan stops on a channel when the S-meter there reaches the squelch level, and listens while the squelch is open. When the transmission ends and the squelch closes, after its 2.5 s hold, the scan moves on. The scan turns the squelch on if it was off, so set its level first on a quiet channel. Channels close together, such as the marine channels, are checked all at once from one screen of spectrum, so a quiet band takes a quarter of a second. Tuning by hand, a band preset or a typed frequency ends the scan.
+
 ## Calibrate the frequency
 
 The crystal of every dongle is a little off, so a station shows a little away from its frequency. To correct it, tune to a station whose frequency you know, such as an airport ATIS in AM. Zoom in until you see its carrier. On page 7, if the carrier sits left of the centre line, raise the correction with key 7. If it sits right, lower it with key 5. Stop when it sits on the line. The value is saved and applies to every frequency. If you know your dongle's ppm, for example from `rtl_test -p`, type it with key 6.
 
 ## Global keys
 
-- 4: the next page of keys. The key shows the page name: TUNE, ZOOM, VIEW, AUDIO, SQL, GAIN, CAL. Hold 4 for the page before.
+- 4: the next page of keys. The key shows the page name: TUNE, ZOOM, VIEW, AUDIO, SQL, GAIN, CAL, and SCAN during a memory scan. Hold 4 for the page before.
 - Arrows (F/X/Z/C): Z/C tune down/up by one step, F/X zoom in/out.
 - Fn+A mutes or unmutes, Fn+S and Fn+D turn the volume down and up, from any page.
 - TAB: switch to the Scanner app.

@@ -59,8 +59,10 @@ public:
 
     // --- SDR state ---
     // VFO frequency in Hz; setter clamps to [0, INT32_MAX] and skips redundant writes.
+    // `persist` false changes it for this session only (the memory scan retunes
+    // several times a second and must not write the state file each time).
     int32_t vfo_hz() const;
-    void set_vfo_hz(int64_t hz);
+    void set_vfo_hz(int64_t hz, bool persist = true);
     void tune_up();
     void tune_down();
 
@@ -69,7 +71,9 @@ public:
     int32_t tune_step_hz() const;
 
     RadioMode mode() const;
-    void set_mode(RadioMode mode);
+    void set_mode(RadioMode mode, bool persist = true);
+    // Write the state file now (after session-only changes).
+    void persist() const { save_state(); }
     void cycle_mode();
     Passband passband() const;
 

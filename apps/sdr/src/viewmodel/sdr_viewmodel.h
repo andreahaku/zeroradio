@@ -8,7 +8,11 @@
 
 #include "nav_provider.h"
 #include "sdr_model.h"
+#include "memory_scan.h"
 #include "squelch.h"
+
+#include <map>
+#include <optional>
 #include "shell_viewmodel.h"
 #include "subjects.h"
 
@@ -33,6 +37,7 @@ public:
         Squelch  = 4, // level- / on-off / level+ / level readout
         Settings = 5, // gain- / gain+ / gain auto / exit
         Calib    = 6, // ppm- / ppm entry / ppm+ / ppm readout
+        Scan     = 7, // pause / skip / lock out / stop (only while a memory scan runs)
     };
 
     SdrViewModel();
@@ -51,6 +56,7 @@ public:
     lv_subject_t* wf_split_subject();   // visible waterfall rows (page-3 key 7)
     lv_subject_t* freq_input_req_subject();
     lv_subject_t* ppm_input_req_subject();
+    lv_subject_t* scan_text_subject();  // "SCAN ..." while a memory scan runs, else ""
     lv_subject_t* fine_tune_subject();
     lv_subject_t* muted_subject();
     lv_subject_t* volume_subject();
@@ -74,6 +80,19 @@ public:
     // Feed the channel level (0..100) once per frame: sets the S-meter and
     // runs the squelch. Returns whether the audio may play.
     bool update_channel_level(int level, int64_t now_ms);
+
+    // --- Memory scan (SDR_SCAN from the Memories app) ---
+    bool scanning() const { return scan_.has_value(); }
+    // Once per frame, after update_channel_level(): reads the channels in the
+    // frame, retunes when the scan moves. `mags` are the frame's display bins
+    // over `frame_span_hz`.
+    void scan_tick(const float* mags, int n_bins, double frame_span_hz, int64_t now_ms);
+    // The scan is between channels: keep the audio muted.
+    bool scan_mutes_audio() const;
+    void toggle_scan_pause();
+    void scan_skip();
+    void scan_lock_out();
+    void stop_scan();
     void zoom_in();
     void zoom_out();
     void cycle_band();
@@ -159,6 +178,13 @@ private:
     mutable std::string step_label_;
     mutable std::string ppm_label_;
     mutable std::string squelch_label_;
+    void start_scan(std::vector<ScanChannel> channels);
+    void publish_scan_text();
+    std::optional<MemoryScan> scan_;
+    std::map<int64_t, std::string> scan_names_; // memory names by frequency, for the label
+    double scan_span_hz_ = -1.0;                // frame span the groups were built for
+    int64_t scan_now_ms_ = 0;
+    reactive::StringSubject<40> scan_text_subject_{""};
     void apply_squelch_settings();
     Squelch squelch_;
     mutable std::string gain_label_;

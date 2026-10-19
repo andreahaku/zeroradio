@@ -113,6 +113,10 @@ SpectrumScreen::~SpectrumScreen() {
         lv_observer_remove(ppm_req_observer_);
         ppm_req_observer_ = nullptr;
     }
+    if (scan_text_observer_) {
+        lv_observer_remove(scan_text_observer_);
+        scan_text_observer_ = nullptr;
+    }
     if (wf_split_observer_) {
         lv_observer_remove(wf_split_observer_);
         wf_split_observer_ = nullptr;
@@ -262,6 +266,19 @@ void SpectrumScreen::build_content(lv_obj_t* content) {
     lv_obj_set_style_bg_opa(passband_, LV_OPA_30, 0);
     lv_obj_remove_flag(passband_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(passband_, LV_OBJ_FLAG_CLICKABLE);
+
+    // --- Memory scan label: top left of the spectrum, only while scanning.
+    scan_label_ = lv_label_create(content);
+    lv_obj_add_flag(scan_label_, LV_OBJ_FLAG_IGNORE_LAYOUT);
+    lv_obj_align(scan_label_, LV_ALIGN_TOP_LEFT, 2, kHeaderHeight + kRowPad);
+    lv_obj_set_style_text_font(scan_label_, small_font ? small_font : &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(scan_label_, lv_color_white(), 0);
+    lv_obj_set_style_bg_color(scan_label_, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(scan_label_, LV_OPA_70, 0);
+    lv_obj_set_style_pad_hor(scan_label_, 3, 0);
+    lv_obj_remove_flag(scan_label_, LV_OBJ_FLAG_CLICKABLE);
+    lv_label_bind_text(scan_label_, vm_.scan_text_subject(), nullptr);
+    scan_text_observer_ = lv_subject_add_observer(vm_.scan_text_subject(), scan_text_cb, this);
     update_passband();
 
     // --- Centre frequency marker: a thin vertical line at the tuned VFO. ---
@@ -599,11 +616,14 @@ void SpectrumScreen::tick() {
     // The level in the tuned channel drives the S-meter and the squelch. A
     // closed squelch mutes the audio like the mute key, without changing it.
     const auto pb = vm_.passband();
-    const int level = channel_level(
-        frame_.data(), kBins,
-        source_->frame_span_hz(static_cast<int32_t>(vm_.span_khz()) * 1000),
-        pb.low_hz, pb.high_hz);
-    const bool open = vm_.update_channel_level(level, static_cast<int64_t>(lv_tick_get()));
+    const double frame_span = source_->frame_span_hz(static_cast<int32_t>(vm_.span_khz()) * 1000);
+    const auto now = static_cast<int64_t>(lv_tick_get());
+    const int level = channel_level(frame_.data(), kBins, frame_span, pb.low_hz, pb.high_hz);
+    bool open = vm_.update_channel_level(level, now);
+    // A memory scan reads its channels from this frame and may retune (the
+    // source follows on the next tick). Between channels it keeps quiet.
+    vm_.scan_tick(frame_.data(), kBins, frame_span, now);
+    open = open && !vm_.scan_mutes_audio();
     source_->set_muted(vm_.muted() || !open);
     update_squelch_view(open);
 
@@ -622,6 +642,14 @@ void SpectrumScreen::tick() {
 
     push_waterfall_row(frame_.data());
     update_passband();
+}
+
+void SpectrumScreen::scan_text_cb(lv_observer_t* observer, lv_subject_t* subject) {
+    auto* self = static_cast<SpectrumScreen*>(lv_observer_get_user_data(observer));
+    if (!self || !self->scan_label_) return;
+    const char* text = lv_subject_get_string(subject);
+    if (text && text[0] != '\0') lv_obj_remove_flag(self->scan_label_, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(self->scan_label_, LV_OBJ_FLAG_HIDDEN);
 }
 
 void SpectrumScreen::update_squelch_view(bool open) {

@@ -121,7 +121,7 @@ void SdrModel::toggle_dark_mode() {
 
 int32_t SdrModel::vfo_hz() const { return vfo_hz_; }
 
-void SdrModel::set_vfo_hz(int64_t hz) {
+void SdrModel::set_vfo_hz(int64_t hz, bool persist) {
     if (hz < 0) {
         hz = 0;
     } else if (hz > INT32_MAX) {
@@ -132,7 +132,7 @@ void SdrModel::set_vfo_hz(int64_t hz) {
         return; // no change -> skip the redundant state write
     }
     vfo_hz_ = v;
-    save_state();
+    if (persist) save_state();
 }
 
 int32_t SdrModel::tune_step_hz() const {
@@ -155,9 +155,9 @@ void SdrModel::toggle_fine_tune() {
 }
 
 RadioMode SdrModel::mode() const { return mode_; }
-void SdrModel::set_mode(RadioMode mode) {
+void SdrModel::set_mode(RadioMode mode, bool persist) {
     mode_ = mode;
-    save_state();
+    if (persist) save_state();
 }
 void SdrModel::cycle_mode() {
     const int next = (static_cast<int>(mode_) + 1) % kRadioModeCount;

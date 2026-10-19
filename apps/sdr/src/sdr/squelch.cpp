@@ -37,6 +37,11 @@ void Squelch::set_hold_ms(int64_t hold_ms) {
     below_since_ms_.reset();
 }
 
+void Squelch::reset() {
+    open_ = threshold_ == 0;
+    below_since_ms_.reset();
+}
+
 void Squelch::update(int level, int64_t now_ms) {
     if (threshold_ == 0) {
         open_ = true;
@@ -66,10 +71,12 @@ void Squelch::update(int level, int64_t now_ms) {
     }
 }
 
-int channel_level(const float* mags, int n_bins, double span_hz, int32_t low_hz, int32_t high_hz) {
+int channel_level(const float* mags, int n_bins, double span_hz, int32_t low_hz, int32_t high_hz,
+                  int64_t offset_hz) {
     if (!mags || n_bins <= 0 || span_hz <= 0.0) return 0;
     const double hz_per_bin = span_hz / static_cast<double>(n_bins);
-    const double centre = n_bins / 2.0;
+    const double centre = n_bins / 2.0 + static_cast<double>(offset_hz) / hz_per_bin;
+    if (centre < 0.0 || centre >= n_bins) return 0; // the channel is off the frame
     int lo = static_cast<int>(std::floor(centre + low_hz / hz_per_bin));
     int hi = static_cast<int>(std::ceil(centre + high_hz / hz_per_bin)) - 1;
     const int centre_bin = std::min(n_bins - 1, static_cast<int>(centre));

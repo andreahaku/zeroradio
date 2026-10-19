@@ -73,6 +73,16 @@ int main() {
     immediate.update(0, 1);
     check(!immediate.open(), "zero hold closes immediately");
 
+    // reset(): a retune starts the new channel closed, with no hold running.
+    sdr::Squelch r(40, 8, 2500);
+    r.update(80, 0);
+    check(r.open(), "reset: open on a signal");
+    r.reset();
+    check(!r.open(), "reset: closed after a retune");
+    r.set_threshold(0);
+    r.reset();
+    check(r.open(), "reset: a disabled squelch stays open");
+
     // Channel level: 320 bins over 320 kHz, so 1 kHz per bin, VFO at bin 160.
     std::vector<float> mags(320, 0.1f);
     mags[100] = 0.9f; // a strong signal 60 kHz away, outside the channel
