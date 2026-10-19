@@ -44,6 +44,7 @@ SdrViewModel::SdrViewModel() {
     set_help_doc("docs/help/sdr.md"); // H
     set_nav_provider(this);
     set_title("SDR");
+    apply_squelch_settings();
 
     // Sync the generic shell + SDR subjects from the persisted model.
     set_dark_mode(model_.dark_mode());
@@ -115,6 +116,23 @@ void SdrViewModel::set_ppm_tenths(int tenths) { model_.set_ppm_tenths(tenths); b
 void SdrViewModel::ppm_up()   { model_.ppm_up();   bump_nav_refresh(); }
 void SdrViewModel::ppm_down() { model_.ppm_down(); bump_nav_refresh(); }
 int SdrViewModel::ppm_tenths() const { return model_.ppm_tenths(); }
+
+// Squelch: opens at the level, closes 8 points below it after a 2.5 s hold, so
+// the pauses between two sentences do not cut the audio.
+void SdrViewModel::apply_squelch_settings() {
+    squelch_.set_threshold(model_.squelch_on() ? model_.squelch_threshold() : 0);
+}
+void SdrViewModel::toggle_squelch() { model_.toggle_squelch(); apply_squelch_settings(); bump_nav_refresh(); }
+void SdrViewModel::squelch_up()     { model_.squelch_up();     apply_squelch_settings(); bump_nav_refresh(); }
+void SdrViewModel::squelch_down()   { model_.squelch_down();   apply_squelch_settings(); bump_nav_refresh(); }
+bool SdrViewModel::squelch_on() const { return model_.squelch_on(); }
+int SdrViewModel::squelch_threshold() const { return model_.squelch_threshold(); }
+bool SdrViewModel::squelch_open() const { return squelch_.open(); }
+bool SdrViewModel::update_channel_level(int level, int64_t now_ms) {
+    set_smeter(level);
+    squelch_.update(level, now_ms);
+    return squelch_.open();
+}
 int64_t SdrViewModel::tuner_hz() const { return model_.corrected_hz(model_.vfo_hz()); }
 
 void SdrViewModel::zoom_in()   { model_.zoom_in();   publish_vfo(); }
@@ -193,7 +211,7 @@ Passband  SdrViewModel::passband() const    { return model_.passband(); }
 
 // --- NavProvider ---
 int SdrViewModel::nav_page_count() const {
-    return 6;
+    return 7;
 }
 
 void SdrViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
@@ -234,6 +252,14 @@ void SdrViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
             out[2] = {view::ICON_PLUS, false, true};         // gain up
             out[3] = {gain_label_.c_str(), true, true};      // gain readout + auto toggle
             out[4] = {view::ICON_SIGN_OUT, false, true};     // exit
+            break;
+        case Page::Squelch:
+            squelch_label_ = model_.squelch_on() ? std::to_string(model_.squelch_threshold())
+                                                 : std::string("off");
+            out[1] = {view::ICON_MINUS, false, true};        // level down
+            out[2] = {model_.squelch_on() ? "ON" : "OFF", true, true}; // on/off
+            out[3] = {view::ICON_PLUS, false, true};         // level up
+            out[4] = {squelch_label_.c_str(), true, true};   // readout (display only)
             break;
         case Page::Calib: {
             char text[16];
@@ -289,6 +315,12 @@ void SdrViewModel::nav_activate(int page, int slot) {
             else if (slot == 3) toggle_gain_auto();
             else if (slot == 4) request_quit();
             break;
+        case Page::Squelch:
+            if (slot == 1) squelch_down();
+            else if (slot == 2) toggle_squelch();
+            else if (slot == 3) squelch_up();
+            // slot 4 is the display-only readout
+            break;
         case Page::Calib:
             if (slot == 1) ppm_down();
             else if (slot == 2) request_ppm_input();
@@ -305,6 +337,7 @@ const char* SdrViewModel::nav_page_name(int page) const {
         case Page::Visual: return "VIEW";
         case Page::Audio: return "AUDIO";
         case Page::Settings: return "GAIN";
+        case Page::Squelch: return "SQL";
         case Page::Calib: return "CAL";
     }
     return nullptr;
@@ -413,6 +446,34 @@ toolkit::i18n::Text SdrViewModel::nav_hint(int page, int slot) const {
                                  "Activa o desactiva la ganancia automática",
                                  "自動ゲインをオン／オフ", "开启或关闭自动增益"};
                 case 4: return h::kBackToMenu;
+            }
+            break;
+        case Page::Squelch:
+            switch (slot) {
+                case 1: return {"Lower the squelch level: weaker signals open it",
+                                 "Abbassa il livello dello squelch: si apre anche con segnali più deboli",
+                                 "Baisse le niveau du squelch : des signaux plus faibles l’ouvrent",
+                                 "Senkt die Rauschsperre: schwächere Signale öffnen sie",
+                                 "Baja el nivel del squelch: lo abren señales más débiles",
+                                 "スケルチのレベルを下げる（弱い信号でも開く）", "降低静噪电平：较弱的信号也能打开"};
+                case 2: return {"Switch the squelch on or off. Off, the audio always plays.",
+                                 "Attiva o disattiva lo squelch. Spento, l’audio suona sempre.",
+                                 "Active ou désactive le squelch. Désactivé, le son passe toujours.",
+                                 "Schaltet die Rauschsperre ein oder aus. Aus, ist der Ton immer an.",
+                                 "Activa o desactiva el squelch. Desactivado, el audio siempre suena.",
+                                 "スケルチのオン／オフ。オフでは常に音が出ます。", "开启或关闭静噪。关闭时始终有声音。"};
+                case 3: return {"Raise the squelch level: only stronger signals open it",
+                                 "Alza il livello dello squelch: lo aprono solo i segnali più forti",
+                                 "Monte le niveau du squelch : seuls les signaux plus forts l’ouvrent",
+                                 "Erhöht die Rauschsperre: nur stärkere Signale öffnen sie",
+                                 "Sube el nivel del squelch: solo lo abren señales más fuertes",
+                                 "スケルチのレベルを上げる（強い信号だけで開く）", "提高静噪电平：只有较强的信号才能打开"};
+                case 4: return {"The squelch level on the S-meter scale. This key does nothing.",
+                                 "Il livello dello squelch sulla scala dell’S-meter. Questo tasto non fa nulla.",
+                                 "Le niveau du squelch sur l’échelle du S-mètre. Cette touche n’a pas d’effet.",
+                                 "Die Schwelle der Rauschsperre auf der S-Meter-Skala. Diese Taste hat keine Funktion.",
+                                 "El nivel del squelch en la escala del S-metro. Esta tecla no hace nada.",
+                                 "S メーター目盛りでのスケルチレベル。このキーは使いません。", "静噪电平（S 表刻度）。此键无功能。"};
             }
             break;
         case Page::Calib:

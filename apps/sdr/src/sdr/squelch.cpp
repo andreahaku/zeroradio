@@ -7,6 +7,7 @@
 #include "squelch.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace sdr {
 
@@ -63,6 +64,20 @@ void Squelch::update(int level, int64_t now_ms) {
         open_ = false;
         below_since_ms_.reset();
     }
+}
+
+int channel_level(const float* mags, int n_bins, double span_hz, int32_t low_hz, int32_t high_hz) {
+    if (!mags || n_bins <= 0 || span_hz <= 0.0) return 0;
+    const double hz_per_bin = span_hz / static_cast<double>(n_bins);
+    const double centre = n_bins / 2.0;
+    int lo = static_cast<int>(std::floor(centre + low_hz / hz_per_bin));
+    int hi = static_cast<int>(std::ceil(centre + high_hz / hz_per_bin)) - 1;
+    const int centre_bin = std::min(n_bins - 1, static_cast<int>(centre));
+    lo = std::clamp(std::min(lo, centre_bin), 0, n_bins - 1);
+    hi = std::clamp(std::max(hi, centre_bin), 0, n_bins - 1);
+    float peak = 0.0f;
+    for (int i = lo; i <= hi; ++i) peak = std::max(peak, mags[i]);
+    return static_cast<int>(std::lround(std::clamp(peak, 0.0f, 1.0f) * 100.0f));
 }
 
 } // namespace sdr

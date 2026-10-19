@@ -36,4 +36,11 @@ private:
     std::optional<int64_t> below_since_ms_;
 };
 
+// The signal level in the tuned channel, 0..100: the strongest of `n_bins`
+// display magnitudes (each in [0, 1], spread evenly over `span_hz` and centred
+// on the VFO) that fall inside the passband [low_hz, high_hz] around the VFO.
+// The centre bin always counts, so a passband narrower than one bin still
+// reads a level. The S-meter and the squelch both use it.
+int channel_level(const float* mags, int n_bins, double span_hz, int32_t low_hz, int32_t high_hz);
+
 } // namespace sdr

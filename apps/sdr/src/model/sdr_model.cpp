@@ -8,6 +8,7 @@
 
 #include "persisted_state.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdlib>
@@ -23,9 +24,9 @@ constexpr const char* kStateFile   = "state";
 
 // State file format version. v4 (SDRTerminal's layout): vfo, mode, volume, mute,
 // span, band, fine, dark, freq grid, time grid, peak hold, gain auto, gain.
-// v5 appends the frequency correction in tenths of ppm. A v4 file still loads,
-// with no correction.
-constexpr int kStateVersion = 5;
+// v5 appends the frequency correction in tenths of ppm, v6 the squelch on/off
+// and level. Older files still load, with the newer fields at their defaults.
+constexpr int kStateVersion = 6;
 constexpr int kOldestStateVersion = 4;
 
 // Span ladder in kHz, widest -> narrowest (2.0 MHz down to 0.1 MHz).
@@ -245,6 +246,23 @@ int64_t SdrModel::corrected_hz(int64_t hz) const {
     return std::llround(static_cast<double>(hz) / (1.0 + ppm_tenths_ * 1e-7));
 }
 
+bool SdrModel::squelch_on() const { return squelch_on_; }
+int SdrModel::squelch_threshold() const { return squelch_threshold_; }
+void SdrModel::toggle_squelch() {
+    squelch_on_ = !squelch_on_;
+    save_state();
+}
+void SdrModel::squelch_up() {
+    squelch_on_ = true;
+    squelch_threshold_ = std::min(100 - kSquelchStep, squelch_threshold_ + kSquelchStep);
+    save_state();
+}
+void SdrModel::squelch_down() {
+    squelch_on_ = true;
+    squelch_threshold_ = std::max(kSquelchStep, squelch_threshold_ - kSquelchStep);
+    save_state();
+}
+
 void SdrModel::load_state() {
     const auto path = toolkit::config_file(kStateSubdir, kStateFile);
     if (path.empty()) {
@@ -303,6 +321,13 @@ void SdrModel::load_state() {
     if (version >= 5 && in >> ppm && ppm >= -kMaxPpmTenths && ppm <= kMaxPpmTenths) {
         ppm_tenths_ = ppm;
     }
+    int sq_on = 0, sq_level = 0;
+    if (version >= 6 && in >> sq_on >> sq_level) {
+        squelch_on_ = (sq_on != 0);
+        if (sq_level >= kSquelchStep && sq_level <= 100 - kSquelchStep) {
+            squelch_threshold_ = sq_level;
+        }
+    }
 }
 
 void SdrModel::save_state() const {
@@ -319,7 +344,8 @@ void SdrModel::save_state() const {
             << ' ' << (freq_grid_ ? 1 : 0) << ' ' << (time_grid_ ? 1 : 0)
             << ' ' << (peak_hold_ ? 1 : 0)
             << ' ' << (gain_auto_ ? 1 : 0) << ' ' << gain_tenth_db_
-            << ' ' << ppm_tenths_ << '\n';
+            << ' ' << ppm_tenths_
+            << ' ' << (squelch_on_ ? 1 : 0) << ' ' << squelch_threshold_ << '\n';
     }
 }
 

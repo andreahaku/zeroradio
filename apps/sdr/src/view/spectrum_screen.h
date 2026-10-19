@@ -52,6 +52,7 @@ private:
     static constexpr int32_t kWaterfallWidth  = 320;
     static constexpr int32_t kWaterfallHeight = 120;
     static constexpr int     kBins            = kWaterfallWidth; // 1 bin per column
+    static constexpr int32_t kSmeterWidth     = 44;
 
     // The waterfall buffer is allocated at the FULL chart+waterfall area height so
     // the canvas object can grow to cover the spectrum chart (the "100% waterfall"
@@ -107,6 +108,11 @@ private:
     int                 last_pb_x_  = -1;
     int                 last_pb_w_  = -1;
     lv_timer_t*         timer_      = nullptr;
+    lv_obj_t*           smeter_     = nullptr; // S-meter bar (channel level)
+    lv_obj_t*           sq_marker_  = nullptr; // squelch level tick on the S-meter
+    int                 sq_marker_level_ = -1; // level drawn, -1 = hidden
+    int                 sq_shown_open_   = -1; // indicator colour state drawn
+    void update_squelch_view(bool open);
 
     lv_obj_t*           freq_dialog_      = nullptr;
     lv_obj_t*           freq_value_label_ = nullptr;

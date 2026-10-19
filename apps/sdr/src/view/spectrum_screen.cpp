@@ -169,11 +169,22 @@ void SpectrumScreen::build_content(lv_obj_t* content) {
     reactive::bind_theme(s_label, vm_.dark_mode_subject(), reactive::ThemeRole::Text);
 
     auto* smeter = lv_bar_create(smeter_box);
-    lv_obj_set_size(smeter, 44, 8);
+    lv_obj_set_size(smeter, kSmeterWidth, 8);
     lv_bar_set_range(smeter, 0, 100);
     lv_obj_set_style_bg_color(smeter, view::palette(false).primary, LV_PART_INDICATOR);
     lv_obj_remove_flag(smeter, LV_OBJ_FLAG_CLICKABLE);
     reactive::bind_bar_value(smeter, vm_.smeter_subject());
+    smeter_ = smeter;
+
+    // Squelch level: a white tick across the S-meter, hidden while it is off.
+    sq_marker_ = lv_obj_create(smeter);
+    lv_obj_remove_style_all(sq_marker_);
+    lv_obj_set_size(sq_marker_, 2, 8);
+    lv_obj_set_style_bg_color(sq_marker_, lv_color_white(), 0);
+    lv_obj_set_style_bg_opa(sq_marker_, LV_OPA_COVER, 0);
+    lv_obj_add_flag(sq_marker_, LV_OBJ_FLAG_IGNORE_LAYOUT);
+    lv_obj_add_flag(sq_marker_, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(sq_marker_, LV_OBJ_FLAG_CLICKABLE);
 
     // --- Spectrum line chart ---
     chart_ = lv_chart_create(content);
@@ -581,10 +592,19 @@ void SpectrumScreen::tick() {
     source_->set_tuning(vm_.tuner_hz(), static_cast<int32_t>(vm_.span_khz()) * 1000);
     source_->set_mode(static_cast<int>(vm_.mode()));
     source_->set_volume(vm_.volume_gain());
-    source_->set_muted(vm_.muted());
     source_->set_gain(vm_.gain_auto(), vm_.gain_tenth_db());
 
     source_->next_frame(frame_.data(), kBins);
+
+    // The level in the tuned channel drives the S-meter and the squelch. A
+    // closed squelch mutes the audio like the mute key, without changing it.
+    const auto pb = vm_.passband();
+    const int level = channel_level(frame_.data(), kBins,
+                                    static_cast<double>(vm_.span_khz()) * 1000.0,
+                                    pb.low_hz, pb.high_hz);
+    const bool open = vm_.update_channel_level(level, static_cast<int64_t>(lv_tick_get()));
+    source_->set_muted(vm_.muted() || !open);
+    update_squelch_view(open);
 
     // Feed the chart: scale [0,1] magnitudes to the integer Y array in place.
     if (chart_ && series_) {
@@ -601,8 +621,29 @@ void SpectrumScreen::tick() {
 
     push_waterfall_row(frame_.data());
     update_passband();
+}
 
-    vm_.set_smeter(static_cast<int>(source_->last_peak() * 100.0f));
+void SpectrumScreen::update_squelch_view(bool open) {
+    if (!smeter_ || !sq_marker_) {
+        return;
+    }
+    const int want = vm_.squelch_on() ? vm_.squelch_threshold() : -1;
+    if (want != sq_marker_level_) {
+        sq_marker_level_ = want;
+        if (want < 0) {
+            lv_obj_add_flag(sq_marker_, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_set_pos(sq_marker_, (kSmeterWidth - 2) * want / 100, 0);
+            lv_obj_remove_flag(sq_marker_, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+    // Grey while the squelch holds the audio back, green otherwise.
+    const int shown_open = open ? 1 : 0;
+    if (shown_open != sq_shown_open_) {
+        sq_shown_open_ = shown_open;
+        lv_obj_set_style_bg_color(smeter_, open ? view::palette(false).primary : lv_color_hex(0x808080),
+                                  LV_PART_INDICATOR);
+    }
 }
 
 void SpectrumScreen::push_waterfall_row(const float* mags) {

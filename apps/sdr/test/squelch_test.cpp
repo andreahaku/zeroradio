@@ -7,6 +7,7 @@
 #include "squelch.h"
 
 #include <cstdio>
+#include <vector>
 
 namespace {
 
@@ -71,6 +72,26 @@ int main() {
     immediate.update(60, 0);
     immediate.update(0, 1);
     check(!immediate.open(), "zero hold closes immediately");
+
+    // Channel level: 320 bins over 320 kHz, so 1 kHz per bin, VFO at bin 160.
+    std::vector<float> mags(320, 0.1f);
+    mags[100] = 0.9f; // a strong signal 60 kHz away, outside the channel
+    check(sdr::channel_level(mags.data(), 320, 320000.0, -6000, 6000) == 10,
+          "a signal outside the passband does not count");
+    mags[163] = 0.55f; // 3 kHz above the VFO
+    check(sdr::channel_level(mags.data(), 320, 320000.0, -6000, 6000) == 55,
+          "a signal inside the passband sets the level");
+    check(sdr::channel_level(mags.data(), 320, 320000.0, -2700, 0) == 10,
+          "LSB passband ignores a signal above the VFO");
+    mags[160] = 0.4f;
+    check(sdr::channel_level(mags.data(), 320, 320000.0, -250, 250) == 40,
+          "a passband narrower than a bin reads the centre bin");
+    mags[0] = 1.0f;
+    mags[319] = 1.0f;
+    check(sdr::channel_level(mags.data(), 320, 320000.0, -500000, 500000) == 100,
+          "a passband wider than the span is clamped to the frame");
+    check(sdr::channel_level(nullptr, 320, 320000.0, -6000, 6000) == 0, "no frame");
+    check(sdr::channel_level(mags.data(), 320, 0.0, -6000, 6000) == 0, "no span");
 
     if (failures == 0) std::printf("squelch_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
