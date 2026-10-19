@@ -22,7 +22,10 @@ file(GLOB_RECURSE SDR_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
 )
-list(REMOVE_ITEM SDR_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/sdr/squelch.cpp")
+# squelch.cpp lives in sdr_squelch (linked below): don't compile it twice. Filter
+# by regex, as adsb_app does, so a differently normalised glob result cannot slip
+# a second copy in.
+list(FILTER SDR_SOURCES EXCLUDE REGEX "/sdr/squelch\\.cpp$")
 
 add_executable(sdr_app ${SDR_SOURCES})
 

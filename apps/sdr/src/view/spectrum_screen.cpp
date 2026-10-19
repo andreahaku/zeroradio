@@ -599,9 +599,10 @@ void SpectrumScreen::tick() {
     // The level in the tuned channel drives the S-meter and the squelch. A
     // closed squelch mutes the audio like the mute key, without changing it.
     const auto pb = vm_.passband();
-    const int level = channel_level(frame_.data(), kBins,
-                                    static_cast<double>(vm_.span_khz()) * 1000.0,
-                                    pb.low_hz, pb.high_hz);
+    const int level = channel_level(
+        frame_.data(), kBins,
+        source_->frame_span_hz(static_cast<int32_t>(vm_.span_khz()) * 1000),
+        pb.low_hz, pb.high_hz);
     const bool open = vm_.update_channel_level(level, static_cast<int64_t>(lv_tick_get()));
     source_->set_muted(vm_.muted() || !open);
     update_squelch_view(open);

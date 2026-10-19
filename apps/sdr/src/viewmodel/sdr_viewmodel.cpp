@@ -127,7 +127,6 @@ void SdrViewModel::squelch_up()     { model_.squelch_up();     apply_squelch_set
 void SdrViewModel::squelch_down()   { model_.squelch_down();   apply_squelch_settings(); bump_nav_refresh(); }
 bool SdrViewModel::squelch_on() const { return model_.squelch_on(); }
 int SdrViewModel::squelch_threshold() const { return model_.squelch_threshold(); }
-bool SdrViewModel::squelch_open() const { return squelch_.open(); }
 bool SdrViewModel::update_channel_level(int level, int64_t now_ms) {
     set_smeter(level);
     squelch_.update(level, now_ms);

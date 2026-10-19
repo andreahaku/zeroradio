@@ -124,9 +124,9 @@ cycles the tool page** (1→7) and shows the page name.
 | Key | P1 · Tuning | P2 · Zoom/Band | P3 · Visual | P4 · Audio | P5 · Squelch | P6 · Settings | P7 · Calibration |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `4` | page switch | page switch | page switch | page switch | page switch | page switch | page switch |
-| `5` | tune − | zoom − | dark/light | mute | level −5 | gain − | correction −0.1 ppm |
+| `5` | tune − | zoom − | dark/light | mute | level −5 (turns it on) | gain − | correction −0.1 ppm |
 | `6` | **frequency entry** | band preset | freq grid | volume − | **on/off** | gain + | **correction entry** (ppm) |
-| `7` | tune + | zoom + | **waterfall/spectrum split** (80/50/0/100 %) | volume + | level +5 | gain auto / value | correction +0.1 ppm |
+| `7` | tune + | zoom + | **waterfall/spectrum split** (80/50/0/100 %) | volume + | level +5 (turns it on) | gain auto / value | correction +0.1 ppm |
 | `8` | coarse/fine (step) | **demod mode** | peak hold | volume % | level | exit | correction (ppm) |
 
 Global keys, shared by every ZeroRadio app:

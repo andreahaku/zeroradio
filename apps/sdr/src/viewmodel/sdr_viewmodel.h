@@ -103,7 +103,6 @@ public:
     int     ppm_tenths() const;
     bool    squelch_on() const;
     int     squelch_threshold() const;   // the level, also while the squelch is off
-    bool    squelch_open() const;        // true when off, or when a signal is in
     RadioMode mode() const;
     Passband  passband() const;
 

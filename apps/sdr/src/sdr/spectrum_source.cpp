@@ -48,7 +48,6 @@ void MockSpectrumSource::next_frame(float* mags, int n_bins) {
 
     phase_ += 1.0f;
 
-    float peak = 0.0f;
     const float inv_bins = 1.0f / static_cast<float>(n_bins);
 
     for (int i = 0; i < n_bins; ++i) {
@@ -69,12 +68,7 @@ void MockSpectrumSource::next_frame(float* mags, int n_bins) {
             value = 1.0f;
         }
         mags[i] = value;
-        if (value > peak) {
-            peak = value;
-        }
     }
-
-    last_peak_ = peak;
 }
 
 } // namespace sdr
