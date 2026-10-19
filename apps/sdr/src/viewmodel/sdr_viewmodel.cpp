@@ -238,9 +238,15 @@ void SdrViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
         case Page::Calib: {
             char text[16];
             const int t = model_.ppm_tenths();
-            // ppm, kept short to fit the slot: "0.0", "2.4", "-12.5".
-            std::snprintf(text, sizeof(text), "%s%d.%d", t < 0 ? "-" : "",
-                          (t < 0 ? -t : t) / 10, (t < 0 ? -t : t) % 10);
+            // ppm, short enough for the 32 px slot: one decimal below 10 ppm
+            // ("2.4", "-2.4"), whole ppm from 10 up ("12", "-200"). The entry
+            // dialog shows the exact value.
+            const int a = t < 0 ? -t : t;
+            if (a < 100) {
+                std::snprintf(text, sizeof(text), "%s%d.%d", t < 0 ? "-" : "", a / 10, a % 10);
+            } else {
+                std::snprintf(text, sizeof(text), "%s%d", t < 0 ? "-" : "", (a + 5) / 10);
+            }
             ppm_label_ = text;
             out[1] = {view::ICON_MINUS, false, true};        // -0.1 ppm
             out[2] = {view::ICON_KEYBOARD, false, true};     // type a correction

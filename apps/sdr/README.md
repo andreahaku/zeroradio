@@ -191,6 +191,9 @@ The `.deb` installs every app under `/usr/share/zeroradio`.
 
 - WFM is verified by ear. NFM, AM, SSB and CW audio still need a check with a proper antenna in a
   quieter RF environment.
+- The frequency correction moves the tuned centre only. The crystal error also scales the sample
+  rate, so the span edges and the audio pitch keep the error: half a hertz per ppm at the edge of a
+  1 MHz span, which is too small to see.
 - Waterfall frequency labels show 3 decimals (1 kHz resolution). The header shows 4 decimals, so
   100 Hz fine tuning appears on the header but not on the waterfall scale.
 

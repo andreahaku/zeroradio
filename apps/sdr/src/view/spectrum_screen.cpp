@@ -393,14 +393,15 @@ void SpectrumScreen::update_freq_label() {
         lv_label_set_text(freq_value_label_, freq_buf_.empty() ? "_" : freq_buf_.c_str());
     }
     if (freq_info_label_) {
-        // What the typed value (or the current one, before typing) moves the
-        // tuner by at this frequency.
+        // How far the typed value (or the current one, before typing) moves
+        // the signals on screen at this frequency: a positive correction moves
+        // them up, to the right.
         double ppm = vm_.ppm_tenths() / 10.0;
         if (!freq_buf_.empty() && freq_buf_ != "-") {
             ppm = std::strtod(freq_buf_.c_str(), nullptr);
         }
         const double hz = static_cast<double>(vm_.vfo_hz()) * ppm * 1e-6;
-        lv_label_set_text_fmt(freq_info_label_, "%s%.1f ppm = %+d Hz at %.3f MHz",
+        lv_label_set_text_fmt(freq_info_label_, "%s%.1f ppm moves signals %+d Hz at %.3f MHz",
                               freq_buf_.empty() ? "now " : "", ppm,
                               static_cast<int>(std::lround(hz)), vm_.vfo_hz() / 1e6);
     }

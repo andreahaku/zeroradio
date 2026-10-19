@@ -24,7 +24,7 @@ Key 4 cycles six tool pages. The screen stays the same: mode on the left, tuned 
 
 Frequency entry (page 1, key 6): type MHz with digits and a dot (SYM + .), up to 4 decimals, for example 98.525, Backspace deletes, Enter tunes, Esc cancels.
 
-Correction entry (page 6, key 6): type ppm with up to one decimal, for example 2.4. The - key changes the sign. The dialog shows how many Hz the value moves the tuner at the current frequency. Enter saves, Esc cancels.
+Correction entry (page 6, key 6): type ppm with up to one decimal, for example 2.4. The - key changes the sign. The dialog shows how many Hz the value moves the signals on screen at the current frequency. A positive value moves them to the right. Enter saves, Esc cancels.
 
 ## Calibrate the frequency
 
