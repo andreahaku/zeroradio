@@ -63,6 +63,11 @@ bool ShellViewModel::nav_has_hold(int slot) const {
     return nav_provider_ && nav_provider_->nav_has_hold(toolbar_page_subject_.value(), slot);
 }
 
+bool ShellViewModel::nav_repeats(int slot) const {
+    return slot != 0 && nav_provider_ &&
+           nav_provider_->nav_repeats(toolbar_page_subject_.value(), slot);
+}
+
 std::string ShellViewModel::nav_hold(int slot) {
     if (slot == 0) {
         cycle_toolbar_back();

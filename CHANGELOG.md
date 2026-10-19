@@ -4,6 +4,7 @@ All notable changes to ZeroRadio. Versions follow semantic versioning.
 
 ## Unreleased
 
+- Keys: left/right (Z/C) repeat while held, after 400 ms and then ten times a second, in every app. In the SDR the tune keys 5 and 7 on page 1 repeat too.
 - Scanner: peaks and the waterfall sat half a bin above the real frequency with rtl_power (about +30 kHz on a 20 MHz span). rtl_power gives FFT bin centres, not intervals, so the half-bin offset now applies to hackrf_sweep only.
 - Scanner: Enter on the Peaks page opens the selected peak in the SDR, like key 7.
 - SDR: the audio no longer drops out every few seconds. The capture rate is now always a multiple of 240 kHz, so the audio comes out at exactly 48 kHz. Before, the device's 1.024 Msps (and 1 or 1.5 MHz zoom on the desktop) gave up to 51.2 kHz, faster than the speaker plays it.

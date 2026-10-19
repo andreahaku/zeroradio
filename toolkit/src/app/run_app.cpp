@@ -350,6 +350,10 @@ bool nav_has_hold_trampoline(int slot, void* ctx) {
     return static_cast<ShellViewModel*>(ctx)->nav_has_hold(slot);
 }
 
+bool nav_repeats_trampoline(int slot, void* ctx) {
+    return static_cast<ShellViewModel*>(ctx)->nav_repeats(slot);
+}
+
 void nav_hold_trampoline(int slot, void* ctx) {
     show_status(static_cast<ShellViewModel*>(ctx)->nav_hold(slot));
 }
@@ -393,6 +397,7 @@ int run_app(ShellViewModel& shell,
     platform::set_quit_handler(quit_handler_trampoline, &shell);
     platform::set_tab_handler(tab_handler_trampoline, &shell);
     platform::set_nav_hold_handler(nav_has_hold_trampoline, nav_hold_trampoline, &shell);
+    platform::set_nav_repeat_handler(nav_repeats_trampoline, &shell);
     platform::set_arrow_handler(arrow_handler_trampoline, &shell);
     platform::set_home_handler(home_handler_trampoline, hold_hint_trampoline, &shell);
     overlays = Overlays{};
@@ -440,6 +445,7 @@ int run_app(ShellViewModel& shell,
     platform::set_quit_handler(nullptr, nullptr);
     platform::set_tab_handler(nullptr, nullptr);
     platform::set_nav_hold_handler(nullptr, nullptr, nullptr);
+    platform::set_nav_repeat_handler(nullptr, nullptr);
     platform::set_arrow_handler(nullptr, nullptr);
     platform::set_home_handler(nullptr, nullptr, nullptr);
     platform::set_nav_hint_handler(nullptr, nullptr);

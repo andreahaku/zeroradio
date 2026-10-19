@@ -548,6 +548,11 @@ void SdrViewModel::nav_activate(int page, int slot) {
     }
 }
 
+bool SdrViewModel::nav_repeats(int page, int slot) const {
+    // Held, tune down/up keep stepping, like the left/right arrows.
+    return static_cast<Page>(page) == Page::Tuning && (slot == 1 || slot == 3);
+}
+
 const char* SdrViewModel::nav_page_name(int page) const {
     switch (static_cast<Page>(page)) {
         case Page::Tuning: return "TUNE";

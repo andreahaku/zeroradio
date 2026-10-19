@@ -94,6 +94,7 @@ public:
     // 1..4 ask the provider. nav_hold() returns a status to show, or "".
     bool nav_has_hold(int slot) const;
     std::string nav_hold(int slot);
+    bool nav_repeats(int slot) const; // the provider's, never slot 0
     void bump_nav_refresh(); // force a NavBar re-render after slot labels change
 
     // --- NavProvider wiring ---

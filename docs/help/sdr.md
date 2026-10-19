@@ -48,7 +48,7 @@ At the narrowest zoom one pixel is about 300 Hz, and 1 ppm is 130 Hz on the airb
 ## Global keys
 
 - 4: the next page of keys. The key shows the page name: TUNE, ZOOM, VIEW, AUDIO, SQL, GAIN (CAL while calibrating), and SCAN during a memory scan. Hold 4 for the page before.
-- Arrows (F/X/Z/C): Z/C tune down/up by one step, F/X zoom in/out.
+- Arrows (F/X/Z/C): Z/C tune down/up by one step, F/X zoom in/out. Hold Z/C, or keys 5/7 on page 1, to keep tuning.
 - Fn+A mutes or unmutes, Fn+S and Fn+D turn the volume down and up, from any page.
 - TAB: switch to the Scanner app.
 - SYM + 4 to 8: a tooltip that says what that key does on this page, in your language (English, Italian, French, German, Spanish, Japanese or Chinese).
