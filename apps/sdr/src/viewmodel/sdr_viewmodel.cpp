@@ -72,20 +72,10 @@ SdrViewModel::SdrViewModel() {
     publish_gain();
 }
 
-SdrViewModel::~SdrViewModel() {
-    // Quitting while calibrating: keep the zoom the user had.
-    if (calibrating_) restore_span(cal_prev_span_khz_);
-}
-
-void SdrViewModel::on_tab() {
-    // The hand-off replaces this process without running the destructor.
-    finish_calibration();
-    request_handoff("survey_app", "survey");
-}
-
 void SdrViewModel::restore_span(int32_t span_khz) {
     // The arrows zoom during a calibration too, so the span may sit on
-    // either side of the one to restore.
+    // either side of the one to restore. The calibration zooms for the
+    // session only, so the state file still holds this span.
     for (;;) {
         const int32_t before = model_.span_khz();
         if (before < span_khz) model_.zoom_out();
@@ -159,13 +149,13 @@ void SdrViewModel::start_calibration() {
     stop_scan(); // the scan retunes on its own and would fight the alignment
     calibrating_ = true;
     cal_prev_span_khz_ = model_.span_khz();
-    // As far in as the zoom goes: the alignment needs every pixel.
+    // As far in as the zoom goes: the alignment needs every pixel. For this
+    // session only, so a quit, a hand-off or a power cut keeps the old zoom.
     for (;;) {
         const int32_t before = model_.span_khz();
-        model_.zoom_in();
+        model_.zoom_in(/*persist=*/false);
         if (model_.span_khz() == before) break;
     }
-    lv_subject_set_int(toolbar_page_subject(), static_cast<int>(Page::Settings));
     publish_vfo();
     publish_cal_text();
     bump_nav_refresh();
@@ -190,10 +180,11 @@ void SdrViewModel::publish_cal_text() {
     // moves the signals at this frequency (a positive one moves them up).
     const int t = model_.ppm_tenths();
     const int a = t < 0 ? -t : t;
-    const double hz = static_cast<double>(model_.vfo_hz()) * t * 1e-7;
+    const long hz = std::lround(static_cast<double>(model_.vfo_hz()) * t * 1e-7);
     char text[48];
-    std::snprintf(text, sizeof(text), "CAL %s%d.%d ppm = %+ld Hz at %.3f", t < 0 ? "-" : "",
-                  a / 10, a % 10, std::lround(hz), model_.vfo_hz() / 1e6);
+    std::snprintf(text, sizeof(text), hz != 0 ? "CAL %s%d.%d ppm = %+ld Hz at %.3f"
+                                              : "CAL %s%d.%d ppm = %ld Hz at %.3f",
+                  t < 0 ? "-" : "", a / 10, a % 10, hz, model_.vfo_hz() / 1e6);
     status_text_subject_.set(text);
 }
 int SdrViewModel::ppm_tenths() const { return model_.ppm_tenths(); }
@@ -359,8 +350,8 @@ void SdrViewModel::scan_lock_out() {
 }
 int64_t SdrViewModel::tuner_hz() const { return model_.corrected_hz(model_.vfo_hz()); }
 
-void SdrViewModel::zoom_in()   { model_.zoom_in();   publish_vfo(); }
-void SdrViewModel::zoom_out()  { model_.zoom_out();  publish_vfo(); }
+void SdrViewModel::zoom_in()   { model_.zoom_in(!calibrating_);  publish_vfo(); }
+void SdrViewModel::zoom_out()  { model_.zoom_out(!calibrating_); publish_vfo(); }
 void SdrViewModel::cycle_band(){ stop_scan(); model_.cycle_band(); publish_vfo(); }
 
 void SdrViewModel::toggle_freq_grid() { model_.toggle_freq_grid(); publish_grids(); }

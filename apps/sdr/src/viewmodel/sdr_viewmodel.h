@@ -41,7 +41,6 @@ public:
     };
 
     SdrViewModel();
-    ~SdrViewModel() override;
 
     // --- SDR subjects (observed by the SpectrumScreen / header) ---
     lv_subject_t* vfo_text_subject();
@@ -145,7 +144,7 @@ public:
     toolkit::i18n::Text nav_hint(int page, int slot) const override;
 
     // TAB: switch to the Spectrum Survey app (see toolkit::run_handoff).
-    void on_tab() override;
+    void on_tab() override { request_handoff("survey_app", "survey"); }
 
     // Arrows on every page: left/right tune by one step, up/down zoom in/out.
     void on_left() override { tune_down(); }

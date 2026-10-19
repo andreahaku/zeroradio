@@ -86,6 +86,26 @@ int main() {
         check(m.ppm_tenths() == 0, "out-of-range correction ignored");
     }
 
+    // A session-only zoom (the calibration's) never reaches the state file,
+    // even when another setting saves it.
+    write_state(dir, "6 127400000 2 50 0 2 0 0 1 1 1 0 1 297 0 0 30");
+    {
+        sdr::SdrModel m;
+        check(m.span_khz() == 1000, "v6: zoom loads");
+        for (int i = 0; i < 5; ++i) m.zoom_in(/*persist=*/false);
+        check(m.span_khz() == 100, "session-only zoom applies");
+        m.ppm_up(); // saves the state
+    }
+    {
+        sdr::SdrModel m;
+        check(m.span_khz() == 1000, "session-only zoom not saved");
+        m.zoom_out();
+    }
+    {
+        sdr::SdrModel m;
+        check(m.span_khz() == 1500, "a normal zoom is saved");
+    }
+
     std::error_code ec;
     std::filesystem::remove_all(dir, ec);
     if (failures == 0) std::printf("sdr_model_test: all checks passed\n");

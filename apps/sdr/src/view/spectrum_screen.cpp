@@ -271,7 +271,8 @@ void SpectrumScreen::build_content(lv_obj_t* content) {
     lv_obj_remove_flag(passband_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_remove_flag(passband_, LV_OBJ_FLAG_CLICKABLE);
 
-    // --- Memory scan label: top left of the spectrum, only while scanning.
+    // --- Status label: top left of the spectrum, while a memory scan runs or
+    // while calibrating (the calibration stops the scan).
     status_label_ = lv_label_create(content);
     lv_obj_add_flag(status_label_, LV_OBJ_FLAG_IGNORE_LAYOUT);
     lv_obj_align(status_label_, LV_ALIGN_TOP_LEFT, 2, kHeaderHeight + kRowPad);

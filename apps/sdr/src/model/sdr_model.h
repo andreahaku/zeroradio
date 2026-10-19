@@ -79,8 +79,10 @@ public:
     Passband passband() const;
 
     int32_t span_khz() const;
-    void zoom_in();   // narrower span
-    void zoom_out();  // wider span
+    // `persist` false zooms for this session only (the calibration zooms in
+    // and must not leave the narrowest span in the file if the power drops).
+    void zoom_in(bool persist = true);   // narrower span
+    void zoom_out(bool persist = true);  // wider span
 
     void cycle_band(); // jump VFO to the next preset band centre
 
@@ -142,6 +144,7 @@ private:
     RadioMode saved_mode_ = RadioMode::NFM;
     bool fine_tune_ = false;
     int span_level_ = 2;       // index into the span ladder (see sdr_model.cpp)
+    int saved_span_level_ = 2; // what the state file holds, like saved_vfo_hz_
     int band_index_ = 0;
     bool freq_grid_ = true;
     bool time_grid_ = true;

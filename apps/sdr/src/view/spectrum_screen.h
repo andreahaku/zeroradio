@@ -114,7 +114,7 @@ private:
     int                 sq_marker_level_ = -1; // level drawn, -1 = hidden
     int                 sq_shown_open_   = -1; // indicator colour state drawn
     void update_squelch_view(bool open);
-    lv_obj_t*           status_label_ = nullptr; // "SCAN ..." while a memory scan runs
+    lv_obj_t*           status_label_ = nullptr; // scan or calibration status, hidden when empty
     lv_observer_t*      status_text_observer_ = nullptr;
     static void status_text_cb(lv_observer_t* observer, lv_subject_t* subject);
 
