@@ -72,8 +72,9 @@ public:
 
     RadioMode mode() const;
     void set_mode(RadioMode mode, bool persist = true);
-    // Write the state file now (after session-only changes).
-    void persist() const { save_state(); }
+    // Make the session-only frequency and mode the saved ones, and write the
+    // state file (when a memory scan ends).
+    void persist();
     void cycle_mode();
     Passband passband() const;
 
@@ -134,6 +135,11 @@ private:
     bool dark_mode_ = true;
     int32_t vfo_hz_ = 145500000; // 145.500 MHz
     RadioMode mode_ = RadioMode::NFM;
+    // What the state file holds. Equal to vfo_hz_/mode_ except during a memory
+    // scan, whose session-only retunes must not reach the file when another
+    // setting (volume, gain, zoom) saves the state.
+    int32_t saved_vfo_hz_ = 145500000;
+    RadioMode saved_mode_ = RadioMode::NFM;
     bool fine_tune_ = false;
     int span_level_ = 2;       // index into the span ladder (see sdr_model.cpp)
     int band_index_ = 0;

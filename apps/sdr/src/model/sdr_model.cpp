@@ -132,7 +132,10 @@ void SdrModel::set_vfo_hz(int64_t hz, bool persist) {
         return; // no change -> skip the redundant state write
     }
     vfo_hz_ = v;
-    if (persist) save_state();
+    if (persist) {
+        saved_vfo_hz_ = v;
+        save_state();
+    }
 }
 
 int32_t SdrModel::tune_step_hz() const {
@@ -157,7 +160,16 @@ void SdrModel::toggle_fine_tune() {
 RadioMode SdrModel::mode() const { return mode_; }
 void SdrModel::set_mode(RadioMode mode, bool persist) {
     mode_ = mode;
-    if (persist) save_state();
+    if (persist) {
+        saved_mode_ = mode;
+        save_state();
+    }
+}
+
+void SdrModel::persist() {
+    saved_vfo_hz_ = vfo_hz_;
+    saved_mode_ = mode_;
+    save_state();
 }
 void SdrModel::cycle_mode() {
     const int next = (static_cast<int>(mode_) + 1) % kRadioModeCount;
@@ -281,9 +293,11 @@ void SdrModel::load_state() {
     if (in >> hz >> mode_idx) {
         if (hz >= 0) {
             vfo_hz_ = hz;
+            saved_vfo_hz_ = hz;
         }
         if (mode_idx >= 0 && mode_idx < kRadioModeCount) {
             mode_ = static_cast<RadioMode>(mode_idx);
+            saved_mode_ = mode_;
         }
     }
     int vol = 0, mute = 0;
@@ -337,7 +351,7 @@ void SdrModel::save_state() const {
     }
     std::ofstream out(path, std::ios::trunc);
     if (out) {
-        out << kStateVersion << ' ' << vfo_hz_ << ' ' << static_cast<int>(mode_)
+        out << kStateVersion << ' ' << saved_vfo_hz_ << ' ' << static_cast<int>(saved_mode_)
             << ' ' << volume_ << ' ' << (muted_ ? 1 : 0)
             << ' ' << span_level_ << ' ' << band_index_
             << ' ' << (fine_tune_ ? 1 : 0) << ' ' << (dark_mode_ ? 1 : 0)

@@ -33,11 +33,13 @@ std::vector<ScanChannel> parse_scan_list(const std::string& text, size_t max) {
 }
 
 MemoryScan::MemoryScan(std::vector<ScanChannel> channels, Timing timing)
-    : channels_(std::move(channels)), timing_(timing), locked_(channels_.size(), false) {
+    : channels_(std::move(channels)), timing_(timing), locked_(channels_.size(), false),
+      done_(channels_.size(), false) {
     regroup(0.0, 0, 0); // one channel per group until the caller knows the frame span
 }
 
 void MemoryScan::regroup(double frame_span_hz, int32_t edge_hz, int64_t now_ms) {
+    const int64_t was_on = groups_.empty() ? -1 : tune_hz();
     std::vector<size_t> order(channels_.size());
     std::iota(order.begin(), order.end(), size_t{0});
     std::stable_sort(order.begin(), order.end(),
@@ -60,8 +62,19 @@ void MemoryScan::regroup(double frame_span_hz, int32_t edge_hz, int64_t now_ms) 
         groups_.push_back(std::move(g));
         i = j;
     }
-    // Restart where the scan was, on the group that now holds that channel.
-    group_ = std::min(group_, groups_.empty() ? size_t{0} : groups_.size() - 1);
+    // Go on from the group that now holds the frequency the scan was on: the
+    // first group whose last channel is at or above it.
+    group_ = 0;
+    if (was_on >= 0) {
+        for (size_t g = 0; g < groups_.size(); ++g) {
+            if (channels_[groups_[g].members.back()].hz >= was_on) {
+                group_ = g;
+                break;
+            }
+            group_ = g;
+        }
+    }
+    std::fill(done_.begin(), done_.end(), false);
     active_ = -1;
     heard_ = false;
     tuned_at_ms_ = now_ms;
@@ -79,6 +92,16 @@ bool MemoryScan::group_usable(size_t g) const {
     return false;
 }
 
+void MemoryScan::finish_channel(int64_t now_ms) {
+    if (active_ >= 0) done_[static_cast<size_t>(active_)] = true;
+    const int64_t before = tune_hz();
+    active_ = -1;
+    heard_ = false;
+    // Back to the group centre to read the other channels. A one-channel group
+    // stays put, so the next read happens without a settle.
+    if (tune_hz() != before) tuned_at_ms_ = now_ms;
+}
+
 bool MemoryScan::exhausted() const {
     return std::all_of(locked_.begin(), locked_.end(), [](bool b) { return b; });
 }
@@ -87,6 +110,7 @@ void MemoryScan::next_group(int64_t now_ms) {
     active_ = -1;
     heard_ = false;
     tuned_at_ms_ = now_ms;
+    std::fill(done_.begin(), done_.end(), false); // a new pass
     if (groups_.empty() || exhausted()) return;
     for (size_t step = 0; step < groups_.size(); ++step) {
         group_ = (group_ + 1) % groups_.size();
@@ -110,7 +134,7 @@ void MemoryScan::tick(int64_t now_ms, const std::function<int(size_t)>& level_of
         int best = -1;
         int best_level = -1;
         for (const size_t i : groups_[group_].members) {
-            if (locked_[i]) continue;
+            if (!candidate(i)) continue;
             const int level = level_of(i);
             if (level >= threshold && level > best_level) {
                 best = static_cast<int>(i);
@@ -137,16 +161,19 @@ void MemoryScan::tick(int64_t now_ms, const std::function<int(size_t)>& level_of
     // Closed: either the transmission ended (the squelch held through the
     // pauses), or it never opened here (a false start).
     if (heard_ || now_ms - tuned_at_ms_ >= timing_.settle_ms + timing_.confirm_ms) {
-        next_group(now_ms);
+        finish_channel(now_ms);
     }
 }
 
-void MemoryScan::skip(int64_t now_ms) { next_group(now_ms); }
+void MemoryScan::skip(int64_t now_ms) {
+    if (active_ >= 0) finish_channel(now_ms);
+    else next_group(now_ms);
+}
 
 bool MemoryScan::lock_out(int64_t now_ms) {
     if (active_ < 0) return false;
     locked_[static_cast<size_t>(active_)] = true;
-    next_group(now_ms);
+    finish_channel(now_ms);
     return true;
 }
 

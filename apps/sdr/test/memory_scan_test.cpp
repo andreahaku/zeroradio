@@ -104,7 +104,10 @@ int main() {
     scan.tick(t += 5000, air.reader(scan), th, true); // a long transmission
     check(scan.tune_hz() == 156500000, "stays while the squelch is open");
     scan.tick(t += 30, air.reader(scan), th, false); // squelch closed after its hold
-    check(scan.active() < 0 && scan.tune_hz() == 127400000, "moves on when the squelch closes");
+    check(scan.active() < 0 && scan.tune_hz() == 156550000,
+          "transmission over: back to the group centre for the other channels");
+    scan.tick(t += 260, air.reader(scan), th, false); // ch 10 is done for this pass
+    check(scan.active() < 0 && scan.tune_hz() == 127400000, "group quiet: next group");
 
     // A false start: level over the threshold in the group read, but the
     // squelch never opens on the channel.
@@ -129,25 +132,66 @@ int main() {
     int64_t v = 0;
     k.tick(v += 260, busy.reader(k), th, false);
     check(k.active() == 0, "stops on the busy first channel");
-    check(!k.lock_out(v) || k.tune_hz() == 200000000, "lockout moves on");
+    check(k.lock_out(v), "lockout on a channel");
     check(k.locked_out(0), "channel locked out");
+    k.tick(v += 1, busy.reader(k), th, false);
+    check(k.tune_hz() == 200000000, "lockout moves on");
     k.tick(v += 260, busy.reader(k), th, false);
     check(k.active() == 1, "stops on the second channel");
     k.skip(v);
-    k.tick(v += 260, busy.reader(k), th, false);
-    check(k.active() == 1, "the locked channel is never visited again");
+    bool visited_locked = false;
+    // Two ticks: the first finds the group spent for this pass and starts a
+    // new one, the second stops on channel 1 again. (More ticks with the
+    // squelch held closed would end it as a false start.)
+    for (int n = 0; n < 2; ++n) {
+        k.tick(v += 260, busy.reader(k), th, false);
+        visited_locked = visited_locked || k.tune_hz() == 100000000;
+    }
+    check(!visited_locked && k.active() == 1, "the locked channel is never visited again");
     k.pause();
     k.skip(v);
     k.tick(v += 1000, busy.reader(k), th, false);
     check(k.active() < 0 && k.paused(), "paused: no stop while paused");
     k.resume();
     check(!k.lock_out(v), "nothing to lock out while searching");
-    k.tick(v += 260, busy.reader(k), th, false);
+    k.tick(v += 260, busy.reader(k), th, false); // the skipped channel's pass ends
+    k.tick(v += 260, busy.reader(k), th, false); // a new pass stops on it again
     check(k.active() == 1, "resumes");
     check(k.lock_out(v) && k.exhausted(), "all channels locked out");
     const int64_t at = k.tune_hz();
     k.tick(v += 1000, busy.reader(k), th, false);
     check(k.tune_hz() == at, "an exhausted scan stays put");
+
+    // Skip inside a group: the other channels of the group come first, and
+    // the skipped one waits for the next pass.
+    sdr::MemoryScan g({{156500000, "NFM"}, {156800000, "NFM"}, {128150000, "AM"}}, {250, 400});
+    g.regroup(600000.0, 6000, 0);
+    Air two;
+    two.level[156500000] = 80;
+    two.level[156800000] = 60;
+    int64_t w = 0;
+    while (g.tune_hz() != 156650000 && w < 5000) g.tick(w += 260, two.reader(g), th, false);
+    g.tick(w += 260, two.reader(g), th, false);
+    check(g.tune_hz() == 156500000, "group: stops on the strongest channel");
+    g.skip(w);
+    g.tick(w += 260, two.reader(g), th, false);
+    check(g.tune_hz() == 156800000, "skip: the other busy channel of the group is next");
+    g.skip(w);
+    g.tick(w += 260, two.reader(g), th, false);
+    check(g.tune_hz() == 128150000, "skip both: next group, not the skipped channel again");
+
+    // Regroup on a zoom change: the scan goes on from the same frequency.
+    sdr::MemoryScan z({{127400000, "AM"}, {128150000, "AM"}, {156500000, "NFM"}, {156800000, "NFM"}},
+                      {250, 400});
+    z.regroup(600000.0, 6000, 0);
+    Air quiet;
+    int64_t q = 0;
+    while (z.tune_hz() < 156000000 && q < 5000) z.tick(q += 260, quiet.reader(z), th, false);
+    check(z.tune_hz() == 156650000, "on the marine group");
+    z.regroup(2400000.0, 6000, q); // wider zoom: airband merges into one group
+    check(z.tune_hz() == 156650000, "regroup keeps the marine group");
+    z.regroup(100000.0, 6000, q); // narrower zoom: marine splits
+    check(z.tune_hz() == 156800000 || z.tune_hz() == 156500000, "regroup lands on a marine channel");
 
     if (failures == 0) std::printf("memory_scan_test: all checks passed\n");
     return failures == 0 ? 0 : 1;

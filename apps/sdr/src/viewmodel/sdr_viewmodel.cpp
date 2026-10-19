@@ -137,7 +137,14 @@ int SdrViewModel::ppm_tenths() const { return model_.ppm_tenths(); }
 void SdrViewModel::apply_squelch_settings() {
     squelch_.set_threshold(model_.squelch_on() ? model_.squelch_threshold() : 0);
 }
-void SdrViewModel::toggle_squelch() { model_.toggle_squelch(); apply_squelch_settings(); bump_nav_refresh(); }
+void SdrViewModel::toggle_squelch() {
+    model_.toggle_squelch();
+    // A memory scan stops where the squelch opens: without a squelch it would
+    // stay on the first channel, so turning it off ends the scan.
+    if (!model_.squelch_on()) stop_scan();
+    apply_squelch_settings();
+    bump_nav_refresh();
+}
 void SdrViewModel::squelch_up()     { model_.squelch_up();     apply_squelch_settings(); bump_nav_refresh(); }
 void SdrViewModel::squelch_down()   { model_.squelch_down();   apply_squelch_settings(); bump_nav_refresh(); }
 bool SdrViewModel::squelch_on() const { return model_.squelch_on(); }

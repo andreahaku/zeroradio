@@ -34,8 +34,9 @@ resolution (320×170).
   steps through the channels the Memories app hands over in `SDR_SCAN`. Channels that fit in one
   frame form a group and are read from the same FFT frame with `channel_level()` at their offset,
   so a quiet group costs one 250 ms settle, not one per channel. A channel at the squelch level
-  stops the scan, and the scan moves on when the squelch closes after its hold, or after 400 ms if
-  it never opened. Retuning during a scan does not write the state file. A SCAN NavBar page
+  stops the scan. The channel is done for this pass when the squelch closes after its hold, after
+  400 ms if it never opened, or on skip: the scan reads the rest of its group, then the next group.
+  Retuning during a scan does not reach the state file, even when another setting saves it. A SCAN NavBar page
   (pause, skip, lock out, stop) exists only while the scan runs.
 - **Channel S-meter** — the S-meter shows the strongest bin inside the demodulated passband, not the
   whole span, so a strong station next door does not move it.

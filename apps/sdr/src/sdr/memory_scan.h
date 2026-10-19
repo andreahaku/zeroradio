@@ -34,9 +34,11 @@ std::vector<ScanChannel> parse_scan_list(const std::string& text, size_t max = 6
 // receiver sits on the group's centre and every channel of the group is read
 // from the same frame, so a quiet group costs one settle time, not one per
 // channel. A channel at or above the squelch level becomes the active channel:
-// the receiver tunes to it and listens while the squelch is open. The scan
-// moves on when the squelch closes again (after its hold), or when the squelch
-// does not open within confirm_ms (a false start).
+// the receiver tunes to it and listens while the squelch is open. The channel
+// is done for this pass when the squelch closes again (after its hold), when
+// the squelch does not open within confirm_ms (a false start), or when the
+// user skips it. The scan then reads the rest of the same group again, and
+// moves to the next group once the group is quiet.
 class MemoryScan {
 public:
     struct Timing {
@@ -48,7 +50,8 @@ public:
     explicit MemoryScan(std::vector<ScanChannel> channels) : MemoryScan(std::move(channels), Timing{}) {}
 
     // Build the groups for frames `frame_span_hz` wide. `edge_hz` is the widest
-    // half passband, kept clear of the frame edge. Restarts the current group.
+    // half passband, kept clear of the frame edge. The scan goes on from the
+    // group that holds the frequency it was on.
     void regroup(double frame_span_hz, int32_t edge_hz, int64_t now_ms);
 
     const std::vector<ScanChannel>& channels() const { return channels_; }
@@ -71,7 +74,8 @@ public:
     void resume() { paused_ = false; }
     bool paused() const { return paused_; }
 
-    // Leave the current channel or group for the next group.
+    // Leave the active channel for the rest of this pass (the scan reads the
+    // other channels of its group), or, while searching, leave the group.
     void skip(int64_t now_ms);
     // Leave the active channel out of the scan until it ends, and move on.
     // Returns false while searching, when there is no channel to lock out.
@@ -86,11 +90,14 @@ private:
         int64_t centre_hz = 0;
     };
     void next_group(int64_t now_ms);
+    void finish_channel(int64_t now_ms); // the active channel is done for this pass
     bool group_usable(size_t g) const;
+    bool candidate(size_t i) const { return !locked_[i] && !done_[i]; }
 
     std::vector<ScanChannel> channels_;
     Timing timing_;
     std::vector<bool> locked_;
+    std::vector<bool> done_;      // heard or skipped in this pass of the group
     std::vector<Group> groups_;
     size_t group_ = 0;
     int active_ = -1;
