@@ -100,6 +100,11 @@ SdrModel::SdrModel() {
             }
         }
     }
+    // Consume both once. A hand-off execs in place and keeps the environment,
+    // so without this a later TAB from the Scanner back to the SDR would jump
+    // to the old frequency and mode again.
+    ::unsetenv("SDR_FREQ");
+    ::unsetenv("SDR_MODE");
 }
 
 bool SdrModel::dark_mode() const { return dark_mode_; }

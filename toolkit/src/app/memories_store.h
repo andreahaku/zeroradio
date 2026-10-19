@@ -40,12 +40,14 @@ std::filesystem::path memories_file();
 // be parsed: the apps never crash on a bad file.
 std::vector<Memory> load_memories();
 
-// Writes the whole list, atomically (temporary file + rename), because three
-// apps write the same file. Returns false if nothing could be written.
+// Writes the whole list atomically: a per-process temporary file, flushed to
+// storage, then renamed over the target. Returns false if nothing was written.
 bool save_memories(const std::vector<Memory>& all);
 
-// Appends one memory and saves. Returns false if a memory with the same
-// (hz, name) exists, or if the save failed.
+// Appends one memory and saves. Returns false if the name is empty, hz is not
+// positive, a memory with the same (hz, name) exists, or the save failed.
+// add_memory() and remove_memory() hold a lock file (memories.json.lock) across
+// the load and the save, so concurrent writers never lose an update.
 bool add_memory(const Memory& m);
 
 // Removes the memory with this (hz, name) and saves. Returns false if there is

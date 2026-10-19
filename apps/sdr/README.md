@@ -102,7 +102,7 @@ Environment overrides:
 | `SDR_SOURCE=mock` | Use the synthetic source instead of the dongle. |
 | `SDR_RTLTCP=host:port` | Connect to an existing `rtl_tcp` server instead of starting a local one. |
 | `SDR_FREQ=<hz>` | Start tuned to this frequency, overriding the saved VFO. The Scanner's **Open in SDR** uses it. |
-| `SDR_MODE=<mode>` | Start in this mode, overriding the saved one: `WFM`, `NFM`, `AM`, `USB`, `LSB` or `CW`. An unknown name keeps the saved mode. The Memories app passes it with `SDR_FREQ`. |
+| `SDR_MODE=<mode>` | Start in this mode, overriding the saved one: `WFM`, `NFM`, `AM`, `USB`, `LSB` or `CW`. An unknown name keeps the saved mode. The Memories app passes it with `SDR_FREQ`. The SDR reads both once at start and then clears them, so a later TAB switch keeps your tuning. |
 | `SDR_SAMPLE_RATE=<hz>` | Cap the RTL sample rate (valid: 900k–3.2M or 225k–300k). The CM0 needs ~1.0 Msps. Below the cap, the rate follows the page-2 zoom span. |
 | `SDR_ALSA_DEV`, `SDR_ALSA_CARD` | ALSA output PCM / card on the device (default `pipewire`). |
 

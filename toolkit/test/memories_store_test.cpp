@@ -15,6 +15,9 @@
 #include <fstream>
 #include <string>
 
+#include <sys/wait.h>
+#include <unistd.h>
+
 using namespace toolkit;
 
 static int failures = 0;
@@ -42,7 +45,16 @@ int main() {
     check(add_memory(radar), "add first");
     check(add_memory(port), "add second");
     check(!add_memory(radar), "duplicate (hz, name) refused");
-    check(!std::filesystem::exists(memories_file().string() + ".tmp"), "no temporary file left");
+    check(!add_memory({"", 1000, "AM", {}, ""}), "empty name refused");
+    check(!add_memory({"zero", 0, "AM", {}, ""}), "zero frequency refused");
+    check(!add_memory({"negative", -5, "AM", {}, ""}), "negative frequency refused");
+    {
+        int leftovers = 0;
+        for (const auto& e : std::filesystem::directory_iterator(memories_file().parent_path())) {
+            if (e.path().extension() == ".tmp") ++leftovers;
+        }
+        check(leftovers == 0, "no temporary file left");
+    }
 
     auto all = load_memories();
     check(all.size() == 2, "two memories saved");
@@ -91,6 +103,31 @@ int main() {
         out << "[1, 2, 3]";
     }
     check(load_memories().empty(), "wrong shape -> empty list");
+
+    // Concurrent writers: every child adds its own memories at the same time.
+    // The lock file must keep every update.
+    std::filesystem::remove(memories_file());
+    constexpr int kChildren = 8;
+    constexpr int kEach = 10;
+    for (int c = 0; c < kChildren; ++c) {
+        if (fork() == 0) {
+            int bad = 0;
+            for (int i = 0; i < kEach; ++i) {
+                const Memory m{"c" + std::to_string(c) + "-" + std::to_string(i),
+                               100000000 + c * 1000 + i, "NFM", {"test"}, ""};
+                if (!add_memory(m)) ++bad;
+            }
+            _exit(bad == 0 ? 0 : 1);
+        }
+    }
+    bool children_ok = true;
+    for (int c = 0; c < kChildren; ++c) {
+        int status = 0;
+        wait(&status);
+        children_ok = children_ok && WIFEXITED(status) && WEXITSTATUS(status) == 0;
+    }
+    check(children_ok, "every concurrent add succeeded");
+    check(load_memories().size() == kChildren * kEach, "no update lost under concurrent writers");
 
     std::error_code ec;
     std::filesystem::remove_all(dir, ec);

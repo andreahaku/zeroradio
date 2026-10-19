@@ -4,7 +4,7 @@ All notable changes to ZeroRadio. Versions follow semantic versioning.
 
 ## Unreleased
 
-- Memories: a new app lists your saved frequencies, grouped by tag, and opens one in the SDR with its mode. The list lives in `~/.config/zeroradio/memories.json`, shared by the whole suite. An example list with the airband, marine VHF and NAVTEX frequencies around Malta ships with the app.
+- Memories: a new app lists your saved frequencies, grouped by tag, and opens one in the SDR with its mode. The list lives in `~/.config/zeroradio/memories.json`, shared by the whole suite. The repository has an example list with the airband, marine VHF and NAVTEX frequencies around Malta, and the app README explains how to copy it to the device.
 - SDR: the `SDR_MODE` environment variable (WFM, NFM, AM, USB, LSB or CW) sets the mode at start, next to `SDR_FREQ`.
 
 ## 1.1.0

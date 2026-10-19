@@ -13,6 +13,10 @@
 #include <cstdio>
 #include <fstream>
 
+#include <fcntl.h>
+#include <sys/file.h>
+#include <unistd.h>
+
 namespace toolkit {
 namespace {
 
@@ -65,6 +69,27 @@ bool same_memory(const Memory& m, int64_t hz, const std::string& name) {
     return m.hz == hz && m.name == name;
 }
 
+// An exclusive lock on memories.json.lock for one load-modify-save cycle, so
+// two writers never lose each other's change. Released on destruction. If the
+// lock file cannot be opened the update still runs, unlocked.
+class FileLock {
+public:
+    explicit FileLock(const std::filesystem::path& target) {
+        if (!ensure_parent_dir(target)) return;
+        const auto path = target.string() + ".lock";
+        fd_ = ::open(path.c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0644);
+        if (fd_ >= 0) ::flock(fd_, LOCK_EX);
+    }
+    ~FileLock() {
+        if (fd_ >= 0) ::close(fd_); // closing releases the lock
+    }
+    FileLock(const FileLock&) = delete;
+    FileLock& operator=(const FileLock&) = delete;
+
+private:
+    int fd_ = -1;
+};
+
 } // namespace
 
 std::filesystem::path memories_file() {
@@ -109,16 +134,27 @@ bool save_memories(const std::vector<Memory>& all) {
     }
     doc["memories"] = std::move(list);
 
-    // Write next to the target, then rename over it: a reader (or a crash
-    // mid-write) never sees a half-written file.
-    const auto tmp = path.string() + ".tmp";
-    {
-        std::ofstream out(tmp, std::ios::trunc);
-        if (!out) return false;
-        out << doc.dump(2) << '\n';
-        if (!out) return false;
+    // Write a temporary file next to the target, flush it to storage, then
+    // rename it over the target: a reader, a crash or a power cut never leaves
+    // a half-written file. The name is unique per process, so two writers never
+    // share a temporary file.
+    const auto tmp = path.string() + "." + std::to_string(::getpid()) + ".tmp";
+    const std::string text = doc.dump(2) + "\n";
+    const int fd = ::open(tmp.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    if (fd < 0) return false;
+    bool ok = true;
+    for (size_t done = 0; ok && done < text.size();) {
+        const ssize_t n = ::write(fd, text.data() + done, text.size() - done);
+        if (n > 0) done += static_cast<size_t>(n);
+        else ok = false;
     }
+    ok = ::fsync(fd) == 0 && ok;
+    ok = ::close(fd) == 0 && ok;
     std::error_code ec;
+    if (!ok) {
+        std::filesystem::remove(tmp, ec);
+        return false;
+    }
     std::filesystem::rename(tmp, path, ec);
     if (ec) {
         std::filesystem::remove(tmp, ec);
@@ -128,6 +164,9 @@ bool save_memories(const std::vector<Memory>& all) {
 }
 
 bool add_memory(const Memory& m) {
+    // Same rules as the loader: an entry it would skip is refused here.
+    if (m.name.empty() || m.hz <= 0) return false;
+    FileLock lock(memories_file());
     auto all = load_memories();
     for (const auto& existing : all) {
         if (same_memory(existing, m.hz, m.name)) return false;
@@ -137,6 +176,7 @@ bool add_memory(const Memory& m) {
 }
 
 bool remove_memory(int64_t hz, const std::string& name) {
+    FileLock lock(memories_file());
     auto all = load_memories();
     const auto before = all.size();
     for (auto it = all.begin(); it != all.end();) {
