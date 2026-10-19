@@ -64,3 +64,17 @@ if(FFTW3F_LIBRARY)
 else()
     message(STATUS "sdr_app: RTL-SDR backend disabled (mock source only)")
 endif()
+
+# ----------------------------------------------------------------------
+# sdr_model_test — the frequency correction math and the state file
+# migration (host-only, registered with CTest). SdrModel has no LVGL or
+# radio dependency, so it builds on its own against radio_toolkit.
+# ----------------------------------------------------------------------
+if(USE_DESKTOP)
+    add_executable(sdr_model_test
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/sdr_model_test.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/model/sdr_model.cpp)
+    target_include_directories(sdr_model_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/model)
+    target_link_libraries(sdr_model_test PRIVATE radio_toolkit)
+    add_test(NAME sdr_model_test COMMAND sdr_model_test)
+endif()

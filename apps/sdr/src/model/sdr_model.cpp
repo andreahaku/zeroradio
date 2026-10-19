@@ -9,6 +9,7 @@
 #include "persisted_state.h"
 
 #include <array>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -20,9 +21,12 @@ namespace {
 constexpr const char* kStateSubdir = "zeroradio/sdr";
 constexpr const char* kStateFile   = "state";
 
-// State file format version (matches SDRTerminal's v4 layout: vfo, mode, volume,
-// mute, span, band, fine, dark, freq grid, time grid, peak hold, gain auto, gain).
-constexpr int kStateVersion = 4;
+// State file format version. v4 (SDRTerminal's layout): vfo, mode, volume, mute,
+// span, band, fine, dark, freq grid, time grid, peak hold, gain auto, gain.
+// v5 appends the frequency correction in tenths of ppm. A v4 file still loads,
+// with no correction.
+constexpr int kStateVersion = 5;
+constexpr int kOldestStateVersion = 4;
 
 // Span ladder in kHz, widest -> narrowest (2.0 MHz down to 0.1 MHz).
 constexpr std::array<int32_t, 6> kSpanLadder = {2000, 1500, 1000, 500, 200, 100};
@@ -221,6 +225,26 @@ void SdrModel::gain_down() {
     save_state();
 }
 
+int SdrModel::ppm_tenths() const { return ppm_tenths_; }
+
+void SdrModel::set_ppm_tenths(int tenths) {
+    if (tenths > kMaxPpmTenths) tenths = kMaxPpmTenths;
+    if (tenths < -kMaxPpmTenths) tenths = -kMaxPpmTenths;
+    if (tenths == ppm_tenths_) return;
+    ppm_tenths_ = tenths;
+    save_state();
+}
+void SdrModel::ppm_up() { set_ppm_tenths(ppm_tenths_ + 1); }
+void SdrModel::ppm_down() { set_ppm_tenths(ppm_tenths_ - 1); }
+
+int64_t SdrModel::corrected_hz(int64_t hz) const {
+    // A crystal that runs fast by e ppm tunes every frequency e ppm high, so
+    // ask for hz / (1 + e) to land on hz. Same as librtlsdr's correction, with
+    // tenths of ppm instead of whole ppm.
+    if (ppm_tenths_ == 0 || hz <= 0) return hz;
+    return std::llround(static_cast<double>(hz) / (1.0 + ppm_tenths_ * 1e-7));
+}
+
 void SdrModel::load_state() {
     const auto path = toolkit::config_file(kStateSubdir, kStateFile);
     if (path.empty()) {
@@ -231,7 +255,7 @@ void SdrModel::load_state() {
         return;
     }
     int version = 0;
-    if (!(in >> version) || version != kStateVersion) {
+    if (!(in >> version) || version < kOldestStateVersion || version > kStateVersion) {
         return; // unknown/legacy format -> keep defaults
     }
     int32_t hz = 0;
@@ -275,6 +299,10 @@ void SdrModel::load_state() {
             gain_tenth_db_ = gtenth;
         }
     }
+    int ppm = 0;
+    if (version >= 5 && in >> ppm && ppm >= -kMaxPpmTenths && ppm <= kMaxPpmTenths) {
+        ppm_tenths_ = ppm;
+    }
 }
 
 void SdrModel::save_state() const {
@@ -290,7 +318,8 @@ void SdrModel::save_state() const {
             << ' ' << (fine_tune_ ? 1 : 0) << ' ' << (dark_mode_ ? 1 : 0)
             << ' ' << (freq_grid_ ? 1 : 0) << ' ' << (time_grid_ ? 1 : 0)
             << ' ' << (peak_hold_ ? 1 : 0)
-            << ' ' << (gain_auto_ ? 1 : 0) << ' ' << gain_tenth_db_ << '\n';
+            << ' ' << (gain_auto_ ? 1 : 0) << ' ' << gain_tenth_db_
+            << ' ' << ppm_tenths_ << '\n';
     }
 }
 

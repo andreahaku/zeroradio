@@ -71,6 +71,7 @@ lv_subject_t* SdrViewModel::time_grid_subject()      { return time_grid_subject_
 lv_subject_t* SdrViewModel::peak_hold_subject()      { return peak_hold_subject_.native(); }
 lv_subject_t* SdrViewModel::wf_split_subject()       { return wf_split_subject_.native(); }
 lv_subject_t* SdrViewModel::freq_input_req_subject() { return freq_input_req_subject_.native(); }
+lv_subject_t* SdrViewModel::ppm_input_req_subject() { return ppm_input_req_subject_.native(); }
 lv_subject_t* SdrViewModel::fine_tune_subject()      { return fine_tune_subject_.native(); }
 lv_subject_t* SdrViewModel::muted_subject()          { return muted_subject_.native(); }
 lv_subject_t* SdrViewModel::volume_subject()         { return volume_subject_.native(); }
@@ -106,6 +107,15 @@ void SdrViewModel::set_smeter(int level) {
 void SdrViewModel::request_freq_input() {
     freq_input_req_subject_.set(freq_input_req_subject_.value() + 1);
 }
+
+void SdrViewModel::request_ppm_input() {
+    ppm_input_req_subject_.set(ppm_input_req_subject_.value() + 1);
+}
+void SdrViewModel::set_ppm_tenths(int tenths) { model_.set_ppm_tenths(tenths); bump_nav_refresh(); }
+void SdrViewModel::ppm_up()   { model_.ppm_up();   bump_nav_refresh(); }
+void SdrViewModel::ppm_down() { model_.ppm_down(); bump_nav_refresh(); }
+int SdrViewModel::ppm_tenths() const { return model_.ppm_tenths(); }
+int64_t SdrViewModel::tuner_hz() const { return model_.corrected_hz(model_.vfo_hz()); }
 
 void SdrViewModel::zoom_in()   { model_.zoom_in();   publish_vfo(); }
 void SdrViewModel::zoom_out()  { model_.zoom_out();  publish_vfo(); }
@@ -183,7 +193,7 @@ Passband  SdrViewModel::passband() const    { return model_.passband(); }
 
 // --- NavProvider ---
 int SdrViewModel::nav_page_count() const {
-    return 5;
+    return 6;
 }
 
 void SdrViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
@@ -225,6 +235,25 @@ void SdrViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
             out[3] = {gain_label_.c_str(), true, true};      // gain readout + auto toggle
             out[4] = {view::ICON_SIGN_OUT, false, true};     // exit
             break;
+        case Page::Calib: {
+            char text[16];
+            const int t = model_.ppm_tenths();
+            // ppm, short enough for the 32 px slot: one decimal below 10 ppm
+            // ("2.4", "-2.4"), whole ppm from 10 up ("12", "-200"). The entry
+            // dialog shows the exact value.
+            const int a = t < 0 ? -t : t;
+            if (a < 100) {
+                std::snprintf(text, sizeof(text), "%s%d.%d", t < 0 ? "-" : "", a / 10, a % 10);
+            } else {
+                std::snprintf(text, sizeof(text), "%s%d", t < 0 ? "-" : "", (a + 5) / 10);
+            }
+            ppm_label_ = text;
+            out[1] = {view::ICON_MINUS, false, true};        // -0.1 ppm
+            out[2] = {view::ICON_KEYBOARD, false, true};     // type a correction
+            out[3] = {view::ICON_PLUS, false, true};         // +0.1 ppm
+            out[4] = {ppm_label_.c_str(), true, true};       // readout (display only)
+            break;
+        }
     }
 }
 
@@ -260,6 +289,12 @@ void SdrViewModel::nav_activate(int page, int slot) {
             else if (slot == 3) toggle_gain_auto();
             else if (slot == 4) request_quit();
             break;
+        case Page::Calib:
+            if (slot == 1) ppm_down();
+            else if (slot == 2) request_ppm_input();
+            else if (slot == 3) ppm_up();
+            // slot 4 is the display-only readout
+            break;
     }
 }
 
@@ -270,6 +305,7 @@ const char* SdrViewModel::nav_page_name(int page) const {
         case Page::Visual: return "VIEW";
         case Page::Audio: return "AUDIO";
         case Page::Settings: return "GAIN";
+        case Page::Calib: return "CAL";
     }
     return nullptr;
 }
@@ -377,6 +413,34 @@ toolkit::i18n::Text SdrViewModel::nav_hint(int page, int slot) const {
                                  "Activa o desactiva la ganancia automática",
                                  "自動ゲインをオン／オフ", "开启或关闭自动增益"};
                 case 4: return h::kBackToMenu;
+            }
+            break;
+        case Page::Calib:
+            switch (slot) {
+                case 1: return {"Frequency correction down by 0.1 ppm",
+                                 "Correzione di frequenza giù di 0,1 ppm",
+                                 "Correction de fréquence moins 0,1 ppm",
+                                 "Frequenzkorrektur um 0,1 ppm verringern",
+                                 "Corrección de frecuencia menos 0,1 ppm",
+                                 "周波数補正を 0.1 ppm 下げる", "频率校正减少 0.1 ppm"};
+                case 2: return {"Type the frequency correction in ppm, as rtl_test -p reports it",
+                                 "Inserisci la correzione di frequenza in ppm, come la riporta rtl_test -p",
+                                 "Saisit la correction de fréquence en ppm, comme l’indique rtl_test -p",
+                                 "Frequenzkorrektur in ppm eingeben, wie rtl_test -p sie meldet",
+                                 "Introduce la corrección de frecuencia en ppm, como la da rtl_test -p",
+                                 "周波数補正を ppm で入力（rtl_test -p の値）", "以 ppm 输入频率校正（rtl_test -p 的数值）"};
+                case 3: return {"Frequency correction up by 0.1 ppm",
+                                 "Correzione di frequenza su di 0,1 ppm",
+                                 "Correction de fréquence plus 0,1 ppm",
+                                 "Frequenzkorrektur um 0,1 ppm erhöhen",
+                                 "Corrección de frecuencia más 0,1 ppm",
+                                 "周波数補正を 0.1 ppm 上げる", "频率校正增加 0.1 ppm"};
+                case 4: return {"The current frequency correction. This key does nothing.",
+                                 "La correzione di frequenza attuale. Questo tasto non fa nulla.",
+                                 "La correction de fréquence actuelle. Cette touche n’a pas d’effet.",
+                                 "Die aktuelle Frequenzkorrektur. Diese Taste hat keine Funktion.",
+                                 "La corrección de frecuencia actual. Esta tecla no hace nada.",
+                                 "現在の周波数補正。このキーは使いません。", "当前频率校正。此键无功能。"};
             }
             break;
     }

@@ -30,6 +30,7 @@ public:
         Visual   = 2, // theme / freq grid / waterfall split / peak hold
         Audio    = 3, // mute / vol- / vol+ / vol readout
         Settings = 4, // gain- / gain+ / gain auto / exit
+        Calib    = 5, // ppm- / ppm entry / ppm+ / ppm readout
     };
 
     SdrViewModel();
@@ -47,6 +48,7 @@ public:
     lv_subject_t* peak_hold_subject();
     lv_subject_t* wf_split_subject();   // visible waterfall rows (page-3 key 7)
     lv_subject_t* freq_input_req_subject();
+    lv_subject_t* ppm_input_req_subject();
     lv_subject_t* fine_tune_subject();
     lv_subject_t* muted_subject();
     lv_subject_t* volume_subject();
@@ -60,6 +62,10 @@ public:
     void toggle_fine_tune();
     void set_smeter(int level);      // 0..100, driven by the spectrum source
     void request_freq_input();       // ask the view to open the frequency dialog
+    void request_ppm_input();        // ask the view to open the correction dialog
+    void set_ppm_tenths(int tenths); // frequency correction, tenths of ppm
+    void ppm_up();
+    void ppm_down();
     void zoom_in();
     void zoom_out();
     void cycle_band();
@@ -85,6 +91,8 @@ public:
     int32_t gain_tenth_db() const;
     int32_t span_khz() const;
     int32_t vfo_hz() const;
+    int64_t tuner_hz() const;        // the VFO with the frequency correction applied
+    int     ppm_tenths() const;
     RadioMode mode() const;
     Passband  passband() const;
 
@@ -129,6 +137,7 @@ private:
     reactive::IntSubject        wf_split_subject_{80}; // waterfall % of the split area
     int                         wf_split_idx_{0};      // index into the split presets
     reactive::IntSubject        freq_input_req_subject_{0};
+    reactive::IntSubject        ppm_input_req_subject_{0};
     reactive::BoolSubject       fine_tune_subject_{false};
     reactive::BoolSubject       muted_subject_{false};
     reactive::IntSubject        volume_subject_{50};
@@ -138,6 +147,7 @@ private:
     // Mutable because nav_fill() is const but must point NavSlot.text at storage
     // that outlives the call (the NavBar copies the text right after).
     mutable std::string step_label_;
+    mutable std::string ppm_label_;
     mutable std::string gain_label_;
     mutable std::string vol_label_;
 };

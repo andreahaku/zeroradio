@@ -36,7 +36,7 @@ Build for the device with the container, not with a host cross toolchain: the bi
 ctest --test-dir build/linux-x86-64 -C Debug --output-on-failure
 ```
 
-Eleven tests: waterfall_scroll, map_render (culling must not change a pixel), location (city search, coordinates, NMEA, USB GPS on a pseudo-terminal, save/load), i18n (locale parsing and the English fallback), memories_store (the shared frequency memories), and the decoder parity tests aircraft_parse, meshtastic_decoder, ais_decoder, nmea_net, sweep_parser, ism_parse. The parity tests are frozen: never edit their vectors to make code pass.
+Twelve tests: waterfall_scroll, map_render (culling must not change a pixel), location (city search, coordinates, NMEA, USB GPS on a pseudo-terminal, save/load), i18n (locale parsing and the English fallback), memories_store (the shared frequency memories), sdr_model (the SDR frequency correction and state file), and the decoder parity tests aircraft_parse, meshtastic_decoder, ais_decoder, nmea_net, sweep_parser, ism_parse. The parity tests are frozen: never edit their vectors to make code pass.
 
 ## How the pieces fit
 
