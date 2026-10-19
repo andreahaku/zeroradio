@@ -30,14 +30,20 @@ struct SweepPeak {
 //
 // Wire format (both tools): one row per frequency segment,
 //   date, time, hz_low, hz_high, hz_step, n_samples, dB, dB, ...
-// with (hz_high-hz_low)/hz_step dB bins covering [hz_low, hz_high).
+// hackrf_sweep writes (hz_high-hz_low)/hz_step bins, one per interval of
+// [hz_low, hz_high). rtl_power writes one more: its FFT bins, centred at
+// hz_low + i*step, then the last bin again.
 //
 // Parsing semantics (the frozen contract — the test oracle mirrors these):
 //  - lines end at '\n'; a trailing '\r' is stripped (CRLF tolerated). feed()
 //    buffers a trailing partial line across calls; flush() first consumes any
 //    buffered partial line as if it were newline-terminated.
-//  - bin i of a row has centre frequency  hz_low + hz_step*i + hz_step/2;
-//    bins whose centre falls outside [start_hz, stop_hz) are dropped.
+//  - a row holding N + 1 bins, N = floor((hz_high-hz_low)/hz_step + 0.5),
+//    is rtl_power's: its last bin is a duplicate and is dropped, and bin i
+//    has centre  hz_low + hz_step*i  (or hz_low + hz_step/2 when N == 1, an
+//    RMS power over the whole hop). Any other row has one bin per interval
+//    (hackrf_sweep), centred at hz_low + hz_step*i + hz_step/2. Bins whose
+//    centre falls outside [start_hz, stop_hz) are dropped.
 //  - numeric fields parse FULL-TOKEN (the whole comma-separated field, after
 //    trimming spaces, must be consumed) — "100abc" is not a number.
 //  - a row is MALFORMED and skipped whole when it has fewer than 7 fields, or
