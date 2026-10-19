@@ -20,7 +20,8 @@ resolution (320×170).
   (black→blue→cyan→yellow→red colormap), full-width, ~30 fps.
 - **RTL-SDR source** — the app starts its own `rtl_tcp` for the dongle in the USB-A port and stops it
   on exit. `RtlTcpSource` reads raw IQ on a background thread and runs an FFT (FFTW, single
-  precision) with an adaptive noise floor. Tuning and zoom **retune the hardware** and crop the FFT window.
+  precision) with an adaptive noise floor. Tuning and zoom **retune the hardware** and crop the FFT
+  window. A zoom wider than the capture rate keeps the frequency scale and leaves the edges blank.
 - **Audio demodulation** — `AudioDemod` reads the same IQ stream and outputs 48 kHz mono through SDL
   on the desktop or **ALSA on the device**. Modes: **WFM**, **NFM** (narrow FM), **AM** (envelope + AGC),
   **USB/LSB** (Weaver), **CW**.

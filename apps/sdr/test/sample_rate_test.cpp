@@ -58,6 +58,7 @@ int main() {
     // A cap under the 900 kHz floor: the low band's 240 kHz still gives 48 kHz.
     check(sdr::rate_for_span(100000, 250000) == 240000, "low cap: 240 kHz");
     check(sdr::audio_decimation(240000.0).audio_hz == 48000.0, "240 kHz gives 48 kHz");
+    check(sdr::rate_for_span(100000, 230000) == 230000, "a cap under 240 kHz is kept");
 
     if (failures == 0) std::printf("sample_rate_test: all checks passed\n");
     return failures == 0 ? 0 : 1;

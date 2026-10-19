@@ -29,7 +29,8 @@ AudioDecimation audio_decimation(double input_rate);
 
 // RTL capture rate for a visible span (the zoom): the narrowest rate that
 // covers the span, within `cap` (the host's drain ceiling, SDR_SAMPLE_RATE)
-// and the RTL2832U's valid ranges, and a multiple of kAudioRateStep.
+// and the RTL2832U's valid ranges, and a multiple of kAudioRateStep. The
+// one exception is a cap under 240 kHz, which is returned as it is.
 uint32_t rate_for_span(int32_t span_hz, uint32_t cap);
 
 } // namespace sdr

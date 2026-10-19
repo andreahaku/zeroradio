@@ -14,6 +14,7 @@
 #include "audio_demod.h"
 #include "child_service.h"
 #include "sample_rate.h"
+#include "spectrum_crop.h"
 
 #include <fftw3.h>
 
@@ -216,11 +217,9 @@ struct RtlTcpSource::Impl {
 
         // Configure the receiver. Order matters little; do freq last.
         const int64_t center = desired_center.load();
-#ifdef SDR_HAVE_AUDIO
-        const uint32_t init_sr = max_sample_rate; // fixed rate keeps the audio demod in sync
-#else
+        // The same rate the reader loop keeps, so no IQ reaches the audio
+        // demod at a rate it was not built for.
         const uint32_t init_sr = rate_for_span(span_hz.load(), max_sample_rate);
-#endif
         sample_rate.store(init_sr);
         audio.set_input_rate(static_cast<double>(init_sr));
         send_cmd(fd, kSetSampleRate, init_sr);
@@ -431,10 +430,10 @@ void RtlTcpSource::set_gain(bool automatic, int tenth_db) {
     impl_->desired_gain_tenth.store(tenth_db);
 }
 
-double RtlTcpSource::frame_span_hz(int32_t span_hz) const {
-    // next_frame() crops the span out of the captured band, and clamps it to
-    // the sample rate when the zoom is wider (e.g. a 2 MHz span at the
-    // device's ~1 Msps cap).
+double RtlTcpSource::captured_span_hz(int32_t span_hz) const {
+    // next_frame() crops the span out of the captured band. A zoom wider than
+    // the sample rate (e.g. 2 MHz at the device's 960 kHz) leaves the edges
+    // of the frame blank.
     const double rate = static_cast<double>(impl_->sample_rate.load());
     return span_hz > rate ? rate : static_cast<double>(span_hz);
 }
@@ -458,31 +457,14 @@ void RtlTcpSource::next_frame(float* mags, int n_bins) {
         return;
     }
 
-    // Central window covering the visible span out of the full sample rate.
-    const float* db = impl_->scratch_db.data();
-    double frac = static_cast<double>(impl_->span_hz.load()) /
-                  static_cast<double>(impl_->sample_rate.load());
-    if (frac > 1.0) frac = 1.0;
-    if (frac < 1.0 / kFftSize) frac = 1.0 / kFftSize;
-    const double visible = frac * kFftSize;
-    const double start = (kFftSize - visible) * 0.5;
-
-    // Resample to n_bins by averaging each column's source span, into mags as
-    // raw dB first; normalize in a second pass once we know the floor.
+    // The visible span out of the captured band, one column per bin of the
+    // screen. A zoom wider than the sample rate leaves blank edges, so the
+    // scale under the frame stays right.
+    crop_to_columns(impl_->scratch_db.data(), kFftSize, impl_->span_hz.load(),
+                    impl_->sample_rate.load(), mags, n_bins);
     float frame_min = 1e30f;
     for (int j = 0; j < n_bins; ++j) {
-        int lo = static_cast<int>(start + visible * j / n_bins);
-        int hi = static_cast<int>(start + visible * (j + 1) / n_bins);
-        if (hi <= lo) hi = lo + 1;
-        if (lo < 0) lo = 0;
-        if (hi > kFftSize) hi = kFftSize;
-        float sum = 0.0f;
-        for (int k = lo; k < hi; ++k) {
-            sum += db[k];
-        }
-        const float avg = sum / static_cast<float>(hi - lo);
-        mags[j] = avg; // raw dB for now
-        if (avg < frame_min) frame_min = avg;
+        if (mags[j] != kBlankColumn && mags[j] < frame_min) frame_min = mags[j];
     }
 
     // Track a slowly-following noise floor (per-frame minimum) for auto-scaling.
@@ -496,6 +478,10 @@ void RtlTcpSource::next_frame(float* mags, int n_bins) {
     const float floor = impl_->floor_ema;
     const float inv_range = 1.0f / kDynRangeDb;
     for (int j = 0; j < n_bins; ++j) {
+        if (mags[j] == kBlankColumn) {
+            mags[j] = 0.0f;
+            continue;
+        }
         float v = (mags[j] - floor) * inv_range;
         if (v < 0.0f) v = 0.0f;
         if (v > 1.0f) v = 1.0f;
@@ -518,7 +504,7 @@ void RtlTcpSource::next_frame(float* mags, int n_bins) {
         for (int i = 0; i < n_bins; ++i) mags[i] = 0.0f;
     }
 }
-double RtlTcpSource::frame_span_hz(int32_t span_hz) const { return span_hz; }
+double RtlTcpSource::captured_span_hz(int32_t span_hz) const { return span_hz; }
 void RtlTcpSource::set_tuning(int64_t, int32_t) {}
 void RtlTcpSource::set_mode(int) {}
 void RtlTcpSource::set_volume(float) {}

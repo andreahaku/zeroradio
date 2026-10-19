@@ -26,10 +26,11 @@ public:
     // Fill `mags` with `n_bins` values in [0, 1]. Must not block.
     virtual void next_frame(float* mags, int n_bins) = 0;
 
-    // The width in Hz that a frame actually covers when the screen asks for
-    // `span_hz`. A real receiver cannot show more than its sample rate, so a
-    // wider zoom spreads a narrower band over the bins. Default: all of it.
-    virtual double frame_span_hz(int32_t span_hz) const { return span_hz; }
+    // A frame always covers the `span_hz` the screen asks for, so the scale
+    // under it stays right. A real receiver cannot capture more than its
+    // sample rate: on a wider zoom it fills the middle `captured_span_hz()`
+    // and leaves the edges blank. Default: all of it.
+    virtual double captured_span_hz(int32_t span_hz) const { return span_hz; }
 
     // Tell the source the tuned centre frequency (Hz) and the visible span (Hz)
     // so a real receiver can retune the hardware and crop the FFT to the zoom
