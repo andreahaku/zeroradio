@@ -117,6 +117,10 @@ public:
     void on_right() override {
         if (!on_peaks_page()) pan(1);
     }
+    // Enter on the Peaks page: open the selected peak in the SDR, like key 7.
+    void on_enter() override {
+        if (on_peaks_page()) open_selected_in_sdr();
+    }
 
 private:
     bool on_peaks_page() {
