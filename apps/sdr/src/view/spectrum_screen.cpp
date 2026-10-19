@@ -109,6 +109,10 @@ SpectrumScreen::~SpectrumScreen() {
         lv_observer_remove(freq_req_observer_);
         freq_req_observer_ = nullptr;
     }
+    if (ppm_req_observer_) {
+        lv_observer_remove(ppm_req_observer_);
+        ppm_req_observer_ = nullptr;
+    }
     if (wf_split_observer_) {
         lv_observer_remove(wf_split_observer_);
         wf_split_observer_ = nullptr;
@@ -265,6 +269,7 @@ void SpectrumScreen::build_content(lv_obj_t* content) {
 
     // Open the frequency dialog when the ViewModel bumps the request counter.
     freq_req_observer_ = lv_subject_add_observer(vm_.freq_input_req_subject(), freq_req_cb, this);
+    ppm_req_observer_ = lv_subject_add_observer(vm_.ppm_input_req_subject(), ppm_req_cb, this);
 
     // Waterfall/spectrum split (page-3 key 7). Fires immediately with the current
     // value, applying the initial split.
@@ -315,17 +320,30 @@ void SpectrumScreen::freq_req_cb(lv_observer_t* observer, lv_subject_t* subject)
     }
 }
 
+void SpectrumScreen::ppm_req_cb(lv_observer_t* observer, lv_subject_t* subject) {
+    auto* self = static_cast<SpectrumScreen*>(lv_observer_get_user_data(observer));
+    if (!self) {
+        return;
+    }
+    const int v = lv_subject_get_int(subject);
+    if (v != self->last_ppm_req_) {  // ignores the initial (0) notification
+        self->last_ppm_req_ = v;
+        self->open_freq_dialog(/*ppm=*/true);
+    }
+}
+
 void SpectrumScreen::freq_key_cb(uint32_t key, void* ctx) {
     if (auto* self = static_cast<SpectrumScreen*>(ctx)) {
         self->on_freq_key(key);
     }
 }
 
-void SpectrumScreen::open_freq_dialog() {
+void SpectrumScreen::open_freq_dialog(bool ppm) {
     if (freq_dialog_) {
         return;
     }
     freq_buf_.clear();
+    dialog_ppm_ = ppm;
 
     auto* value_font = assets().load_font("inter-semibold.ttf", 20);
     auto* small_font = assets().load_font("inter-regular.ttf", 12);
@@ -344,7 +362,7 @@ void SpectrumScreen::open_freq_dialog() {
     lv_obj_set_style_pad_row(freq_dialog_, 6, 0);
 
     auto* title = lv_label_create(freq_dialog_);
-    lv_label_set_text(title, "Frequency (MHz)");
+    lv_label_set_text(title, ppm ? "Frequency correction (ppm)" : "Frequency (MHz)");
     lv_obj_set_style_text_font(title, small_font ? small_font : fb, 0);
     lv_obj_set_style_text_color(title, lv_color_white(), 0);
 
@@ -352,34 +370,65 @@ void SpectrumScreen::open_freq_dialog() {
     lv_obj_set_style_text_font(freq_value_label_, value_font ? value_font : fb, 0);
     lv_obj_set_style_text_color(freq_value_label_, view::palette(false).primary, 0);
 
+    if (ppm) {
+        freq_info_label_ = lv_label_create(freq_dialog_);
+        lv_obj_set_style_text_font(freq_info_label_, small_font ? small_font : fb, 0);
+        lv_obj_set_style_text_color(freq_info_label_, lv_color_white(), 0);
+    }
+
     auto* hint = lv_label_create(freq_dialog_);
-    lv_label_set_text(hint, "Enter = OK    Esc = cancel");
+    lv_label_set_text(hint, ppm ? "- = sign    Enter = OK    Esc = cancel"
+                                : "Enter = OK    Esc = cancel");
     lv_obj_set_style_text_font(hint, small_font ? small_font : fb, 0);
     lv_obj_set_style_text_color(hint, lv_color_hex(0xaaaaaa), 0);
 
     update_freq_label();
-    platform::set_key_capture(freq_key_cb, this);
+    // The ppm entry needs the minus key, which only a text capture delivers.
+    // Digits, dot, Enter, Esc and Backspace arrive the same way in both modes.
+    platform::set_key_capture(freq_key_cb, this, /*text=*/ppm);
 }
 
 void SpectrumScreen::update_freq_label() {
     if (freq_value_label_) {
         lv_label_set_text(freq_value_label_, freq_buf_.empty() ? "_" : freq_buf_.c_str());
     }
+    if (freq_info_label_) {
+        // What the typed value (or the current one, before typing) moves the
+        // tuner by at this frequency.
+        double ppm = vm_.ppm_tenths() / 10.0;
+        if (!freq_buf_.empty() && freq_buf_ != "-") {
+            ppm = std::strtod(freq_buf_.c_str(), nullptr);
+        }
+        const double hz = static_cast<double>(vm_.vfo_hz()) * ppm * 1e-6;
+        lv_label_set_text_fmt(freq_info_label_, "%s%.1f ppm = %+d Hz at %.3f MHz",
+                              freq_buf_.empty() ? "now " : "", ppm,
+                              static_cast<int>(std::lround(hz)), vm_.vfo_hz() / 1e6);
+    }
 }
 
 void SpectrumScreen::on_freq_key(uint32_t key) {
+    if (dialog_ppm_ && key == '-') {
+        // Toggle the sign.
+        if (!freq_buf_.empty() && freq_buf_[0] == '-') freq_buf_.erase(0, 1);
+        else freq_buf_.insert(0, 1, '-');
+        update_freq_label();
+        return;
+    }
     if (key >= '0' && key <= '9') {
         const auto dot = freq_buf_.find('.');
+        // MHz: 4 decimals (100 Hz). ppm: 1 decimal and up to 200.0.
+        const size_t max_frac = dialog_ppm_ ? 1 : 4;
+        const size_t max_len = dialog_ppm_ ? 6 : 9;
         const bool frac_full =
-            dot != std::string::npos && (freq_buf_.size() - dot - 1) >= 4;
-        if (!frac_full && freq_buf_.size() < 9) {
+            dot != std::string::npos && (freq_buf_.size() - dot - 1) >= max_frac;
+        if (!frac_full && freq_buf_.size() < max_len) {
             freq_buf_.push_back(static_cast<char>(key));
             update_freq_label();
         }
     } else if (key == '.') {
         if (freq_buf_.find('.') == std::string::npos) {
-            if (freq_buf_.empty()) {
-                freq_buf_ = "0"; // allow a leading dot: ".5" -> "0.5"
+            if (freq_buf_.empty() || freq_buf_ == "-") {
+                freq_buf_ += "0"; // allow a leading dot: ".5" -> "0.5"
             }
             freq_buf_.push_back('.');
             update_freq_label();
@@ -401,9 +450,14 @@ void SpectrumScreen::close_freq_dialog(bool apply) {
 
     if (apply && !freq_buf_.empty()) {
         char* end = nullptr;
-        const double mhz = std::strtod(freq_buf_.c_str(), &end);
-        if (end != freq_buf_.c_str() && mhz > 0.0) {
-            vm_.set_vfo_hz(static_cast<int64_t>(std::llround(mhz * 1000000.0)));
+        const double value = std::strtod(freq_buf_.c_str(), &end);
+        if (end != freq_buf_.c_str()) {
+            if (dialog_ppm_) {
+                // set_ppm_tenths clamps to the supported range.
+                vm_.set_ppm_tenths(static_cast<int>(std::lround(value * 10.0)));
+            } else if (value > 0.0) {
+                vm_.set_vfo_hz(static_cast<int64_t>(std::llround(value * 1000000.0)));
+            }
         }
     }
 
@@ -412,7 +466,9 @@ void SpectrumScreen::close_freq_dialog(bool apply) {
         freq_dialog_ = nullptr;
     }
     freq_value_label_ = nullptr;
+    freq_info_label_ = nullptr;
     freq_buf_.clear();
+    dialog_ppm_ = false;
 }
 
 void SpectrumScreen::build_grids(lv_obj_t* parent) {
@@ -520,7 +576,8 @@ void SpectrumScreen::tick() {
     }
 
     // Keep the real receiver tuned to the VFO/zoom span and the audio path on mode.
-    source_->set_tuning(vm_.vfo_hz(), static_cast<int32_t>(vm_.span_khz()) * 1000);
+    // The tuner gets the VFO with the frequency correction applied (CAL page).
+    source_->set_tuning(vm_.tuner_hz(), static_cast<int32_t>(vm_.span_khz()) * 1000);
     source_->set_mode(static_cast<int>(vm_.mode()));
     source_->set_volume(vm_.volume_gain());
     source_->set_muted(vm_.muted());

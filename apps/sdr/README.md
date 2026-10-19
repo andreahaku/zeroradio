@@ -24,16 +24,21 @@ resolution (320×170).
 - **Audio demodulation** — `AudioDemod` reads the same IQ stream and outputs 48 kHz mono through SDL
   on the desktop or **ALSA on the device**. Modes: **WFM**, **NFM** (narrow FM), **AM** (envelope + AGC),
   **USB/LSB** (Weaver), **CW**.
-- **5-page toolbar** — the 5 physical keys (`4`–`8`) drive tuning, zoom/band, visual options,
-  **audio** (mute / volume) and **settings** (gain / exit). No pointer is needed.
+- **6-page toolbar** — the 5 physical keys (`4`–`8`) drive tuning, zoom/band, visual options,
+  **audio** (mute / volume), **settings** (gain / exit) and **calibration** (frequency correction in
+  ppm). No pointer is needed.
+- **Frequency correction** — the dongle's crystal error in tenths of ppm, in the `rtl_test -p` sign
+  convention. The app asks the tuner for the VFO divided by (1 + ppm), so a known station lands on the
+  centre line at every frequency. librtlsdr only takes whole ppm, so the correction stays in the app
+  and `rtl_tcp` keeps 0 ppm.
 - **Passband overlay, peak hold, reference grids** — a highlight of the demodulated bandwidth per
   mode, a decaying peak trace, an EMA-smoothed spectrum line and a vertical frequency grid.
 - **Adjustable waterfall/spectrum split** — key `7` on the Visual page cycles the layout presets
   (waterfall 80 / 50 / 0 / 100 % of the plot area).
 - **Manual frequency entry** — a modal keypad dialog that captures keys directly through the
   toolkit's `platform::set_key_capture`.
-- **Session persistence** — the app restores VFO, mode, zoom, band, volume/mute, gain, theme and
-  grids on the next launch (`~/.config/zeroradio/sdr/state`).
+- **Session persistence** — the app restores VFO, mode, zoom, band, volume/mute, gain, frequency
+  correction, theme and grids on the next launch (`~/.config/zeroradio/sdr/state`).
 - **Mock source** — `SDR_SOURCE=mock` runs a synthetic source with no dongle, for UI work.
 
 ## How it works
@@ -52,8 +57,8 @@ thread uses the same sample stream twice, so the UI never blocks:
 over a marker line, and an **S-meter** on the right. The **spectrum** chart sits below it, and the
 **waterfall** fills the rest of the screen. A translucent green band marks the **passband**.
 
-**How you drive it.** Keys `4`–`8` map to a bottom toolbar. Key `4` cycles five tool pages (Tuning,
-Zoom/Band, Visual, Audio, Settings), and the other four keys act on the current page. Tuning or
+**How you drive it.** Keys `4`–`8` map to a bottom toolbar. Key `4` cycles six tool pages (Tuning,
+Zoom/Band, Visual, Audio, Settings, Calibration), and the other four keys act on the current page. Tuning or
 zooming retunes the dongle in real time, so the waterfall and the audio follow at once.
 
 ## Screenshots
@@ -109,15 +114,15 @@ Environment overrides:
 ## Controls
 
 The bottom NavBar maps the five physical keys `4`–`8` to five slots. The **leftmost key (`4`)
-cycles the tool page** (1→5) and shows the page number.
+cycles the tool page** (1→6) and shows the page name.
 
-| Key | P1 · Tuning | P2 · Zoom/Band | P3 · Visual | P4 · Audio | P5 · Settings |
-| --- | --- | --- | --- | --- | --- |
-| `4` | page switch | page switch | page switch | page switch | page switch |
-| `5` | tune − | zoom − | dark/light | mute | gain − |
-| `6` | **frequency entry** | band preset | freq grid | volume − | gain + |
-| `7` | tune + | zoom + | **waterfall/spectrum split** (80/50/0/100 %) | volume + | gain auto / value |
-| `8` | coarse/fine (step) | **demod mode** | peak hold | volume % | exit |
+| Key | P1 · Tuning | P2 · Zoom/Band | P3 · Visual | P4 · Audio | P5 · Settings | P6 · Calibration |
+| --- | --- | --- | --- | --- | --- | --- |
+| `4` | page switch | page switch | page switch | page switch | page switch | page switch |
+| `5` | tune − | zoom − | dark/light | mute | gain − | correction −0.1 ppm |
+| `6` | **frequency entry** | band preset | freq grid | volume − | gain + | **correction entry** (ppm) |
+| `7` | tune + | zoom + | **waterfall/spectrum split** (80/50/0/100 %) | volume + | gain auto / value | correction +0.1 ppm |
+| `8` | coarse/fine (step) | **demod mode** | peak hold | volume % | exit | correction (ppm) |
 
 Global keys, shared by every ZeroRadio app:
 
@@ -192,7 +197,7 @@ The `.deb` installs every app under `/usr/share/zeroradio`.
 ## Roadmap
 
 - Verify FM/AM/SSB/CW audio with a proper antenna.
-- Settings page: sample rate, bias-tee, ppm correction (gain is done).
+- Settings page: sample rate and bias-tee (gain and ppm correction are done).
 - HackRF front-end via SoapySDR (RTL-SDR v3/v4 and compatible dongles work today).
 
 ## License

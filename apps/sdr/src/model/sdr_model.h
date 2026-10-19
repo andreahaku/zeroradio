@@ -101,6 +101,18 @@ public:
     void    gain_up();        // +~3 dB (switches to manual)
     void    gain_down();      // -~3 dB (switches to manual)
 
+    // --- Frequency correction ---
+    // The dongle's crystal error in tenths of ppm, in the rtl-sdr sign
+    // convention (the value `rtl_test -p` reports and `rtl_fm -p` takes).
+    // Clamped to +/-kMaxPpmTenths.
+    static constexpr int kMaxPpmTenths = 2000; // +/-200.0 ppm
+    int  ppm_tenths() const;
+    void set_ppm_tenths(int tenths);
+    void ppm_up();            // +0.1 ppm
+    void ppm_down();          // -0.1 ppm
+    // The frequency to ask the tuner for so that `hz` lands on the VFO.
+    int64_t corrected_hz(int64_t hz) const;
+
 private:
     void load_state();
     void save_state() const;
@@ -118,6 +130,7 @@ private:
     bool muted_ = false;
     bool gain_auto_ = true;
     int32_t gain_tenth_db_ = 297; // ~29.7 dB
+    int ppm_tenths_ = 0;
 };
 
 } // namespace sdr

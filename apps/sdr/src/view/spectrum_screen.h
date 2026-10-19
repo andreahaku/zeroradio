@@ -77,9 +77,11 @@ private:
     static void wf_split_cb(lv_observer_t* observer, lv_subject_t* subject);
 
     // Modal frequency-entry dialog (manual key capture, no LVGL focus group).
+    // The same dialog takes the frequency correction in ppm (CAL page).
     static void freq_req_cb(lv_observer_t* observer, lv_subject_t* subject);
+    static void ppm_req_cb(lv_observer_t* observer, lv_subject_t* subject);
     static void freq_key_cb(uint32_t key, void* ctx);
-    void open_freq_dialog();
+    void open_freq_dialog(bool ppm = false);
     void close_freq_dialog(bool apply);
     void on_freq_key(uint32_t key);
     void update_freq_label();
@@ -111,6 +113,10 @@ private:
     lv_observer_t*      freq_req_observer_ = nullptr;
     int                 last_freq_req_    = 0;
     std::string         freq_buf_;
+    bool                dialog_ppm_       = false;   // the dialog takes ppm, not MHz
+    lv_obj_t*           freq_info_label_  = nullptr; // ppm: what the value means in Hz
+    lv_observer_t*      ppm_req_observer_ = nullptr;
+    int                 last_ppm_req_     = 0;
 };
 
 } // namespace sdr
