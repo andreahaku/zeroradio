@@ -107,7 +107,6 @@ struct RtlTcpSource::Impl {
     std::vector<float>  scratch_db;    // kFftSize copy
     float               floor_ema = 0.0f;
     bool                floor_init = false;
-    float               last_peak = 0.0f;
 
     // FFT plan + buffers (reader thread only).
     fftwf_complex* in  = nullptr;
@@ -442,8 +441,12 @@ void RtlTcpSource::set_gain(bool automatic, int tenth_db) {
     impl_->desired_gain_tenth.store(tenth_db);
 }
 
-float RtlTcpSource::last_peak() const {
-    return impl_->last_peak;
+double RtlTcpSource::frame_span_hz(int32_t span_hz) const {
+    // next_frame() crops the span out of the captured band, and clamps it to
+    // the sample rate when the zoom is wider (e.g. a 2 MHz span at the
+    // device's ~1 Msps cap).
+    const double rate = static_cast<double>(impl_->sample_rate.load());
+    return span_hz > rate ? rate : static_cast<double>(span_hz);
 }
 
 void RtlTcpSource::next_frame(float* mags, int n_bins) {
@@ -462,7 +465,6 @@ void RtlTcpSource::next_frame(float* mags, int n_bins) {
     }
     if (!have) {
         std::fill(mags, mags + n_bins, 0.0f); // not connected yet: blank
-        impl_->last_peak = 0.0f;
         return;
     }
 
@@ -503,15 +505,12 @@ void RtlTcpSource::next_frame(float* mags, int n_bins) {
 
     const float floor = impl_->floor_ema;
     const float inv_range = 1.0f / kDynRangeDb;
-    float peak = 0.0f;
     for (int j = 0; j < n_bins; ++j) {
         float v = (mags[j] - floor) * inv_range;
         if (v < 0.0f) v = 0.0f;
         if (v > 1.0f) v = 1.0f;
         mags[j] = v;
-        if (v > peak) peak = v;
     }
-    impl_->last_peak = peak;
 }
 
 } // namespace sdr
@@ -529,7 +528,7 @@ void RtlTcpSource::next_frame(float* mags, int n_bins) {
         for (int i = 0; i < n_bins; ++i) mags[i] = 0.0f;
     }
 }
-float RtlTcpSource::last_peak() const { return 0.0f; }
+double RtlTcpSource::frame_span_hz(int32_t span_hz) const { return span_hz; }
 void RtlTcpSource::set_tuning(int64_t, int32_t) {}
 void RtlTcpSource::set_mode(int) {}
 void RtlTcpSource::set_volume(float) {}

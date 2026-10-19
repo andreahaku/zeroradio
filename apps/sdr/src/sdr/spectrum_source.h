@@ -26,9 +26,10 @@ public:
     // Fill `mags` with `n_bins` values in [0, 1]. Must not block.
     virtual void next_frame(float* mags, int n_bins) = 0;
 
-    // Peak magnitude of the most recent frame, in [0, 1]; the screen maps this
-    // to the S-meter. Default 0 for sources that don't track it.
-    virtual float last_peak() const { return 0.0f; }
+    // The width in Hz that a frame actually covers when the screen asks for
+    // `span_hz`. A real receiver cannot show more than its sample rate, so a
+    // wider zoom spreads a narrower band over the bins. Default: all of it.
+    virtual double frame_span_hz(int32_t span_hz) const { return span_hz; }
 
     // Tell the source the tuned centre frequency (Hz) and the visible span (Hz)
     // so a real receiver can retune the hardware and crop the FFT to the zoom
@@ -57,14 +58,12 @@ public:
 
     void next_frame(float* mags, int n_bins) override;
 
-    float last_peak() const override { return last_peak_; }
 
 private:
     float frand();
 
     uint32_t rng_state_;
     float    phase_ = 0.0f;   // advances every frame to drive carrier drift
-    float    last_peak_ = 0.0f;
 };
 
 } // namespace sdr

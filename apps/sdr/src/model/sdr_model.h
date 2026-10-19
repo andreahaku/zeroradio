@@ -113,6 +113,16 @@ public:
     // The frequency to ask the tuner for so that `hz` lands on the VFO.
     int64_t corrected_hz(int64_t hz) const;
 
+    // --- Squelch ---
+    // On/off and the opening level on the S-meter scale (5..95). Turning it
+    // off keeps the level for the next time.
+    static constexpr int kSquelchStep = 5;
+    bool squelch_on() const;
+    int  squelch_threshold() const;
+    void toggle_squelch();
+    void squelch_up();        // +kSquelchStep
+    void squelch_down();      // -kSquelchStep
+
 private:
     void load_state();
     void save_state() const;
@@ -131,6 +141,8 @@ private:
     bool gain_auto_ = true;
     int32_t gain_tenth_db_ = 297; // ~29.7 dB
     int ppm_tenths_ = 0;
+    bool squelch_on_ = false;
+    int  squelch_threshold_ = 30;
 };
 
 } // namespace sdr

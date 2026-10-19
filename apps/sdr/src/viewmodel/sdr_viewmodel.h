@@ -8,6 +8,7 @@
 
 #include "nav_provider.h"
 #include "sdr_model.h"
+#include "squelch.h"
 #include "shell_viewmodel.h"
 #include "subjects.h"
 
@@ -29,8 +30,9 @@ public:
         Zoom     = 1, // zoom- / band / zoom+ / mode
         Visual   = 2, // theme / freq grid / waterfall split / peak hold
         Audio    = 3, // mute / vol- / vol+ / vol readout
-        Settings = 4, // gain- / gain+ / gain auto / exit
-        Calib    = 5, // ppm- / ppm entry / ppm+ / ppm readout
+        Squelch  = 4, // level- / on-off / level+ / level readout
+        Settings = 5, // gain- / gain+ / gain auto / exit
+        Calib    = 6, // ppm- / ppm entry / ppm+ / ppm readout
     };
 
     SdrViewModel();
@@ -66,6 +68,12 @@ public:
     void set_ppm_tenths(int tenths); // frequency correction, tenths of ppm
     void ppm_up();
     void ppm_down();
+    void toggle_squelch();
+    void squelch_up();
+    void squelch_down();
+    // Feed the channel level (0..100) once per frame: sets the S-meter and
+    // runs the squelch. Returns whether the audio may play.
+    bool update_channel_level(int level, int64_t now_ms);
     void zoom_in();
     void zoom_out();
     void cycle_band();
@@ -93,6 +101,8 @@ public:
     int32_t vfo_hz() const;
     int64_t tuner_hz() const;        // the VFO with the frequency correction applied
     int     ppm_tenths() const;
+    bool    squelch_on() const;
+    int     squelch_threshold() const;   // the level, also while the squelch is off
     RadioMode mode() const;
     Passband  passband() const;
 
@@ -148,6 +158,9 @@ private:
     // that outlives the call (the NavBar copies the text right after).
     mutable std::string step_label_;
     mutable std::string ppm_label_;
+    mutable std::string squelch_label_;
+    void apply_squelch_settings();
+    Squelch squelch_;
     mutable std::string gain_label_;
     mutable std::string vol_label_;
 };

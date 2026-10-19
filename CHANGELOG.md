@@ -5,7 +5,9 @@ All notable changes to ZeroRadio. Versions follow semantic versioning.
 ## Unreleased
 
 - Memories: a new app lists your saved frequencies, grouped by tag, and opens one in the SDR with its mode. The list lives in `~/.config/zeroradio/memories.json`, shared by the whole suite. The repository has an example list with the airband, marine VHF and NAVTEX frequencies around Malta, and the app README explains how to copy it to the device.
-- SDR: frequency correction for the dongle's crystal, on a new CAL page (key 4). Keys 5 and 7 step it by 0.1 ppm while you watch a known station, and key 6 takes a value in ppm, such as the one `rtl_test -p` reports. It is saved and applies to every frequency.
+- SDR: squelch, on a new SQL page. It keeps the speaker quiet until a signal reaches the level you set, and holds the audio 2.5 s after the signal drops so pauses in speech pass. A tick on the S-meter shows the level.
+- SDR: the S-meter shows the signal inside the passband instead of the strongest signal on screen.
+- SDR: frequency correction for the dongle's crystal, on a new CAL page. Keys 5 and 7 step it by 0.1 ppm while you watch a known station, and key 6 takes a value in ppm, such as the one `rtl_test -p` reports. It is saved and applies to every frequency.
 - SDR: the `SDR_MODE` environment variable (WFM, NFM, AM, USB, LSB or CW) sets the mode at start, next to `SDR_FREQ`.
 
 ## 1.1.0
