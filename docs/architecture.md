@@ -193,7 +193,7 @@ thread. The same stream feeds an FFT (FFTW, single precision) for the spectrum a
 demodulator (`AudioDemod`: WFM/NFM/AM/SSB-Weaver/CW) for audio at 48 kHz: SDL on the desktop, ALSA
 on the device through the `pipewire` PCM. Tuning and zoom retune the hardware and re-crop the FFT
 window. The sample rate follows the zoom span, capped by `SDR_SAMPLE_RATE` (the launcher sets
-1.024 Msps), and is always a multiple of 240 kHz: the audio chain decimates by whole factors to
+2.16 Msps), and is always a multiple of 240 kHz: the audio chain decimates by whole factors to
 240 kHz and then to 48 kHz, and any other rate overruns the 48 kHz output (`sample_rate.h`). A zoom
 wider than the capture keeps its frequency scale and leaves the edges of the spectrum blank
 (`spectrum_crop.h`). Builds without FFTW (`SDR_HAVE_RTLTCP` unset) use a synthetic mock.

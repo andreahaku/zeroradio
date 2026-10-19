@@ -432,7 +432,7 @@ void RtlTcpSource::set_gain(bool automatic, int tenth_db) {
 
 double RtlTcpSource::captured_span_hz(int32_t span_hz) const {
     // next_frame() crops the span out of the captured band. A zoom wider than
-    // the sample rate (e.g. 2 MHz at the device's 960 kHz) leaves the edges
+    // the sample rate (a zoom wider than SDR_SAMPLE_RATE) leaves the edges
     // of the frame blank.
     const double rate = static_cast<double>(impl_->sample_rate.load());
     return span_hz > rate ? rate : static_cast<double>(span_hz);

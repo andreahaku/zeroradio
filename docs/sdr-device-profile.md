@@ -2,6 +2,12 @@
 
 CPU, RAM and thermal profile of `sdr_app` on the [CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero), measured on 2026-06-30.
 
+> **Update 2026-10-19.** With the dongle in the device's own USB port, the 2 MHz zoom and WFM,
+> `sdr_app` used ~1.37 cores at 960 ksps, ~1.59 at 1.92 Msps and ~1.65 at 2.16 Msps, with
+> `rtl_tcp` at 3-7% and no `ll+` (lost IQ) lines, 63 °C and no throttling. The launcher now
+> caps the rate at 2.16 Msps, which fills the 2 MHz zoom. The rest of this page is the June
+> profile at 1.024 Msps.
+
 ## Setup
 
 - **Device**: Raspberry Pi Compute Module 0, 4× Cortex-A (pinned 1.0 GHz), 415 MB RAM,

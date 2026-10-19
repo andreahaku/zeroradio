@@ -6,9 +6,10 @@
 # Installed by the .deb next to the hub binary; the Radio .desktop Exec points here.
 cd "$(dirname "$0")" || exit 1
 
-# Sample-rate cap. The CM0 cannot drain the stock 2.4 Msps; ~1.0 Msps is the sweet
-# spot. This is a cap — the effective rate then follows the page-2 zoom dynamically.
-export SDR_SAMPLE_RATE="${SDR_SAMPLE_RATE:-1024000}"
+# Sample-rate cap: enough for the widest (2 MHz) zoom. Measured on the device
+# with that zoom and WFM: sdr_app ~1.65 cores of 4 and no lost IQ at 2.16 Msps,
+# against ~1.37 at 960 ksps. This is a cap: the rate follows the zoom below it.
+export SDR_SAMPLE_RATE="${SDR_SAMPLE_RATE:-2160000}"
 
 # Audio sink. The device image is PipeWire-managed (the ES8388 codec is held
 # exclusively by PipeWire), so the SDR ALSA output is routed through the `pipewire`

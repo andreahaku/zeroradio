@@ -93,8 +93,9 @@ starts `rtl_tcp` itself and stops it when you quit.
 Demodulated audio plays out of the device speaker through ALSA. The image is PipeWire-managed, so
 the default sink is the `pipewire` PCM (see
 [`docs/sdr-device-profile.md`](../../docs/sdr-device-profile.md)). The hub's launch wrapper sets
-`SDR_SAMPLE_RATE=1024000` and `SDR_ALSA_DEV=pipewire`. The app rounds the rate to a multiple of
-240 kHz so the audio comes out at exactly 48 kHz, so on the device it captures 960 kHz.
+`SDR_SAMPLE_RATE=2160000` and `SDR_ALSA_DEV=pipewire`. The app rounds the rate to a multiple of
+240 kHz so the audio comes out at exactly 48 kHz, and follows the zoom below the cap: 960 kHz up
+to the 500 kHz zoom, 2.16 MHz at the 2 MHz zoom.
 
 To use a dongle on another machine, run `rtl_tcp -a 0.0.0.0 -p 1234` there and start the app with
 `SDR_RTLTCP=<host>:1234`. The app then connects to that server and starts no local one.
@@ -125,7 +126,7 @@ Environment overrides:
 | `SDR_FREQ=<hz>` | Start tuned to this frequency, overriding the saved VFO. The Scanner's **Open in SDR** uses it. |
 | `SDR_SCAN=<hz>:<mode>,...` | Start a memory scan of these channels (up to 64), as the Memories app sends it. The mode part is optional. Read once at start, like `SDR_FREQ`. |
 | `SDR_MODE=<mode>` | Start in this mode, overriding the saved one: `WFM`, `NFM`, `AM`, `USB`, `LSB` or `CW`. An unknown name keeps the saved mode. The Memories app passes it with `SDR_FREQ`. The SDR reads both once at start and then clears them, so a later TAB switch keeps your tuning. |
-| `SDR_SAMPLE_RATE=<hz>` | Cap the RTL sample rate (valid: 900k–3.2M or 225k–300k). The CM0 needs ~1.0 Msps. Below the cap, the rate follows the page-2 zoom span. The app uses multiples of 240 kHz only, rounding the cap down, so the audio stays at 48 kHz. |
+| `SDR_SAMPLE_RATE=<hz>` | Cap the RTL sample rate (valid: 900k–3.2M or 225k–300k). The device launcher sets 2.16 Msps, which the CM0 drains at about 1.65 cores. Below the cap, the rate follows the page-2 zoom span. The app uses multiples of 240 kHz only, rounding the cap down, so the audio stays at 48 kHz. |
 | `SDR_ALSA_DEV`, `SDR_ALSA_CARD` | ALSA output PCM / card on the device (default `pipewire`). |
 
 ## Controls

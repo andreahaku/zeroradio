@@ -68,7 +68,7 @@ SDR**). The hub keeps waiting on the same process and shows the menu when that a
 
 The child inherits the environment, so `REMOTE_FB`, `ADSB_JSON`, `MESHTASTICD_PORT` and the other
 variables pass straight through. On the device, the `.desktop` entry starts the hub through
-`applications/radio-launch.sh`. That wrapper sets the SDR defaults (`SDR_SAMPLE_RATE=1024000`,
+`applications/radio-launch.sh`. That wrapper sets the SDR defaults (`SDR_SAMPLE_RATE=2160000`,
 `SDR_ALSA_DEV=pipewire`) and then execs `radio_app`, so every child inherits them.
 
 ## Adding an app
