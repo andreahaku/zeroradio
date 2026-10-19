@@ -234,9 +234,11 @@ bool key_repeats(uint32_t key) {
 }
 
 void repeat_timer_cb(lv_timer_t* timer) {
+    // Still held, and still a repeating key: the NavBar page may have changed
+    // under it, and the same slot may mean something else there.
     const bool held = repeat_indev && !key_capture &&
                       lv_indev_get_state(repeat_indev) == LV_INDEV_STATE_PRESSED &&
-                      lv_indev_get_key(repeat_indev) == repeat_key;
+                      lv_indev_get_key(repeat_indev) == repeat_key && key_repeats(repeat_key);
     if (!held) {
         lv_timer_pause(timer);
         repeat_indev = nullptr;
@@ -597,6 +599,11 @@ void set_nav_hold_handler(bool (*has_hold)(int slot, void* ctx),
 void set_nav_repeat_handler(bool (*repeats)(int slot, void* ctx), void* ctx) {
     nav_repeats = repeats;
     nav_repeat_ctx = ctx;
+    if (!repeats) {
+        // App teardown: the indev is about to go, so no repeat may outlive it.
+        repeat_indev = nullptr;
+        if (repeat_timer) lv_timer_pause(repeat_timer);
+    }
 }
 
 void set_nav_hint_handler(void (*handler)(int slot, void* ctx), void* ctx) {
