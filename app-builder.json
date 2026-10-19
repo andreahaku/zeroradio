@@ -8,13 +8,13 @@
     "summary": "Pocket radio lab: SDR, scanner, memories, ADS-B, AIS and ISM",
     "description": "ZeroRadio turns the CardputerZero into a pocket receiver. Plug an RTL-SDR dongle (for example the RTL-SDR Blog V4) into the USB-A port and open the hub.\n\n- SDR: spectrum, waterfall and WFM/FM/AM/USB/LSB/CW audio on the speaker.\n- Scanner: sweep a wide band, list the strongest signals, open one in the SDR.\n- Memories: browse saved frequencies and open one in SDR with its saved mode.\n- ISM: 433/868 MHz weather sensors, tyre pressure sensors and remotes.\n- ADS-B: aircraft list, radar and world map at 1090 MHz.\n- AIS: ship list, radar and world map at 162 MHz.\n\nEvery decoder runs on the device, with no computer or network. Set your position by city, coordinates or GPS (Cap LoRa-1262-GPS or a USB GPS). Press H in any app for its help. The package bundles readsb and AIS-catcher (GPL-3.0); see Credits in the app.",
     "locales": {
-      "en": { "summary": "Pocket radio lab: SDR, scanner, ADS-B, AIS and ISM with an RTL-SDR dongle" },
-      "it": { "summary": "Laboratorio radio tascabile: SDR, scanner, ADS-B, AIS e ISM con una chiavetta RTL-SDR" },
-      "fr": { "summary": "Labo radio de poche : SDR, scanner, ADS-B, AIS et ISM avec une clé RTL-SDR" },
-      "de": { "summary": "Funklabor im Taschenformat: SDR, Scanner, ADS-B, AIS und ISM mit einem RTL-SDR-Stick" },
-      "es": { "summary": "Laboratorio de radio de bolsillo: SDR, escáner, ADS-B, AIS e ISM con un dongle RTL-SDR" },
-      "ja": { "summary": "ポケット無線ラボ：RTL-SDR ドングルで SDR、スキャナー、ADS-B、AIS、ISM を利用" },
-      "zh-CN": { "summary": "掌上无线电实验室：插上 RTL-SDR 接收器，即可使用 SDR、频段扫描、ADS-B、AIS 与 ISM" }
+      "en": { "summary": "Pocket radio lab: SDR, scanner, memories, ADS-B, AIS and ISM" },
+      "it": { "summary": "Laboratorio radio tascabile: SDR, scanner, memorie, ADS-B, AIS e ISM" },
+      "fr": { "summary": "Labo radio de poche : SDR, scanner, mémoires, ADS-B, AIS et ISM" },
+      "de": { "summary": "Funklabor im Taschenformat: SDR, Scanner, Frequenzspeicher, ADS-B, AIS und ISM" },
+      "es": { "summary": "Laboratorio de radio de bolsillo: SDR, escáner, memorias, ADS-B, AIS e ISM" },
+      "ja": { "summary": "ポケット無線ラボ：SDR、スキャナー、メモリー、ADS-B、AIS、ISM" },
+      "zh-CN": { "summary": "掌上无线电实验室：SDR、频段扫描、频率存储、ADS-B、AIS 与 ISM" }
     },
     "categories": ["Radio & Comms"],
     "screenshots": [
