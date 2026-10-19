@@ -23,24 +23,25 @@
 namespace sdr {
 
 // SDR app state. Derives from the toolkit shell (dark mode, quit, NavBar page)
-// and implements NavProvider to drive the 5-key bar across five tool pages
-// (tuning/zoom/visual/audio/settings). Wraps SdrModel (the persisted radio
+// and implements NavProvider to drive the 5-key bar across its tool pages
+// (tuning/zoom/visual/audio/squelch/gain). Wraps SdrModel (the persisted radio
 // state) and publishes the reactive subjects the SpectrumScreen observes.
 class SdrViewModel : public toolkit::ShellViewModel, public toolkit::NavProvider {
 public:
-    // The five NavBar tool pages (slot 0 / key 4 cycles between them).
+    // The NavBar tool pages (slot 0 / key 4 cycles between them).
     enum class Page : int {
         Tuning   = 0, // < / freq-entry / >  + fine-step toggle
         Zoom     = 1, // zoom- / band / zoom+ / mode
         Visual   = 2, // theme / freq grid / waterfall split / peak hold
         Audio    = 3, // mute / vol- / vol+ / vol readout
         Squelch  = 4, // level- / on-off / level+ / level readout
-        Settings = 5, // gain- / gain+ / gain auto / exit
-        Calib    = 6, // ppm- / ppm entry / ppm+ / ppm readout
-        Scan     = 7, // pause / skip / lock out / stop (only while a memory scan runs)
+        Settings = 5, // gain- / gain+ / gain auto / calibrate
+                      // calibrating: ppm- / ppm entry / ppm+ / done
+        Scan     = 6, // pause / skip / lock out / stop (only while a memory scan runs)
     };
 
     SdrViewModel();
+    ~SdrViewModel() override;
 
     // --- SDR subjects (observed by the SpectrumScreen / header) ---
     lv_subject_t* vfo_text_subject();
@@ -56,7 +57,9 @@ public:
     lv_subject_t* wf_split_subject();   // visible waterfall rows (page-3 key 7)
     lv_subject_t* freq_input_req_subject();
     lv_subject_t* ppm_input_req_subject();
-    lv_subject_t* scan_text_subject();  // "SCAN ..." while a memory scan runs, else ""
+    // Text over the waterfall: "SCAN ..." while a memory scan runs, the
+    // correction while calibrating, else "".
+    lv_subject_t* status_text_subject();
     lv_subject_t* fine_tune_subject();
     lv_subject_t* muted_subject();
     lv_subject_t* volume_subject();
@@ -74,6 +77,15 @@ public:
     void set_ppm_tenths(int tenths); // frequency correction, tenths of ppm
     void ppm_up();
     void ppm_down();
+    // Calibration: the GAIN page swaps its keys for the correction keys and
+    // zooms in as far as it goes. Leaving it (Done, or any other page) puts
+    // the zoom back.
+    bool calibrating() const { return calibrating_; }
+    void start_calibration();
+    void finish_calibration();
+    // The view reports every NavBar page change: any other page ends the
+    // calibration, so the page key never leaves the zoom at its narrowest.
+    void on_toolbar_page(int page);
     void toggle_squelch();
     void squelch_up();
     void squelch_down();
@@ -176,7 +188,6 @@ private:
     // Mutable because nav_fill() is const but must point NavSlot.text at storage
     // that outlives the call (the NavBar copies the text right after).
     mutable std::string step_label_;
-    mutable std::string ppm_label_;
     mutable std::string squelch_label_;
     void start_scan(std::vector<ScanChannel> channels);
     void publish_scan_text();
@@ -184,7 +195,10 @@ private:
     std::map<int64_t, std::string> scan_names_; // memory names by frequency, for the label
     double scan_span_hz_ = -1.0;                // frame span the groups were built for
     int64_t scan_now_ms_ = 0;
-    reactive::StringSubject<40> scan_text_subject_{""};
+    reactive::StringSubject<48> status_text_subject_{""};
+    void publish_cal_text();
+    bool calibrating_ = false;
+    int32_t cal_prev_span_khz_ = 0; // the zoom to put back after calibrating
     void apply_squelch_settings();
     Squelch squelch_;
     mutable std::string gain_label_;

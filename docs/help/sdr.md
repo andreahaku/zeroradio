@@ -11,8 +11,7 @@ Key 4 cycles seven tool pages. The screen stays the same: mode on the left, tune
 - 3 Visual: theme and display options.
 - 4 Audio: mute and volume.
 - 5 Squelch: silence the noise between transmissions.
-- 6 Settings: RF gain and exit.
-- 7 Calibration: frequency correction for the dongle.
+- 6 Settings: RF gain and the calibration of the frequency.
 
 ## Keys
 
@@ -21,12 +20,12 @@ Key 4 cycles seven tool pages. The screen stays the same: mode on the left, tune
 - Page 3: 5 dark/light theme, 6 frequency grid, 7 waterfall/spectrum split, 8 peak hold.
 - Page 4: 5 mute, 6 volume down, 7 volume up, 8 shows the volume.
 - Page 5: 5 squelch level down, 6 squelch on/off, 7 squelch level up, 8 shows the level.
-- Page 6: 5 gain down, 6 gain up, 7 auto gain on/off, 8 exit.
-- Page 7: 5 correction down 0.1 ppm, 6 correction entry, 7 correction up 0.1 ppm, 8 shows the correction in ppm.
+- Page 6: 5 gain down, 6 gain up, 7 auto gain on/off, 8 calibration (CAL).
+- Page 6 while calibrating: 5 correction down 0.1 ppm, 6 correction entry, 7 correction up 0.1 ppm, 8 done (OK).
 
 Frequency entry (page 1, key 6): type MHz with digits and a dot (SYM + .), up to 4 decimals, for example 98.525, Backspace deletes, Enter tunes, Esc cancels.
 
-Correction entry (page 7, key 6): type ppm with up to one decimal, for example 2.4. The - key changes the sign. The dialog shows how many Hz the value moves the signals on screen at the current frequency. A positive value moves them to the right. Enter saves, Esc cancels.
+Correction entry (key 6 while calibrating): type ppm with up to one decimal, for example 2.4. The - key changes the sign. The dialog shows how many Hz the value moves the signals on screen at the current frequency. A positive value moves them to the right. Enter saves, Esc cancels.
 
 ## Squelch
 
@@ -42,11 +41,13 @@ The scan stops on a channel when the S-meter there reaches the squelch level, an
 
 ## Calibrate the frequency
 
-The crystal of every dongle is a little off, so a station shows a little away from its frequency. To correct it, tune to a station whose frequency you know, such as an airport ATIS in AM. Zoom in until you see its carrier. On page 7, if the carrier sits left of the centre line, raise the correction with key 7. If it sits right, lower it with key 5. Stop when it sits on the line. The value is saved and applies to every frequency. If you know your dongle's ppm, for example from `rtl_test -p`, type it with key 6.
+The crystal of every dongle is a little off, so a station shows a little away from its frequency. To correct it, tune to a station whose frequency you know, such as an airport ATIS in AM. On page 6 press 8 (CAL): the app zooms in as far as it goes, and the line over the spectrum shows the correction in ppm and how many Hz it moves the signals at this frequency. If the carrier sits left of the centre line, raise the correction with key 7. If it sits right, lower it with key 5. Stop when it sits on the line, then press 8 (OK) to go back to the gain keys and the zoom you had. Moving to another page also ends the calibration. The value is saved and applies to every frequency. If you know your dongle's ppm, for example from `rtl_test -p`, type it with key 6.
+
+At the narrowest zoom one pixel is about 300 Hz, and 1 ppm is 130 Hz on the airband. A dongle with a TCXO, such as the RTL-SDR Blog V4, is usually within 1 or 2 ppm, so its error can be smaller than a pixel. For a finer check, tune a steady carrier in USB and set the correction where the tone falls to zero.
 
 ## Global keys
 
-- 4: the next page of keys. The key shows the page name: TUNE, ZOOM, VIEW, AUDIO, SQL, GAIN, CAL, and SCAN during a memory scan. Hold 4 for the page before.
+- 4: the next page of keys. The key shows the page name: TUNE, ZOOM, VIEW, AUDIO, SQL, GAIN (CAL while calibrating), and SCAN during a memory scan. Hold 4 for the page before.
 - Arrows (F/X/Z/C): Z/C tune down/up by one step, F/X zoom in/out.
 - Fn+A mutes or unmutes, Fn+S and Fn+D turn the volume down and up, from any page.
 - TAB: switch to the Scanner app.

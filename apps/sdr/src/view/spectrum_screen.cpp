@@ -113,9 +113,13 @@ SpectrumScreen::~SpectrumScreen() {
         lv_observer_remove(ppm_req_observer_);
         ppm_req_observer_ = nullptr;
     }
-    if (scan_text_observer_) {
-        lv_observer_remove(scan_text_observer_);
-        scan_text_observer_ = nullptr;
+    if (toolbar_page_observer_) {
+        lv_observer_remove(toolbar_page_observer_);
+        toolbar_page_observer_ = nullptr;
+    }
+    if (status_text_observer_) {
+        lv_observer_remove(status_text_observer_);
+        status_text_observer_ = nullptr;
     }
     if (wf_split_observer_) {
         lv_observer_remove(wf_split_observer_);
@@ -268,17 +272,17 @@ void SpectrumScreen::build_content(lv_obj_t* content) {
     lv_obj_remove_flag(passband_, LV_OBJ_FLAG_CLICKABLE);
 
     // --- Memory scan label: top left of the spectrum, only while scanning.
-    scan_label_ = lv_label_create(content);
-    lv_obj_add_flag(scan_label_, LV_OBJ_FLAG_IGNORE_LAYOUT);
-    lv_obj_align(scan_label_, LV_ALIGN_TOP_LEFT, 2, kHeaderHeight + kRowPad);
-    lv_obj_set_style_text_font(scan_label_, small_font ? small_font : &lv_font_montserrat_12, 0);
-    lv_obj_set_style_text_color(scan_label_, lv_color_white(), 0);
-    lv_obj_set_style_bg_color(scan_label_, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(scan_label_, LV_OPA_70, 0);
-    lv_obj_set_style_pad_hor(scan_label_, 3, 0);
-    lv_obj_remove_flag(scan_label_, LV_OBJ_FLAG_CLICKABLE);
-    lv_label_bind_text(scan_label_, vm_.scan_text_subject(), nullptr);
-    scan_text_observer_ = lv_subject_add_observer(vm_.scan_text_subject(), scan_text_cb, this);
+    status_label_ = lv_label_create(content);
+    lv_obj_add_flag(status_label_, LV_OBJ_FLAG_IGNORE_LAYOUT);
+    lv_obj_align(status_label_, LV_ALIGN_TOP_LEFT, 2, kHeaderHeight + kRowPad);
+    lv_obj_set_style_text_font(status_label_, small_font ? small_font : &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(status_label_, lv_color_white(), 0);
+    lv_obj_set_style_bg_color(status_label_, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(status_label_, LV_OPA_70, 0);
+    lv_obj_set_style_pad_hor(status_label_, 3, 0);
+    lv_obj_remove_flag(status_label_, LV_OBJ_FLAG_CLICKABLE);
+    lv_label_bind_text(status_label_, vm_.status_text_subject(), nullptr);
+    status_text_observer_ = lv_subject_add_observer(vm_.status_text_subject(), status_text_cb, this);
     update_passband();
 
     // --- Centre frequency marker: a thin vertical line at the tuned VFO. ---
@@ -298,6 +302,8 @@ void SpectrumScreen::build_content(lv_obj_t* content) {
     // Open the frequency dialog when the ViewModel bumps the request counter.
     freq_req_observer_ = lv_subject_add_observer(vm_.freq_input_req_subject(), freq_req_cb, this);
     ppm_req_observer_ = lv_subject_add_observer(vm_.ppm_input_req_subject(), ppm_req_cb, this);
+    toolbar_page_observer_ =
+        lv_subject_add_observer(vm_.toolbar_page_subject(), toolbar_page_cb, this);
 
     // Waterfall/spectrum split (page-3 key 7). Fires immediately with the current
     // value, applying the initial split.
@@ -357,6 +363,12 @@ void SpectrumScreen::ppm_req_cb(lv_observer_t* observer, lv_subject_t* subject) 
     if (v != self->last_ppm_req_) {  // ignores the initial (0) notification
         self->last_ppm_req_ = v;
         self->open_freq_dialog(/*ppm=*/true);
+    }
+}
+
+void SpectrumScreen::toolbar_page_cb(lv_observer_t* observer, lv_subject_t* subject) {
+    if (auto* self = static_cast<SpectrumScreen*>(lv_observer_get_user_data(observer))) {
+        self->vm_.on_toolbar_page(lv_subject_get_int(subject));
     }
 }
 
@@ -605,7 +617,7 @@ void SpectrumScreen::tick() {
     }
 
     // Keep the real receiver tuned to the VFO/zoom span and the audio path on mode.
-    // The tuner gets the VFO with the frequency correction applied (CAL page).
+    // The tuner gets the VFO with the frequency correction applied (calibration).
     source_->set_tuning(vm_.tuner_hz(), static_cast<int32_t>(vm_.span_khz()) * 1000);
     source_->set_mode(static_cast<int>(vm_.mode()));
     source_->set_volume(vm_.volume_gain());
@@ -648,12 +660,12 @@ void SpectrumScreen::tick() {
     update_passband();
 }
 
-void SpectrumScreen::scan_text_cb(lv_observer_t* observer, lv_subject_t* subject) {
+void SpectrumScreen::status_text_cb(lv_observer_t* observer, lv_subject_t* subject) {
     auto* self = static_cast<SpectrumScreen*>(lv_observer_get_user_data(observer));
-    if (!self || !self->scan_label_) return;
+    if (!self || !self->status_label_) return;
     const char* text = lv_subject_get_string(subject);
-    if (text && text[0] != '\0') lv_obj_remove_flag(self->scan_label_, LV_OBJ_FLAG_HIDDEN);
-    else lv_obj_add_flag(self->scan_label_, LV_OBJ_FLAG_HIDDEN);
+    if (text && text[0] != '\0') lv_obj_remove_flag(self->status_label_, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(self->status_label_, LV_OBJ_FLAG_HIDDEN);
 }
 
 void SpectrumScreen::update_squelch_view(bool open) {

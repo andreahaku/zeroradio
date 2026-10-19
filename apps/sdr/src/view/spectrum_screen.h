@@ -78,9 +78,10 @@ private:
     static void wf_split_cb(lv_observer_t* observer, lv_subject_t* subject);
 
     // Modal frequency-entry dialog (manual key capture, no LVGL focus group).
-    // The same dialog takes the frequency correction in ppm (CAL page).
+    // The same dialog takes the frequency correction in ppm (calibration).
     static void freq_req_cb(lv_observer_t* observer, lv_subject_t* subject);
     static void ppm_req_cb(lv_observer_t* observer, lv_subject_t* subject);
+    static void toolbar_page_cb(lv_observer_t* observer, lv_subject_t* subject);
     static void freq_key_cb(uint32_t key, void* ctx);
     void open_freq_dialog(bool ppm = false);
     void close_freq_dialog(bool apply);
@@ -113,9 +114,9 @@ private:
     int                 sq_marker_level_ = -1; // level drawn, -1 = hidden
     int                 sq_shown_open_   = -1; // indicator colour state drawn
     void update_squelch_view(bool open);
-    lv_obj_t*           scan_label_ = nullptr; // "SCAN ..." while a memory scan runs
-    lv_observer_t*      scan_text_observer_ = nullptr;
-    static void scan_text_cb(lv_observer_t* observer, lv_subject_t* subject);
+    lv_obj_t*           status_label_ = nullptr; // "SCAN ..." while a memory scan runs
+    lv_observer_t*      status_text_observer_ = nullptr;
+    static void status_text_cb(lv_observer_t* observer, lv_subject_t* subject);
 
     lv_obj_t*           freq_dialog_      = nullptr;
     lv_obj_t*           freq_value_label_ = nullptr;
@@ -125,6 +126,7 @@ private:
     bool                dialog_ppm_       = false;   // the dialog takes ppm, not MHz
     lv_obj_t*           freq_info_label_  = nullptr; // ppm: what the value means in Hz
     lv_observer_t*      ppm_req_observer_ = nullptr;
+    lv_observer_t*      toolbar_page_observer_ = nullptr;
     int                 last_ppm_req_     = 0;
 };
 
