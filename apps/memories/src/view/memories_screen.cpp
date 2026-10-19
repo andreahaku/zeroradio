@@ -27,7 +27,9 @@ MemoriesScreen::MemoriesScreen(MemoriesViewModel& vm, app::AssetManager& assets)
 
 MemoriesScreen::~MemoriesScreen() {
     if (search_dialog_) close_search(false);
+    if (scan_dialog_) close_scan(false);
     if (search_observer_) lv_observer_remove(search_observer_);
+    if (scan_observer_) lv_observer_remove(scan_observer_);
     if (selection_observer_) lv_observer_remove(selection_observer_);
     if (rows_observer_) lv_observer_remove(rows_observer_);
 }
@@ -88,6 +90,7 @@ void MemoriesScreen::build_content(lv_obj_t* content) {
     rows_observer_ = lv_subject_add_observer(vm_.rows_version_subject(), rows_cb, this);
     selection_observer_ = lv_subject_add_observer(vm_.selected_row_subject(), rows_cb, this);
     search_observer_ = lv_subject_add_observer(vm_.search_request_subject(), search_cb, this);
+    scan_observer_ = lv_subject_add_observer(vm_.scan_request_subject(), scan_cb, this);
     update_table();
 }
 
@@ -103,6 +106,16 @@ void MemoriesScreen::search_cb(lv_observer_t* observer, lv_subject_t* subject) {
     if (request != self->last_search_request_) {
         self->last_search_request_ = request;
         self->open_search();
+    }
+}
+
+void MemoriesScreen::scan_cb(lv_observer_t* observer, lv_subject_t* subject) {
+    auto* self = static_cast<MemoriesScreen*>(lv_observer_get_user_data(observer));
+    if (!self) return;
+    const int request = lv_subject_get_int(subject);
+    if (request != self->last_scan_request_) {
+        self->last_scan_request_ = request;
+        self->open_scan();
     }
 }
 
@@ -136,9 +149,9 @@ void MemoriesScreen::update_table() {
     lv_table_set_row_count(table_, static_cast<uint32_t>(rows.size()));
     for (size_t i = 0; i < rows.size(); ++i) {
         const auto row = static_cast<uint32_t>(i);
-        lv_table_set_cell_value(table_, row, 0, rows[i].group
-                                                   ? ("[" + rows[i].name + "]").c_str()
-                                                   : rows[i].name.c_str());
+        const std::string name = rows[i].group ? "[" + rows[i].name + "]"
+                                               : (rows[i].marked ? "* " : "  ") + rows[i].name;
+        lv_table_set_cell_value(table_, row, 0, name.c_str());
         lv_table_set_cell_value(table_, row, 1, rows[i].frequency.c_str());
         lv_table_set_cell_value(table_, row, 2, rows[i].mode.c_str());
     }
@@ -218,6 +231,68 @@ void MemoriesScreen::on_search_key(uint32_t key) {
 void MemoriesScreen::render_search() {
     if (search_input_)
         lv_label_set_text_fmt(search_input_, "> %s_", search_text_.c_str());
+}
+
+void MemoriesScreen::open_scan() {
+    if (scan_dialog_ || search_dialog_) return;
+    auto* title_font = assets().load_font("inter-semibold.ttf", 16);
+    auto* small_font = assets().load_font("inter-regular.ttf", 12);
+    const auto& palette = view::palette(vm_.is_dark_mode());
+
+    scan_dialog_ = lv_obj_create(lv_layer_top());
+    lv_obj_remove_style_all(scan_dialog_);
+    lv_obj_set_size(scan_dialog_, view::kScreenWidth, view::kScreenHeight);
+    lv_obj_set_style_bg_color(scan_dialog_, palette.background, 0);
+    lv_obj_set_style_bg_opa(scan_dialog_, LV_OPA_COVER, 0);
+    lv_obj_set_style_pad_all(scan_dialog_, 8, 0);
+    lv_obj_set_style_pad_row(scan_dialog_, 12, 0);
+    lv_obj_clear_flag(scan_dialog_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(scan_dialog_, LV_FLEX_FLOW_COLUMN);
+
+    auto* title = lv_label_create(scan_dialog_);
+    lv_label_set_text_fmt(title, "Scan %zu %s?", vm_.scan_count(),
+                          vm_.scan_count() == 1 ? "memory" : "memories");
+    lv_obj_set_style_text_font(title, title_font ? title_font : &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(title, palette.primary, 0);
+
+    auto* scope = lv_label_create(scan_dialog_);
+    lv_label_set_text(scope, vm_.scan_uses_marks() ? "Marked memories" : "Current group");
+    lv_obj_set_style_text_font(scope, small_font ? small_font : &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(scope, palette.text, 0);
+
+    if (vm_.scan_total() > vm_.scan_count()) {
+        auto* limit = lv_label_create(scan_dialog_);
+        lv_label_set_text_fmt(limit, "First %zu of %zu (scan limit)", vm_.scan_count(),
+                              vm_.scan_total());
+        lv_obj_set_style_text_font(limit, small_font ? small_font : &lv_font_montserrat_12, 0);
+        lv_obj_set_style_text_color(limit, palette.text, 0);
+    }
+
+    auto* hint = lv_label_create(scan_dialog_);
+    lv_label_set_text(hint, "Enter: start scan  |  Esc: cancel");
+    lv_obj_set_style_text_font(hint, small_font ? small_font : &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(hint, palette.text_disabled, 0);
+
+    platform::set_key_capture(scan_key_cb, this);
+}
+
+void MemoriesScreen::close_scan(bool confirm) {
+    platform::set_key_capture(nullptr, nullptr);
+    if (scan_dialog_) {
+        lv_obj_delete(scan_dialog_);
+        scan_dialog_ = nullptr;
+    }
+    if (confirm) vm_.confirm_scan();
+    else vm_.cancel_scan();
+}
+
+void MemoriesScreen::scan_key_cb(uint32_t key, void* ctx) {
+    if (auto* self = static_cast<MemoriesScreen*>(ctx)) self->on_scan_key(key);
+}
+
+void MemoriesScreen::on_scan_key(uint32_t key) {
+    if (key == LV_KEY_ESC) close_scan(false);
+    else if (key == LV_KEY_ENTER) close_scan(true);
 }
 
 } // namespace memories

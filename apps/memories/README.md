@@ -8,6 +8,10 @@ The list shows name, frequency, and mode. Entries are grouped by their first tag
 
 The sample list includes airband, marine, AIS, and NAVTEX frequencies around Malta and Gozo. Frequencies below 1 MHz are shown in kHz; higher frequencies are shown in MHz.
 
+Press **4** to switch between the MEM and SCAN key pages. On SCAN, press **5** to mark or unmark a memory. A `*` beside its name shows that it is marked. Marks stay in place when you sort or search, including for entries hidden by the current search.
+
+Press **6** to scan the marked memories, or every memory in the selected entry's group when nothing is marked. Press **7** to scan the selected entry's group even when other memories are marked. Press **8** to clear all marks. A confirmation screen shows how many memories will be scanned; press **Enter** to start in SDR or **Esc** to cancel. Channels are sent in frequency order. Up to 64 can be scanned at once: marking a 65th entry is refused, and a larger group is limited to its first 64 frequencies with the limit shown before starting.
+
 ## Keys
 
 | Key | Action |
@@ -16,6 +20,11 @@ The sample list includes airband, marine, AIS, and NAVTEX frequencies around Mal
 | 6 / X | Move down, skipping group headings |
 | 7 / Enter | Open the selected memory in SDR |
 | 8 | Search names; Enter applies the filter, Esc cancels, an empty query shows all |
+| 4 | Switch between MEM and SCAN key pages |
+| 5 on SCAN | Mark or unmark the selected memory |
+| 6 on SCAN | Scan marked memories, or the selected group if none are marked |
+| 7 on SCAN | Scan the selected group, ignoring marks |
+| 8 on SCAN | Clear all marks |
 | TAB | Switch between name and frequency order |
 | H | Open in-app help |
 | Esc | Return to the ZeroRadio hub |

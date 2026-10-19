@@ -25,23 +25,31 @@ protected:
 private:
     static void rows_cb(lv_observer_t* observer, lv_subject_t* subject);
     static void search_cb(lv_observer_t* observer, lv_subject_t* subject);
+    static void scan_cb(lv_observer_t* observer, lv_subject_t* subject);
     static void draw_cb(lv_event_t* event);
     static void search_key_cb(uint32_t key, void* ctx);
+    static void scan_key_cb(uint32_t key, void* ctx);
     void update_table();
     void open_search();
     void close_search(bool apply);
     void on_search_key(uint32_t key);
     void render_search();
+    void open_scan();
+    void close_scan(bool confirm);
+    void on_scan_key(uint32_t key);
 
     MemoriesViewModel& vm_;
     lv_obj_t* table_ = nullptr;
     lv_obj_t* empty_label_ = nullptr;
     lv_obj_t* search_dialog_ = nullptr;
     lv_obj_t* search_input_ = nullptr;
+    lv_obj_t* scan_dialog_ = nullptr;
     lv_observer_t* rows_observer_ = nullptr;
     lv_observer_t* selection_observer_ = nullptr;
     lv_observer_t* search_observer_ = nullptr;
+    lv_observer_t* scan_observer_ = nullptr;
     int last_search_request_ = 0;
+    int last_scan_request_ = 0;
     std::string search_text_;
 };
 

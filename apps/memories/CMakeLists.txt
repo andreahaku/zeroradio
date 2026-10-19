@@ -16,3 +16,14 @@ target_include_directories(memories_app PRIVATE
 )
 
 target_link_libraries(memories_app PRIVATE radio_toolkit)
+
+if(USE_DESKTOP)
+    add_executable(memories_scan_test
+        test/memories_scan_test.cpp
+        src/viewmodel/memories_viewmodel.cpp
+    )
+    target_include_directories(memories_scan_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/viewmodel)
+    target_link_libraries(memories_scan_test PRIVATE radio_toolkit)
+    add_dependencies(memories_scan_test sdr_app)
+    add_test(NAME memories_scan_test COMMAND memories_scan_test)
+endif()

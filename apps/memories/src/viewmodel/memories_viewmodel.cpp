@@ -14,7 +14,7 @@
 #include <cctype>
 #include <cstdio>
 #include <map>
-#include <numeric>
+#include <string_view>
 
 namespace memories {
 namespace {
@@ -25,9 +25,22 @@ std::string lowercase(std::string text) {
     return text;
 }
 
+constexpr size_t kMaxScanMemories = 64;
+
+std::string group_for(const toolkit::Memory& memory) {
+    return memory.tags.empty() ? "other" : memory.tags.front();
+}
+
+std::string_view scan_mode(std::string_view mode) {
+    if (mode == "WFM" || mode == "NFM" || mode == "AM" || mode == "USB" ||
+        mode == "LSB" || mode == "CW") return mode;
+    return {};
+}
+
 } // namespace
 
-MemoriesViewModel::MemoriesViewModel() : memories_(toolkit::load_memories()) {
+MemoriesViewModel::MemoriesViewModel() : memories_(toolkit::load_memories()),
+                                         marked_(memories_.size(), false) {
     set_help_doc("docs/help/memories.md");
     set_nav_provider(this);
     set_title("MEMORIES");
@@ -57,12 +70,10 @@ void MemoriesViewModel::rebuild_rows() {
     for (size_t i = 0; i < memories_.size(); ++i) {
         const auto& memory = memories_[i];
         if (!needle.empty() && lowercase(memory.name).find(needle) == std::string::npos) continue;
-        const std::string group = memory.tags.empty() ? "other" : memory.tags.front();
-        groups[group].push_back(i);
+        groups[group_for(memory)].push_back(i);
     }
 
     rows_.clear();
-    size_t matches = 0;
     for (auto& [group, indices] : groups) {
         std::sort(indices.begin(), indices.end(), [this](size_t a, size_t b) {
             const auto& lhs = memories_[a];
@@ -71,11 +82,11 @@ void MemoriesViewModel::rebuild_rows() {
             if (lhs.name != rhs.name) return lhs.name < rhs.name;
             return lhs.hz < rhs.hz;
         });
-        rows_.push_back({true, group, "", "", 0});
+        rows_.push_back({true, group, "", "", 0, false});
         for (const size_t index : indices) {
             const auto& memory = memories_[index];
-            rows_.push_back({false, memory.name, format_frequency(memory.hz), memory.mode, index});
-            ++matches;
+            rows_.push_back({false, memory.name, format_frequency(memory.hz), memory.mode,
+                             index, marked_[index]});
         }
     }
 
@@ -91,12 +102,20 @@ void MemoriesViewModel::rebuild_rows() {
     selected_row_.set(selection);
     rows_version_.set(rows_version_.value() + 1);
     bump_nav_refresh();
+    update_status();
+}
+
+void MemoriesViewModel::update_status() {
+    const size_t matches = static_cast<size_t>(std::count_if(
+        rows_.begin(), rows_.end(), [](const Row& row) { return !row.group; }));
     char status[64];
-    std::snprintf(status, sizeof(status), "%zu %s  |  %s%s%s", matches,
+    std::snprintf(status, sizeof(status), "%zu %s  |  %s", matches,
                   matches == 1 ? "memory" : "memories",
-                  sort_by_frequency_ ? "frequency" : "name",
-                  query_.empty() ? "" : "  |  find: ", query_.c_str());
-    status_.set(status);
+                  sort_by_frequency_ ? "frequency" : "name");
+    std::string text = status;
+    if (marked_count_) text += "  |  marked: " + std::to_string(marked_count_);
+    if (!query_.empty()) text += "  |  find: " + query_;
+    status_.set(text.c_str());
 }
 
 int MemoriesViewModel::first_memory_row() const {
@@ -148,25 +167,147 @@ void MemoriesViewModel::request_search() {
     search_request_.set(search_request_.value() + 1);
 }
 
-void MemoriesViewModel::nav_fill(int, NavSlot out[5]) const {
+void MemoriesViewModel::toggle_mark() {
+    const int row = selected_row_.value();
+    if (row < 0 || row >= static_cast<int>(rows_.size())) return;
+    auto& selected = rows_[static_cast<size_t>(row)];
+    if (selected.group) return;
+    const size_t index = selected.memory_index;
+    if (!marked_[index] && marked_count_ == kMaxScanMemories) {
+        status_.set("Scan limit: 64 marked memories");
+        return;
+    }
+    marked_[index] = !marked_[index];
+    selected.marked = marked_[index];
+    if (marked_[index]) ++marked_count_;
+    else --marked_count_;
+    rows_version_.set(rows_version_.value() + 1);
+    bump_nav_refresh();
+    update_status();
+}
+
+void MemoriesViewModel::clear_marks() {
+    if (!marked_count_) return;
+    std::fill(marked_.begin(), marked_.end(), false);
+    marked_count_ = 0;
+    for (auto& row : rows_) row.marked = false;
+    rows_version_.set(rows_version_.value() + 1);
+    bump_nav_refresh();
+    update_status();
+}
+
+void MemoriesViewModel::prepare_scan(bool force_group) {
+    const int row = selected_row_.value();
+    if (row < 0 || row >= static_cast<int>(rows_.size())) return;
+    const auto& selected = rows_[static_cast<size_t>(row)];
+    if (selected.group) return;
+    if (toolkit::find_sibling("sdr_app", "sdr").empty()) {
+        status_.set("SDR app unavailable");
+        return;
+    }
+
+    pending_scan_.clear();
+    scan_uses_marks_ = !force_group && marked_count_ > 0;
+    const std::string group = group_for(memories_[selected.memory_index]);
+    for (size_t i = 0; i < memories_.size(); ++i) {
+        if ((scan_uses_marks_ && marked_[i]) ||
+            (!scan_uses_marks_ && group_for(memories_[i]) == group)) {
+            pending_scan_.push_back(i);
+        }
+    }
+    std::sort(pending_scan_.begin(), pending_scan_.end(), [this](size_t a, size_t b) {
+        if (memories_[a].hz != memories_[b].hz) return memories_[a].hz < memories_[b].hz;
+        return a < b;
+    });
+    pending_scan_total_ = pending_scan_.size();
+    if (pending_scan_.size() > kMaxScanMemories) pending_scan_.resize(kMaxScanMemories);
+    if (!pending_scan_.empty()) scan_request_.set(scan_request_.value() + 1);
+}
+
+void MemoriesViewModel::confirm_scan() {
+    if (pending_scan_.empty()) return;
+    std::string channels;
+    for (size_t index : pending_scan_) {
+        if (!channels.empty()) channels += ',';
+        const auto& memory = memories_[index];
+        channels += std::to_string(memory.hz);
+        channels += ':';
+        channels.append(scan_mode(memory.mode));
+    }
+    cancel_scan();
+    request_handoff("sdr_app", "sdr", {{"SDR_SCAN", std::move(channels)}});
+}
+
+void MemoriesViewModel::cancel_scan() {
+    pending_scan_.clear();
+    pending_scan_total_ = 0;
+}
+
+void MemoriesViewModel::nav_fill(int page, NavSlot out[5]) const {
     out[0] = {"#", true, true};
-    out[1] = {view::ICON_CARET_UP, false, true};
-    out[2] = {view::ICON_CARET_DOWN, false, true};
-    out[3] = {view::ICON_CHECK, false, selected_row_.value() >= 0};
-    out[4] = {view::ICON_KEYBOARD, false, true};
+    if (page == 0) {
+        out[1] = {view::ICON_CARET_UP, false, true};
+        out[2] = {view::ICON_CARET_DOWN, false, true};
+        out[3] = {view::ICON_CHECK, false, selected_row_.value() >= 0};
+        out[4] = {view::ICON_KEYBOARD, false, true};
+    } else {
+        const bool selected = selected_row_.value() >= 0;
+        out[1] = {view::ICON_CHECK, false, selected};
+        out[2] = {view::ICON_BROADCAST, false, selected};
+        out[3] = {view::ICON_BAND, false, selected};
+        out[4] = {view::ICON_MINUS, false, marked_count_ > 0};
+    }
 }
 
-void MemoriesViewModel::nav_activate(int, int slot) {
-    if (slot == 1) move_selection(-1);
-    else if (slot == 2) move_selection(1);
-    else if (slot == 3) open_selected_in_sdr();
-    else if (slot == 4) request_search();
+void MemoriesViewModel::nav_activate(int page, int slot) {
+    if (page == 0) {
+        if (slot == 1) move_selection(-1);
+        else if (slot == 2) move_selection(1);
+        else if (slot == 3) open_selected_in_sdr();
+        else if (slot == 4) request_search();
+    } else {
+        if (slot == 1) toggle_mark();
+        else if (slot == 2) prepare_scan();
+        else if (slot == 3) prepare_scan(true);
+        else if (slot == 4) clear_marks();
+    }
 }
 
-const char* MemoriesViewModel::nav_page_name(int) const { return "MEM"; }
+const char* MemoriesViewModel::nav_page_name(int page) const {
+    return page == 0 ? "MEM" : "SCAN";
+}
 
-toolkit::i18n::Text MemoriesViewModel::nav_hint(int, int slot) const {
+toolkit::i18n::Text MemoriesViewModel::nav_hint(int page, int slot) const {
     namespace h = toolkit::hints;
+    if (page == 1) {
+        switch (slot) {
+            case 1: return {"Mark or unmark this memory for scanning",
+                            "Marca o smarca questa memoria per la scansione",
+                            "Marquer ou démarquer cette mémoire pour le balayage",
+                            "Diesen Speicher für den Suchlauf markieren oder abwählen",
+                            "Marca o desmarca esta memoria para escanear",
+                            "このメモリーのスキャン選択を切り替える", "标记或取消标记此存储频道以扫描"};
+            case 2: return {"Scan marked memories, or this group if none are marked",
+                            "Scansiona le memorie marcate, o questo gruppo se nessuna è marcata",
+                            "Balayer les mémoires marquées, sinon ce groupe",
+                            "Markierte Speicher suchen, sonst diese Gruppe",
+                            "Escanea las memorias marcadas o este grupo si no hay marcas",
+                            "選択済みメモリー、なければこのグループをスキャン", "扫描已标记的频道；未标记时扫描当前分组"};
+            case 3: return {"Scan every memory in the current group",
+                            "Scansiona tutte le memorie del gruppo corrente",
+                            "Balayer toutes les mémoires du groupe actuel",
+                            "Alle Speicher der aktuellen Gruppe durchsuchen",
+                            "Escanea todas las memorias del grupo actual",
+                            "現在のグループの全メモリーをスキャン", "扫描当前分组中的所有频道"};
+            case 4: return {"Clear all scan marks",
+                            "Cancella tutte le marcature di scansione",
+                            "Effacer toutes les marques de balayage",
+                            "Alle Suchlaufmarkierungen löschen",
+                            "Borra todas las marcas de escaneo",
+                            "すべてのスキャン選択を解除", "清除所有扫描标记"};
+            default: return {};
+        }
+    }
     switch (slot) {
         case 1: return h::kListUp;
         case 2: return h::kListDown;
