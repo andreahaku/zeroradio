@@ -27,7 +27,7 @@ def _num(field):
     return v if math.isfinite(v) else None
 
 def parse_line(line):
-    """One line -> (hz_low, hz_step, [dbm...]) or None if malformed/blank."""
+    """One line -> (hz_low, hz_high, hz_step, [dbm...]) or None if malformed/blank."""
     line = line.rstrip("\r").strip()
     if not line:
         return None
@@ -43,7 +43,7 @@ def parse_line(line):
     for f in fields[6:]:
         v = _num(f)
         bins.append(v if v is not None else NO_DATA)
-    return (hz_low, hz_step, bins)
+    return (hz_low, hz_high, hz_step, bins)
 
 class Oracle:
     """Mirrors SweepAccumulator: feed complete lines, flush handles the
@@ -58,14 +58,19 @@ class Oracle:
         self.prev_low = None
 
     def _row(self, row):
-        hz_low, hz_step, bins = row
+        hz_low, hz_high, hz_step, bins = row
         done = 0
         if self.prev_low is not None and hz_low < self.prev_low and self.pending:
             self._publish()
             done = 1
         self.prev_low = hz_low
+        # rtl_power writes one value per FFT bin centre from hz_low to
+        # hz_high inclusive (intervals + 1 values, centre = hz_low + i*step);
+        # hackrf_sweep one value per interval (centre = its middle).
+        intervals = round((hz_high - hz_low) / hz_step)
+        offset = 0.0 if len(bins) == intervals + 1 else hz_step / 2.0
         for i, dbm in enumerate(bins):
-            centre = hz_low + hz_step * i + hz_step / 2.0
+            centre = hz_low + hz_step * i + offset
             if self.start <= centre < self.stop:
                 self.pending[centre] = dbm
         return done
@@ -252,6 +257,16 @@ VECTORS.append(("crlf_eof_flush", "SYNTH", csv12, 0, True,
 
 # 13. CAPTURED real rtl_power FM broadcast sweep (one-shot -1: flush publishes)
 FM = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fm_capture.csv")
+# 13. rtl_power layout: intervals + 1 values, bin centres at hz_low + i*step.
+# A carrier exactly on 127.400 MHz must come out at 127.400 MHz, not half a
+# bin above (the old +step/2 put it at 127.4125).
+csv13 = "\n".join([
+    row(127_300_000, 127_500_000, 25_000,
+        [FLOOR, FLOOR + 1, FLOOR, FLOOR + 1, -30.0, FLOOR + 1, FLOOR, FLOOR + 1, FLOOR]),
+]) + "\n"
+VECTORS.append(("rtl_endpoint_bins", "SYNTH", csv13, 0, True,
+                127_300_000, 127_525_000, 10.0, 9, [0, 4, 8]))
+
 if os.path.exists(FM):
     fm_csv = open(FM).read()
     VECTORS.append(("real_fm_broadcast", "CAPTURED", fm_csv, 0, True,
