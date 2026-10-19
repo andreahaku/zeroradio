@@ -622,7 +622,11 @@ void SpectrumScreen::tick() {
     bool open = vm_.update_channel_level(level, now);
     // A memory scan reads its channels from this frame and may retune (the
     // source follows on the next tick). Between channels it keeps quiet.
+    const int64_t vfo_before = vm_.vfo_hz();
     vm_.scan_tick(frame_.data(), kBins, frame_span, now);
+    // A retune just reset the squelch: the level read above belongs to the old
+    // frequency, so keep this frame quiet.
+    if (vm_.vfo_hz() != vfo_before) open = false;
     open = open && !vm_.scan_mutes_audio();
     source_->set_muted(vm_.muted() || !open);
     update_squelch_view(open);
