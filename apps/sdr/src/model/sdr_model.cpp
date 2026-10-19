@@ -10,6 +10,7 @@
 
 #include <array>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 
 namespace sdr {
@@ -86,6 +87,17 @@ SdrModel::SdrModel() {
         const long long hz = std::atoll(env);
         if (hz > 0) {
             set_vfo_hz(hz);
+        }
+    }
+    // SDR_MODE (a mode name such as "AM" or "NFM", from the Memories app)
+    // overrides the persisted mode. An unknown name keeps the last mode.
+    if (const char* env = std::getenv("SDR_MODE"); env && env[0] != '\0') {
+        for (int i = 0; i < kRadioModeCount; ++i) {
+            const auto m = static_cast<RadioMode>(i);
+            if (std::strcmp(env, radio_mode_name(m)) == 0) {
+                set_mode(m);
+                break;
+            }
         }
     }
 }

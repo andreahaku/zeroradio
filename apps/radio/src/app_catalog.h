@@ -31,6 +31,7 @@ inline const std::vector<AppEntry>& app_catalog() {
     static const std::vector<AppEntry> kCatalog = {
         {"sdr", "SDR", "Spectrum & demod", view::ICON_BROADCAST, "sdr_app", "sdr"},
         {"survey", "Scanner", "Wide-band sweep & peaks", view::ICON_GRID_FREQ, "survey_app", "survey"},
+        {"memories", "Memories", "Saved frequencies", view::ICON_BAND, "memories_app", "memories"},
         {"ism", "ISM", "433/868 device sniffer", view::ICON_PEAK, "ism_app", "ism"},
         {"adsb", "ADS-B", "Aircraft radar & map", view::ICON_MAP_TOGGLE, "adsb_app", "adsb"},
         {"ais", "AIS", "Marine vessel radar & map", view::ICON_MODE, "ais_app", "ais"},
