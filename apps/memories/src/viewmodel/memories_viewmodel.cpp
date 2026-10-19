@@ -46,6 +46,12 @@ std::string MemoriesViewModel::format_frequency(int64_t hz) {
 
 void MemoriesViewModel::rebuild_rows() {
     // A group header precedes its entries. Only entries can hold the cursor.
+    const int old_row = selected_row_.value();
+    const size_t selected_memory =
+        old_row >= 0 && old_row < static_cast<int>(rows_.size()) &&
+                !rows_[static_cast<size_t>(old_row)].group
+            ? rows_[static_cast<size_t>(old_row)].memory_index
+            : memories_.size();
     std::map<std::string, std::vector<size_t>> groups;
     const std::string needle = lowercase(query_);
     for (size_t i = 0; i < memories_.size(); ++i) {
@@ -73,11 +79,21 @@ void MemoriesViewModel::rebuild_rows() {
         }
     }
 
-    selected_row_.set(first_memory_row());
+    int selection = first_memory_row();
+    if (selected_memory < memories_.size()) {
+        for (size_t i = 0; i < rows_.size(); ++i) {
+            if (!rows_[i].group && rows_[i].memory_index == selected_memory) {
+                selection = static_cast<int>(i);
+                break;
+            }
+        }
+    }
+    selected_row_.set(selection);
     rows_version_.set(rows_version_.value() + 1);
     bump_nav_refresh();
     char status[64];
-    std::snprintf(status, sizeof(status), "%zu memories  |  %s%s%s", matches,
+    std::snprintf(status, sizeof(status), "%zu %s  |  %s%s%s", matches,
+                  matches == 1 ? "memory" : "memories",
                   sort_by_frequency_ ? "frequency" : "name",
                   query_.empty() ? "" : "  |  find: ", query_.c_str());
     status_.set(status);
