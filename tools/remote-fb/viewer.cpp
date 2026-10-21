@@ -35,6 +35,11 @@
 static constexpr uint32_t kLvEsc = 27;
 static constexpr uint32_t kLvEnter = 10;
 static constexpr uint32_t kLvBackspace = 8;
+static constexpr uint32_t kLvNext = 9;   // TAB
+static constexpr uint32_t kLvUp = 17;
+static constexpr uint32_t kLvDown = 18;
+static constexpr uint32_t kLvRight = 19;
+static constexpr uint32_t kLvLeft = 20;
 
 namespace {
 
@@ -68,6 +73,12 @@ uint32_t map_sdl_key(const SDL_Keysym& k) {
         case SDLK_RETURN:
         case SDLK_KP_ENTER:  return kLvEnter;
         case SDLK_BACKSPACE: return kLvBackspace;
+        case SDLK_TAB:       return kLvNext;
+        case SDLK_UP:        return kLvUp;
+        case SDLK_DOWN:      return kLvDown;
+        case SDLK_RIGHT:     return kLvRight;
+        case SDLK_LEFT:      return kLvLeft;
+        case SDLK_h:         return 'h';
         case SDLK_PERIOD:
         case SDLK_KP_PERIOD: return '.';
         case SDLK_0: case SDLK_KP_0: return '0';
@@ -182,6 +193,25 @@ int main(int argc, char** argv) {
         while (SDL_PollEvent(&ev)) {
             if (ev.type == SDL_QUIT) {
                 running.store(false);
+            } else if (ev.type == SDL_KEYDOWN && ev.key.keysym.sym == SDLK_F12) {
+                // F12: save the frame at its native size, for screenshots.
+                static int shot = 0;
+                char name[32];
+                std::snprintf(name, sizeof(name), "remote-fb-%03d.ppm", ++shot);
+                if (FILE* out = std::fopen(name, "wb")) {
+                    std::fprintf(out, "P6\n%d %d\n255\n", W, H);
+                    std::lock_guard<std::mutex> lock(fb_mutex);
+                    for (const uint16_t p : fb) {
+                        const uint8_t rgb[3] = {
+                            static_cast<uint8_t>(((p >> 11) & 0x1f) * 255 / 31),
+                            static_cast<uint8_t>(((p >> 5) & 0x3f) * 255 / 63),
+                            static_cast<uint8_t>((p & 0x1f) * 255 / 31)};
+                        std::fwrite(rgb, 1, 3, out);
+                    }
+                    std::fclose(out);
+                    std::printf("saved %s\n", name);
+                    std::fflush(stdout);
+                }
             } else if (ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP) {
                 const uint32_t key = map_sdl_key(ev.key.keysym);
                 if (key && ev.key.repeat == 0) {
