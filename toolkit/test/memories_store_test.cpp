@@ -114,6 +114,28 @@ int main() {
               "drafts removed");
     }
 
+    // update_memory(): replace one memory in place (the Memories EDIT page).
+    {
+        Memory renamed{"Approach", 128150000, "AM", {"airport", "airband"}, "arrivals"};
+        check(update_memory(128150000, "Luqa Radar", renamed), "rename in place");
+        auto list = load_memories();
+        check(list.size() == 3 && list[0].name == "Approach" && list[0].tags[0] == "airport" &&
+                  list[0].note == "arrivals",
+              "renamed memory keeps its place, tags and note");
+        check(!update_memory(128150000, "Luqa Radar", renamed), "old identity gone");
+        Memory clash = renamed;
+        clash.name = "Mgarr Port Control";
+        clash.hz = 156500000;
+        check(!update_memory(128150000, "Approach", clash), "onto another memory: refused");
+        check(!update_memory(128150000, "Approach", {"", 128150000, "AM", {}, ""}),
+              "empty name refused");
+        Memory mode_only = renamed;
+        mode_only.mode = "NFM";
+        check(update_memory(128150000, "Approach", mode_only), "same identity, new mode");
+        check(find_memory(128150000, "NFM").has_value(), "mode changed");
+        check(update_memory(128150000, "Approach", radar), "back to the original");
+    }
+
     check(remove_memory(128150000, "Luqa Radar"), "remove by (hz, name)");
     check(!remove_memory(128150000, "Luqa Radar"), "remove twice fails");
     all = load_memories();

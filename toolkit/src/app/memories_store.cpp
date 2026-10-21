@@ -232,6 +232,23 @@ std::optional<Memory> find_memory(int64_t hz, const std::string& mode) {
     return std::nullopt;
 }
 
+bool update_memory(int64_t hz, const std::string& name, const Memory& replacement) {
+    if (replacement.name.empty() || replacement.hz <= 0) return false;
+    FileLock lock(memories_file());
+    auto all = load_memories();
+    auto target = all.end();
+    for (auto it = all.begin(); it != all.end(); ++it) {
+        if (same_memory(*it, hz, name)) {
+            target = it;
+        } else if (same_memory(*it, replacement.hz, replacement.name)) {
+            return false; // would duplicate another memory
+        }
+    }
+    if (target == all.end()) return false;
+    *target = replacement;
+    return save_memories(all);
+}
+
 bool remove_memory(int64_t hz, const std::string& name) {
     FileLock lock(memories_file());
     auto all = load_memories();

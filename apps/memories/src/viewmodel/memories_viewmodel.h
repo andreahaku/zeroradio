@@ -12,6 +12,7 @@
 #include "subjects.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -54,7 +55,30 @@ public:
     void confirm_scan();
     void cancel_scan();
 
-    int nav_page_count() const override { return 2; }
+    // --- EDIT page ---
+    // What the edit dialog starts from: the selected memory when it opened.
+    struct EditDraft {
+        int64_t hz = 0;
+        std::string name;
+        std::string mode;
+        std::string group;
+    };
+    const EditDraft& edit_draft() const { return edit_draft_; }
+    lv_subject_t* edit_request_subject() { return edit_request_.native(); }
+    // Open the edit dialog on the selected memory (the view observes the
+    // request), then apply its name and group. The group is the first tag:
+    // an empty one drops it, the other tags and the note stay.
+    void request_edit();
+    void apply_edit(const std::string& name, const std::string& group);
+    // The selected memory's next mode: WFM, NFM, AM, USB, LSB, CW.
+    void cycle_mode();
+    // Delete the selected memory on a second press within kDeleteConfirmMs
+    // of the first. Moving the cursor or any other key disarms it.
+    static constexpr int64_t kDeleteConfirmMs = 4000;
+    void request_delete(int64_t now_ms);
+    bool delete_armed() const { return delete_armed_; }
+
+    int nav_page_count() const override { return 3; }
     void nav_fill(int page, NavSlot out[5]) const override;
     void nav_activate(int page, int slot) override;
     const char* nav_page_name(int page) const override;
@@ -67,6 +91,10 @@ public:
 
 private:
     void rebuild_rows();
+    const toolkit::Memory* selected_memory() const;
+    // Reload the shared file after a change, keep the scan marks, and put the
+    // cursor on (hz, name), or on the memory row nearest `fallback_row`.
+    void reload(int64_t hz, const std::string& name, int fallback_row);
     void update_status();
     int first_memory_row() const;
     static std::string format_frequency(int64_t hz);
@@ -85,6 +113,13 @@ private:
     reactive::IntSubject search_request_{0};
     reactive::IntSubject scan_request_{0};
     reactive::StringSubject<64> status_{""};
+    reactive::IntSubject edit_request_{0};
+    EditDraft edit_draft_;
+    bool delete_armed_ = false;
+    int64_t delete_hz_ = 0;
+    std::string delete_name_;
+    int64_t delete_armed_at_ = 0;
+    mutable std::string mode_label_; // EDIT page key 6, see nav_fill()
 };
 
 } // namespace memories

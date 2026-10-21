@@ -238,6 +238,7 @@ independent sources must produce the same vectors, and nobody edits the vectors 
 - `ism_parse_test`: rtl_433 JSON against a Python oracle, with real off-air TPMS captures.
 - `waterfall_scroll_test`: the shared waterfall scroll.
 - `map_render_test`: culled and unculled `draw_base` output must match pixel for pixel.
+- `memories_edit_test`: the Memories EDIT page (rename, regroup, mode, the two-press delete) through the shared store.
 - `location_test`: city search, coordinates, NMEA parsing, a USB GPS on a pseudo-terminal, and
   save/load.
 - `sample_rate_test`: every SDR capture rate the zoom can pick gives exactly 48 kHz of audio.
