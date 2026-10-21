@@ -4,6 +4,7 @@ All notable changes to ZeroRadio. Versions follow semantic versioning.
 
 ## Unreleased
 
+- Memories from the device: M in the SDR saves the tuned frequency and mode, M in the Scanner saves the selected peak. A dialog proposes a name and the group saved. Holding key 6 on the first page does the same. A frequency already saved in the same mode is not added twice.
 - Keys: left/right (Z/C) repeat while held, after 400 ms and then ten times a second, in every app. In the SDR the tune keys 5 and 7 on page 1 repeat too.
 - Scanner: peaks and the waterfall sat half a bin above the real frequency with rtl_power (about +30 kHz on a 20 MHz span). rtl_power gives FFT bin centres, not intervals, so the half-bin offset now applies to hackrf_sweep only.
 - Scanner: Enter on the Peaks page opens the selected peak in the SDR, like key 7.

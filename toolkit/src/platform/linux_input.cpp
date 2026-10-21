@@ -39,6 +39,8 @@ void (*arrow_handler)(uint32_t, void*) = nullptr;
 void* arrow_ctx = nullptr;
 void (*help_handler)(void*) = nullptr;
 void* help_ctx = nullptr;
+void (*memorize_handler)(void*) = nullptr;
+void* memorize_ctx = nullptr;
 void (*home_handler)(void*) = nullptr;
 void (*hold_hint_handler)(bool, void*) = nullptr;
 void* home_ctx = nullptr;
@@ -134,6 +136,10 @@ void dispatch_nav_key(uint32_t key) {
     }
     if (key == 'h' || key == 'H') {
         if (help_handler) help_handler(help_ctx);
+        return;
+    }
+    if (key == 'm' || key == 'M') {
+        if (memorize_handler) memorize_handler(memorize_ctx);
         return;
     }
     if (key == LV_KEY_UP || key == LV_KEY_DOWN || key == LV_KEY_LEFT || key == LV_KEY_RIGHT ||
@@ -369,6 +375,7 @@ uint32_t map_evdev_key(uint16_t code) {
         case KEY_TAB:        return LV_KEY_NEXT;
         case KEY_H:          return 'h'; // help page
         case KEY_HELP:       return 'h'; // Fn+H, the system's help key
+        case KEY_M:          return 'm'; // save the tuned frequency as a memory
         // Arrow keys + enter drive list navigation (the Radio hub menu and the
         // aircraft/node/ship lists): a portable selection scheme alongside the
         // 4-8 nav bar. Ignored by screens that don't consume them.
@@ -582,6 +589,11 @@ void set_home_handler(void (*home)(void* ctx), void (*hint)(bool show, void* ctx
 void set_help_handler(void (*handler)(void* ctx), void* ctx) {
     help_handler = handler;
     help_ctx = ctx;
+}
+
+void set_memorize_handler(void (*handler)(void* ctx), void* ctx) {
+    memorize_handler = handler;
+    memorize_ctx = ctx;
 }
 
 void set_arrow_handler(void (*handler)(uint32_t key, void* ctx), void* ctx) {

@@ -175,6 +175,54 @@ bool add_memory(const Memory& m) {
     return save_memories(all);
 }
 
+namespace {
+
+std::string mhz_text(int64_t hz) {
+    char buf[24];
+    if (hz % 1000 == 0) {
+        std::snprintf(buf, sizeof(buf), "%.3f", static_cast<double>(hz) / 1e6);
+    } else {
+        std::snprintf(buf, sizeof(buf), "%.4f", static_cast<double>(hz) / 1e6);
+    }
+    return buf;
+}
+
+} // namespace
+
+std::string memory_label(int64_t hz, const std::string& mode) {
+    return mhz_text(hz) + " " + mode;
+}
+
+std::string memory_info(int64_t hz, const std::string& mode) {
+    return mhz_text(hz) + " MHz  " + mode;
+}
+
+std::string guess_mode(int64_t hz) {
+    if (hz >= 87500000 && hz < 108000000) return "WFM";
+    if (hz >= 108000000 && hz < 137000000) return "AM";
+    return "NFM";
+}
+
+std::string save_draft(const MemoryDraft& draft, const std::string& name,
+                       const std::string& group) {
+    for (const auto& m : load_memories()) {
+        if (same_memory(m, draft.hz, name)) {
+            return "Not saved: " + name + " is already on " + mhz_text(draft.hz);
+        }
+    }
+    Memory m{name, draft.hz, draft.mode, {}, ""};
+    if (!group.empty()) m.tags.push_back(group);
+    if (!add_memory(m)) return "Not saved: cannot write the memories file";
+    return "Saved: " + name;
+}
+
+std::optional<Memory> find_memory(int64_t hz, const std::string& mode) {
+    for (auto& m : load_memories()) {
+        if (m.hz == hz && m.mode == mode) return std::move(m);
+    }
+    return std::nullopt;
+}
+
 bool remove_memory(int64_t hz, const std::string& name) {
     FileLock lock(memories_file());
     auto all = load_memories();

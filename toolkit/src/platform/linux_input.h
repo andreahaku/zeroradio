@@ -80,6 +80,9 @@ void set_key_activity_handler(void (*handler)(uint32_t key, void* ctx), void* ct
 // H outside a key capture: open the app's help page.
 void set_help_handler(void (*handler)(void* ctx), void* ctx);
 
+// M outside a key capture: save what the app is tuned to as a memory.
+void set_memorize_handler(void (*handler)(void* ctx), void* ctx);
+
 // ESC outside a key capture follows the CardputerZero convention: a short press
 // is the normal quit/back (set_quit_handler), holding it kEscHoldHomeMs (3 s)
 // returns to the system launcher (`home`). `hint(true)` fires once the hold

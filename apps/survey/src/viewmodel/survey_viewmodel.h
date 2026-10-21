@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "memories_store.h"
 #include "nav_provider.h"
 #include "shell_viewmodel.h"
 #include "subjects.h"
@@ -62,6 +63,7 @@ public:
     lv_subject_t* peaks_sel_subject();
     lv_subject_t* sort_text_subject();     // current sort, e.g. "PWR v"
     lv_subject_t* range_input_req_subject(); // bumped to open the tune dialog
+    lv_subject_t* memory_req_subject();      // bumped to open the save dialog
 
     // --- swept range (pushed to the sweep source each tick) ---
     int64_t start_hz() const { return model_.start_hz(); }
@@ -97,6 +99,17 @@ public:
     void nav_activate(int page, int slot) override;
     const char* nav_page_name(int page) const override;
     toolkit::i18n::Text nav_hint(int page, int slot) const override;
+    bool nav_has_hold(int page, int slot) const override;
+    std::string nav_hold(int page, int slot) override;
+
+    // M, or a hold of key 6 on the SWEEP page: save the selected peak (the
+    // cursor of the PEAKS list, the strongest by default) as a memory. Says
+    // so if a memory already has it; otherwise the view opens the save
+    // dialog on memory_draft().
+    void memorize();
+    void on_memorize() override { memorize(); }
+    const toolkit::MemoryDraft& memory_draft() const { return memory_draft_; }
+    void save_memory(const std::string& name, const std::string& group);
 
     // TAB: switch to the SDR app at its own frequency (see toolkit::run_handoff).
     void on_tab() override { request_handoff("sdr_app", "sdr"); }
@@ -143,6 +156,8 @@ private:
     reactive::IntSubject        peaks_version_subject_{0};
     reactive::IntSubject        peaks_sel_subject_{0};
     reactive::IntSubject        range_input_req_subject_{0};
+    reactive::IntSubject        memory_req_subject_{0};
+    toolkit::MemoryDraft        memory_draft_;
     reactive::StringSubject<8>  sort_text_subject_{"PWR v"};
 
     SortField sort_field_ = SortField::Power;
