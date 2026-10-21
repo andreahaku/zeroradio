@@ -26,4 +26,11 @@ if(USE_DESKTOP)
     target_link_libraries(memories_scan_test PRIVATE radio_toolkit)
     add_dependencies(memories_scan_test sdr_app)
     add_test(NAME memories_scan_test COMMAND memories_scan_test)
+    add_executable(memories_edit_test
+        test/memories_edit_test.cpp
+        src/viewmodel/memories_viewmodel.cpp
+    )
+    target_include_directories(memories_edit_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/viewmodel)
+    target_link_libraries(memories_edit_test PRIVATE radio_toolkit)
+    add_test(NAME memories_edit_test COMMAND memories_edit_test)
 endif()

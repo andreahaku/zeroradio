@@ -83,6 +83,12 @@ struct MemoryDraft {
 std::string save_draft(const MemoryDraft& draft, const std::string& name,
                        const std::string& group);
 
+// Replaces the memory with this (hz, name) by `replacement`, in the same place
+// in the file. Returns false if there is no such memory, if the replacement
+// is invalid (empty name, hz not positive), if it would take the identity of
+// another memory, or if the save failed. Holds the same lock as add_memory().
+bool update_memory(int64_t hz, const std::string& name, const Memory& replacement);
+
 // Removes the memory with this (hz, name) and saves. Returns false if there is
 // no such memory, or if the save failed.
 bool remove_memory(int64_t hz, const std::string& name);
