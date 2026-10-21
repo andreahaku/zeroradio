@@ -177,14 +177,14 @@ bool add_memory(const Memory& m) {
 
 namespace {
 
+// MHz to the kHz, or to the 10 Hz when the frequency needs it (an 8.33 kHz
+// airband channel is 118.00833), with no trailing zeros past the kHz.
 std::string mhz_text(int64_t hz) {
     char buf[24];
-    if (hz % 1000 == 0) {
-        std::snprintf(buf, sizeof(buf), "%.3f", static_cast<double>(hz) / 1e6);
-    } else {
-        std::snprintf(buf, sizeof(buf), "%.4f", static_cast<double>(hz) / 1e6);
-    }
-    return buf;
+    std::snprintf(buf, sizeof(buf), "%.5f", static_cast<double>(hz) / 1e6);
+    std::string text = buf;
+    while (text.size() > text.find('.') + 4 && text.back() == '0') text.pop_back();
+    return text;
 }
 
 } // namespace
@@ -198,6 +198,7 @@ std::string memory_info(int64_t hz, const std::string& mode) {
 }
 
 std::string guess_mode(int64_t hz) {
+    if (hz < 30000000) return "AM"; // shortwave broadcast; SSB needs a choice
     if (hz >= 87500000 && hz < 108000000) return "WFM";
     if (hz >= 108000000 && hz < 137000000) return "AM";
     return "NFM";
@@ -212,7 +213,15 @@ std::string save_draft(const MemoryDraft& draft, const std::string& name,
     }
     Memory m{name, draft.hz, draft.mode, {}, ""};
     if (!group.empty()) m.tags.push_back(group);
-    if (!add_memory(m)) return "Not saved: cannot write the memories file";
+    if (!add_memory(m)) {
+        // Another app may have saved the same name in between: say so.
+        for (const auto& other : load_memories()) {
+            if (same_memory(other, draft.hz, name)) {
+                return "Not saved: " + name + " is already on " + mhz_text(draft.hz);
+            }
+        }
+        return "Not saved: cannot write the memories file";
+    }
     return "Saved: " + name;
 }
 

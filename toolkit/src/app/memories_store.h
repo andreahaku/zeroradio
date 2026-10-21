@@ -59,15 +59,16 @@ std::optional<Memory> find_memory(int64_t hz, const std::string& mode);
 inline constexpr const char* kSavedGroup = "saved";
 
 // The name proposed for a new memory: the frequency in MHz, to the kHz (or
-// to the 100 Hz when it is not a whole kHz), then the mode: "88.700 WFM".
+// to the 10 Hz when it is not a whole kHz, as 118.00833), then the mode:
+// "88.700 WFM".
 std::string memory_label(int64_t hz, const std::string& mode);
 
 // The channel line of the save dialog: "88.700 MHz  WFM".
 std::string memory_info(int64_t hz, const std::string& mode);
 
-// A mode for a frequency that comes without one (a Scanner peak): WFM in the
-// FM broadcast band (87.5-108 MHz), AM in the airband (108-137 MHz), NFM
-// elsewhere. The user can change it later in the SDR.
+// A mode for a frequency that comes without one (a Scanner peak): AM below
+// 30 MHz (shortwave), WFM in the FM broadcast band (87.5-108 MHz), AM in the
+// airband (108-137 MHz), NFM elsewhere. The Memories EDIT page changes it.
 std::string guess_mode(int64_t hz);
 
 // A channel about to be saved: the SDR's tuning or a Scanner peak. The save

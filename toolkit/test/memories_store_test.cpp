@@ -84,13 +84,17 @@ int main() {
 
     // Labels for a memory saved from the SDR or the Scanner.
     check(memory_label(88700000, "WFM") == "88.700 WFM", "label: kHz precision");
-    check(memory_label(118008300, "AM") == "118.0083 AM", "label: 8.33 kHz channel");
+    check(memory_label(118008300, "AM") == "118.0083 AM", "label: 100 Hz precision");
+    check(memory_label(118008330, "AM") == "118.00833 AM", "label: 8.33 kHz channel, 10 Hz");
     check(memory_label(518000, "USB") == "0.518 USB", "label: below 1 MHz");
     check(memory_info(127400000, "AM") == "127.400 MHz  AM", "dialog info line");
     check(guess_mode(98500000) == "WFM", "FM broadcast band: WFM");
     check(guess_mode(127400000) == "AM", "airband: AM");
     check(guess_mode(108000000) == "AM", "airband starts at 108 MHz");
     check(guess_mode(87499999) == "NFM", "below the FM band: NFM");
+    check(guess_mode(9500000) == "AM", "shortwave: AM");
+    check(guess_mode(29999999) == "AM", "below 30 MHz: AM");
+    check(guess_mode(30000000) == "NFM", "from 30 MHz: NFM");
     check(guess_mode(156800000) == "NFM", "marine VHF: NFM");
 
     // save_draft(): the dialog's name and group onto a draft, with the
