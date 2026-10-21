@@ -73,10 +73,14 @@ public:
     // The selected memory's next mode: WFM, NFM, AM, USB, LSB, CW.
     void cycle_mode();
     // Delete the selected memory on a second press within kDeleteConfirmMs
-    // of the first. Moving the cursor or any other key disarms it.
+    // of the first. Moving the cursor, TAB, search, edit, a page switch or
+    // another NavBar key disarms it; so does tick() once the time is up.
     static constexpr int64_t kDeleteConfirmMs = 4000;
     void request_delete(int64_t now_ms);
     bool delete_armed() const { return delete_armed_; }
+    void tick(int64_t now_ms); // the view calls it a few times a second
+    static int64_t now_ms();   // the clock request_delete() and tick() use
+    void nav_page_changed(int page) override { (void)page; disarm_delete(); }
 
     int nav_page_count() const override { return 3; }
     void nav_fill(int page, NavSlot out[5]) const override;
@@ -94,7 +98,11 @@ private:
     const toolkit::Memory* selected_memory() const;
     // Reload the shared file after a change, keep the scan marks, and put the
     // cursor on (hz, name), or on the memory row nearest `fallback_row`.
-    void reload(int64_t hz, const std::string& name, int fallback_row);
+    // `old_hz`/`old_name`: the identity the memory had before a rename, so
+    // its scan mark follows it.
+    void reload(int64_t hz, const std::string& name, int fallback_row, int64_t old_hz = 0,
+                const std::string& old_name = {});
+    void disarm_delete();
     void update_status();
     int first_memory_row() const;
     static std::string format_frequency(int64_t hz);

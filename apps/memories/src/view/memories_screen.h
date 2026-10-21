@@ -29,6 +29,7 @@ private:
     static void search_cb(lv_observer_t* observer, lv_subject_t* subject);
     static void scan_cb(lv_observer_t* observer, lv_subject_t* subject);
     static void edit_cb(lv_observer_t* observer, lv_subject_t* subject);
+    static void tick_cb(lv_timer_t* timer);
     static void draw_cb(lv_event_t* event);
     static void search_key_cb(uint32_t key, void* ctx);
     static void scan_key_cb(uint32_t key, void* ctx);
@@ -52,6 +53,7 @@ private:
     lv_observer_t* search_observer_ = nullptr;
     lv_observer_t* scan_observer_ = nullptr;
     lv_observer_t* edit_observer_ = nullptr;
+    lv_timer_t* tick_timer_ = nullptr; // expires the EDIT delete confirmation
     int last_edit_request_ = 0;
     std::unique_ptr<toolkit::MemoryDialog> edit_dialog_; // EDIT page key 5
     int last_search_request_ = 0;
