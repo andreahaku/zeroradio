@@ -79,6 +79,7 @@ uint32_t map_sdl_key(const SDL_Keysym& k) {
         case SDLK_RIGHT:     return kLvRight;
         case SDLK_LEFT:      return kLvLeft;
         case SDLK_h:         return 'h';
+        case SDLK_m:         return 'm';
         case SDLK_PERIOD:
         case SDLK_KP_PERIOD: return '.';
         case SDLK_0: case SDLK_KP_0: return '0';

@@ -70,7 +70,7 @@ SDR_RTLTCP=<host>:1234 ./tools/remote-fb/demo.sh sdr      # uses an existing rtl
 
 ### Keys and screenshots
 
-The viewer forwards Esc, Enter, Backspace, Tab, the arrows, H, the digits and the dot. F12 saves
+The viewer forwards Esc, Enter, Backspace, Tab, the arrows, H, M, the digits and the dot. F12 saves
 the current frame at its native 320×170 as `remote-fb-NNN.ppm` in the working directory; convert
 it with `magick remote-fb-001.ppm shot.png`. The app closes the connection when it hands off to
 another app (TAB, Open in SDR), so start the viewer again after a switch.
