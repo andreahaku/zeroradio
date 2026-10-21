@@ -122,7 +122,22 @@ int main() {
         check(list.size() == 3 && list[0].name == "Approach" && list[0].tags[0] == "airport" &&
                   list[0].note == "arrivals",
               "renamed memory keeps its place, tags and note");
-        check(!update_memory(128150000, "Luqa Radar", renamed), "old identity gone");
+        check(!update_memory(999999, "Nope", {"Nowhere", 999999, "AM", {}, ""}),
+              "no such memory: refused");
+        check(modify_memory(999999, "Nope", [](Memory&) {}) == EditResult::NotFound,
+              "modify: not found");
+        check(modify_memory(128150000, "Approach",
+                            [](Memory& m) { m.name = "Mgarr Port Control"; m.hz = 156500000; }) ==
+                  EditResult::Duplicate,
+              "modify: duplicate");
+        check(modify_memory(128150000, "Approach", [](Memory& m) { m.name.clear(); }) ==
+                  EditResult::Invalid,
+              "modify: invalid");
+        check(modify_memory(128150000, "Approach", [](Memory& m) { m.note = "changed"; }) ==
+                  EditResult::Saved,
+              "modify: saved under the lock");
+        check(find_memory(128150000, "AM") && find_memory(128150000, "AM")->note == "changed",
+              "modify: the change is in the file");
         Memory clash = renamed;
         clash.name = "Mgarr Port Control";
         clash.hz = 156500000;

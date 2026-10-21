@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -83,10 +84,23 @@ struct MemoryDraft {
 std::string save_draft(const MemoryDraft& draft, const std::string& name,
                        const std::string& group);
 
-// Replaces the memory with this (hz, name) by `replacement`, in the same place
-// in the file. Returns false if there is no such memory, if the replacement
-// is invalid (empty name, hz not positive), if it would take the identity of
-// another memory, or if the save failed. Holds the same lock as add_memory().
+// How an edit of one memory ended.
+enum class EditResult {
+    Saved,
+    NotFound,    // no memory with that (hz, name)
+    Duplicate,   // the change would take the identity of another memory
+    Invalid,     // empty name or hz not positive after the change
+    WriteFailed, // the file could not be saved
+};
+
+// Applies `change` to the memory with this (hz, name) and saves it in the same
+// place in the file. The read, the change and the save happen under the same
+// lock as add_memory(), so a change made by another app in between is never
+// overwritten with an older copy.
+EditResult modify_memory(int64_t hz, const std::string& name,
+                         const std::function<void(Memory&)>& change);
+
+// modify_memory() that replaces the whole memory. True when saved.
 bool update_memory(int64_t hz, const std::string& name, const Memory& replacement);
 
 // Removes the memory with this (hz, name) and saves. Returns false if there is

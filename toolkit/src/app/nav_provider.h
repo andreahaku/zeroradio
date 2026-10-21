@@ -55,6 +55,10 @@ public:
         return {};
     }
 
+    // The page key (4) moved to `page`. For state that belongs to one page,
+    // such as a pending confirmation.
+    virtual void nav_page_changed(int page) { (void)page; }
+
     // Whether slot `slot` (1..4) on `page` repeats while held, for keys that
     // step a value (tune up/down). A slot with a hold action never repeats.
     virtual bool nav_repeats(int page, int slot) const {

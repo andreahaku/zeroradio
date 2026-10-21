@@ -73,6 +73,17 @@ int main() {
     check(vm.rows()[static_cast<size_t>(vm.selected_row())].name == "Alpha 2",
           "the cursor follows the edited memory");
 
+    // Renaming a marked memory keeps its mark.
+    vm.toggle_mark(); // Alpha 2
+    vm.request_edit();
+    vm.apply_edit("Alpha 3", "new");
+    check(vm.rows()[static_cast<size_t>(vm.selected_row())].name == "Alpha 3" &&
+              vm.rows()[static_cast<size_t>(vm.selected_row())].marked,
+          "a renamed memory keeps its scan mark");
+    vm.toggle_mark(); // unmark it again
+    vm.request_edit();
+    vm.apply_edit("Alpha 2", "new");
+
     // An empty group drops the first tag.
     vm.request_edit();
     vm.apply_edit("Alpha 2", "");
@@ -102,6 +113,16 @@ int main() {
     vm.move_selection(1);
     check(!vm.delete_armed(), "moving the cursor disarms");
     vm.move_selection(-1);
+    vm.request_delete(9000);
+    vm.tick(9000 + memories::MemoriesViewModel::kDeleteConfirmMs + 1);
+    check(!vm.delete_armed(), "the arm expires on its own");
+    vm.request_delete(15000);
+    vm.toggle_sort();
+    check(!vm.delete_armed(), "TAB disarms");
+    vm.toggle_sort();
+    vm.request_delete(16000);
+    vm.nav_page_changed(0);
+    check(!vm.delete_armed(), "a page switch disarms");
     vm.request_delete(20000);
     vm.request_delete(20500);
     check(!stored("Beta") && !vm.delete_armed(), "second press in time deletes");

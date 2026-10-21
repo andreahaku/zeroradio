@@ -10,6 +10,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <cstdio>
 #include <fstream>
 
@@ -232,21 +233,27 @@ std::optional<Memory> find_memory(int64_t hz, const std::string& mode) {
     return std::nullopt;
 }
 
-bool update_memory(int64_t hz, const std::string& name, const Memory& replacement) {
-    if (replacement.name.empty() || replacement.hz <= 0) return false;
+EditResult modify_memory(int64_t hz, const std::string& name,
+                         const std::function<void(Memory&)>& change) {
     FileLock lock(memories_file());
     auto all = load_memories();
-    auto target = all.end();
+    auto target = std::find_if(all.begin(), all.end(),
+                               [&](const Memory& m) { return same_memory(m, hz, name); });
+    if (target == all.end()) return EditResult::NotFound;
+    Memory changed = *target;
+    if (change) change(changed);
+    if (changed.name.empty() || changed.hz <= 0) return EditResult::Invalid;
     for (auto it = all.begin(); it != all.end(); ++it) {
-        if (same_memory(*it, hz, name)) {
-            target = it;
-        } else if (same_memory(*it, replacement.hz, replacement.name)) {
-            return false; // would duplicate another memory
+        if (it != target && same_memory(*it, changed.hz, changed.name)) {
+            return EditResult::Duplicate;
         }
     }
-    if (target == all.end()) return false;
-    *target = replacement;
-    return save_memories(all);
+    *target = std::move(changed);
+    return save_memories(all) ? EditResult::Saved : EditResult::WriteFailed;
+}
+
+bool update_memory(int64_t hz, const std::string& name, const Memory& replacement) {
+    return modify_memory(hz, name, [&](Memory& m) { m = replacement; }) == EditResult::Saved;
 }
 
 bool remove_memory(int64_t hz, const std::string& name) {

@@ -132,7 +132,7 @@ void MemoriesViewModel::set_query(std::string query) {
 }
 
 void MemoriesViewModel::move_selection(int direction) {
-    delete_armed_ = false;
+    disarm_delete();
     if (direction == 0 || rows_.empty()) return;
     int row = selected_row_.value();
     if (row < 0) {
@@ -148,6 +148,22 @@ void MemoriesViewModel::move_selection(int direction) {
     }
 }
 
+int64_t MemoriesViewModel::now_ms() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now().time_since_epoch())
+        .count();
+}
+
+void MemoriesViewModel::disarm_delete() {
+    if (!delete_armed_) return;
+    delete_armed_ = false;
+    bump_nav_refresh(); // DEL? back to DEL
+}
+
+void MemoriesViewModel::tick(int64_t now_ms) {
+    if (delete_armed_ && now_ms - delete_armed_at_ > kDeleteConfirmMs) disarm_delete();
+}
+
 const toolkit::Memory* MemoriesViewModel::selected_memory() const {
     const int row = selected_row_.value();
     if (row < 0 || row >= static_cast<int>(rows_.size())) return nullptr;
@@ -156,10 +172,17 @@ const toolkit::Memory* MemoriesViewModel::selected_memory() const {
     return &memories_[selected.memory_index];
 }
 
-void MemoriesViewModel::reload(int64_t hz, const std::string& name, int fallback_row) {
+void MemoriesViewModel::reload(int64_t hz, const std::string& name, int fallback_row,
+                               int64_t old_hz, const std::string& old_name) {
+    // Marks follow the identity; a renamed memory takes its mark along.
     std::vector<std::pair<int64_t, std::string>> marked;
     for (size_t i = 0; i < memories_.size(); ++i) {
-        if (marked_[i]) marked.emplace_back(memories_[i].hz, memories_[i].name);
+        if (!marked_[i]) continue;
+        if (memories_[i].hz == old_hz && memories_[i].name == old_name) {
+            marked.emplace_back(hz, name);
+        } else {
+            marked.emplace_back(memories_[i].hz, memories_[i].name);
+        }
     }
     memories_ = toolkit::load_memories();
     marked_.assign(memories_.size(), false);
@@ -175,23 +198,28 @@ void MemoriesViewModel::reload(int64_t hz, const std::string& name, int fallback
     }
     selected_row_.set(-1); // the old rows point into the old list
     rebuild_rows();
+    int row = -1;
     for (size_t i = 0; i < rows_.size(); ++i) {
-        const auto& row = rows_[i];
-        if (!row.group && memories_[row.memory_index].hz == hz &&
-            memories_[row.memory_index].name == name) {
-            selected_row_.set(static_cast<int>(i));
-            return;
+        const auto& r = rows_[i];
+        if (!r.group && memories_[r.memory_index].hz == hz &&
+            memories_[r.memory_index].name == name) {
+            row = static_cast<int>(i);
+            break;
         }
     }
-    // Gone (deleted): the memory row at the same place, or the one before.
-    int row = std::min(fallback_row, static_cast<int>(rows_.size()) - 1);
-    while (row >= 0 && rows_[static_cast<size_t>(row)].group) --row;
-    if (row < 0) row = first_memory_row();
+    if (row < 0) {
+        // Gone (deleted): the memory row at the same place, or the one before.
+        row = std::min(fallback_row, static_cast<int>(rows_.size()) - 1);
+        while (row >= 0 && rows_[static_cast<size_t>(row)].group) --row;
+        if (row < 0) row = first_memory_row();
+    }
     selected_row_.set(row);
+    bump_nav_refresh(); // the EDIT keys show the selected memory
+    update_status();
 }
 
 void MemoriesViewModel::request_edit() {
-    delete_armed_ = false;
+    disarm_delete();
     const auto* m = selected_memory();
     if (!m) return;
     edit_draft_ = {m->hz, m->name, m->mode, m->tags.empty() ? std::string() : m->tags.front()};
@@ -199,56 +227,68 @@ void MemoriesViewModel::request_edit() {
 }
 
 void MemoriesViewModel::apply_edit(const std::string& name, const std::string& group) {
-    // Start from the file, not the cached list: another app may have saved
-    // in between. The draft says which memory the dialog opened on.
-    toolkit::Memory replacement;
-    bool found = false;
-    for (const auto& m : toolkit::load_memories()) {
-        if (m.hz == edit_draft_.hz && m.name == edit_draft_.name) {
-            replacement = m;
-            found = true;
+    // The change is applied to the memory as it is in the file, under the
+    // store lock: what another app changed in it meanwhile stays.
+    const auto result =
+        toolkit::modify_memory(edit_draft_.hz, edit_draft_.name, [&](toolkit::Memory& m) {
+            m.name = name;
+            if (group.empty()) {
+                if (!m.tags.empty()) m.tags.erase(m.tags.begin());
+            } else if (m.tags.empty()) {
+                m.tags.push_back(group);
+            } else {
+                m.tags.front() = group;
+            }
+        });
+    const int row = selected_row_.value();
+    switch (result) {
+        case toolkit::EditResult::Saved:
+            reload(edit_draft_.hz, name, row, edit_draft_.hz, edit_draft_.name);
+            show_status("Saved: " + name);
             break;
-        }
+        case toolkit::EditResult::NotFound:
+            reload(0, {}, row);
+            show_status("Not saved: the memory is gone");
+            break;
+        case toolkit::EditResult::Duplicate:
+            show_status("Not saved: " + name + " is already on that frequency");
+            break;
+        case toolkit::EditResult::Invalid:
+            show_status("Not saved: the name is empty");
+            break;
+        case toolkit::EditResult::WriteFailed:
+            show_status("Not saved: cannot write the memories file");
+            break;
     }
-    if (!found) {
-        show_status("Not saved: the memory is gone");
-        return;
-    }
-    replacement.name = name;
-    if (group.empty()) {
-        if (!replacement.tags.empty()) replacement.tags.erase(replacement.tags.begin());
-    } else if (replacement.tags.empty()) {
-        replacement.tags.push_back(group);
-    } else {
-        replacement.tags.front() = group;
-    }
-    if (!toolkit::update_memory(edit_draft_.hz, edit_draft_.name, replacement)) {
-        show_status("Not saved: " + name + " is already on that frequency");
-        return;
-    }
-    reload(replacement.hz, replacement.name, selected_row_.value());
-    show_status("Saved: " + name);
 }
 
 void MemoriesViewModel::cycle_mode() {
-    delete_armed_ = false;
+    disarm_delete();
     const auto* m = selected_memory();
     if (!m) return;
+    const int64_t hz = m->hz;
+    const std::string name = m->name;
     static constexpr const char* kModes[] = {"WFM", "NFM", "AM", "USB", "LSB", "CW"};
-    size_t next = 0; // an unknown or empty mode starts the cycle
-    for (size_t i = 0; i < std::size(kModes); ++i) {
-        if (m->mode == kModes[i]) {
-            next = (i + 1) % std::size(kModes);
-            break;
+    // The next mode after the one in the file, not the cached one.
+    const auto result = toolkit::modify_memory(hz, name, [](toolkit::Memory& x) {
+        size_t next = 0; // an unknown or empty mode starts the cycle
+        for (size_t i = 0; i < std::size(kModes); ++i) {
+            if (x.mode == kModes[i]) {
+                next = (i + 1) % std::size(kModes);
+                break;
+            }
         }
-    }
-    toolkit::Memory replacement = *m;
-    replacement.mode = kModes[next];
-    if (!toolkit::update_memory(m->hz, m->name, replacement)) {
+        x.mode = kModes[next];
+    });
+    const int row = selected_row_.value();
+    if (result == toolkit::EditResult::Saved) {
+        reload(hz, name, row);
+    } else if (result == toolkit::EditResult::NotFound) {
+        reload(0, {}, row);
+        show_status("Not saved: the memory is gone");
+    } else {
         show_status("Not saved: cannot write the memories file");
-        return;
     }
-    reload(replacement.hz, replacement.name, selected_row_.value());
 }
 
 void MemoriesViewModel::request_delete(int64_t now_ms) {
@@ -265,10 +305,16 @@ void MemoriesViewModel::request_delete(int64_t now_ms) {
         show_status("Press 7 again to delete: " + m->name);
         return;
     }
-    delete_armed_ = false;
+    disarm_delete();
     const std::string name = m->name;
     if (!toolkit::remove_memory(delete_hz_, delete_name_)) {
-        show_status("Not deleted: cannot write the memories file");
+        // Gone already, or the file could not be written: the reload tells.
+        const auto now = toolkit::load_memories();
+        const bool gone = std::none_of(now.begin(), now.end(), [&](const toolkit::Memory& x) {
+            return x.hz == delete_hz_ && x.name == delete_name_;
+        });
+        reload(delete_hz_, delete_name_, selected_row_.value());
+        show_status(gone ? "Already deleted: " + name : "Not deleted: cannot write the memories file");
         return;
     }
     reload(0, {}, selected_row_.value());
@@ -290,11 +336,13 @@ void MemoriesViewModel::open_selected_in_sdr() {
 }
 
 void MemoriesViewModel::toggle_sort() {
+    disarm_delete();
     sort_by_frequency_ = !sort_by_frequency_;
     rebuild_rows();
 }
 
 void MemoriesViewModel::request_search() {
+    disarm_delete();
     search_request_.set(search_request_.value() + 1);
 }
 
@@ -402,13 +450,11 @@ void MemoriesViewModel::nav_activate(int page, int slot) {
         if (slot == 1) request_edit();
         else if (slot == 2) cycle_mode();
         else if (slot == 3) {
-            request_delete(std::chrono::duration_cast<std::chrono::milliseconds>(
-                               std::chrono::steady_clock::now().time_since_epoch())
-                               .count());
+            request_delete(now_ms());
         }
         return;
     }
-    delete_armed_ = false;
+    disarm_delete();
     if (page == 0) {
         if (slot == 1) move_selection(-1);
         else if (slot == 2) move_selection(1);
