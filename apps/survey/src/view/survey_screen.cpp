@@ -70,6 +70,8 @@ SurveyScreen::~SurveyScreen() {
         range_dialog_ = nullptr;
     }
     if (range_req_observer_) lv_observer_remove(range_req_observer_);
+    if (memory_req_observer_) lv_observer_remove(memory_req_observer_);
+    memory_dialog_.reset();
     if (page_observer_) lv_observer_remove(page_observer_);
     if (peaks_observer_) lv_observer_remove(peaks_observer_);
     if (peaks_sel_observer_) lv_observer_remove(peaks_sel_observer_);
@@ -84,6 +86,21 @@ void SurveyScreen::range_req_cb(lv_observer_t* observer, lv_subject_t* subject) 
         self->last_range_req_ = v;
         self->open_range_dialog();
     }
+}
+
+void SurveyScreen::memory_req_cb(lv_observer_t* observer, lv_subject_t* subject) {
+    auto* self = static_cast<SurveyScreen*>(lv_observer_get_user_data(observer));
+    if (!self) return;
+    const int v = lv_subject_get_int(subject);
+    if (v == self->last_memory_req_) return; // the initial (0) notification
+    self->last_memory_req_ = v;
+    const auto& d = self->vm_.memory_draft();
+    self->memory_dialog_ = std::make_unique<toolkit::MemoryDialog>(
+        self->assets(), self->vm_.is_dark_mode(), "Save memory",
+        toolkit::memory_info(d.hz, d.mode), toolkit::memory_label(d.hz, d.mode),
+        toolkit::kSavedGroup, [self](const std::string& name, const std::string& group) {
+            self->vm_.save_memory(name, group);
+        });
 }
 
 void SurveyScreen::build_content(lv_obj_t* content) {
@@ -103,6 +120,8 @@ void SurveyScreen::build_content(lv_obj_t* content) {
         lv_subject_add_observer(vm_.peaks_sel_subject(), peaks_cb, this);
     range_req_observer_ =
         lv_subject_add_observer(vm_.range_input_req_subject(), range_req_cb, this);
+    memory_req_observer_ =
+        lv_subject_add_observer(vm_.memory_req_subject(), memory_req_cb, this);
 }
 
 void SurveyScreen::build_waterfall_view(lv_obj_t* content) {

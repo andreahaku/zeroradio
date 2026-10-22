@@ -11,6 +11,7 @@
 
 #include "lvgl.h"
 
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -73,6 +74,19 @@ public:
     // Enter outside a dialog. Nothing by default.
     virtual void on_enter() {}
 
+    // M outside a dialog: save what the app is tuned to as a memory (the SDR's
+    // frequency, the Scanner's selected peak). Nothing by default.
+    virtual void on_memorize() {}
+
+    // A short message over the screen for a moment, e.g. "Saved 88.700 WFM".
+    // run_app shows it; without a running app it goes nowhere.
+    void show_status(const std::string& text) {
+        if (status_sink_) status_sink_(text);
+    }
+    void set_status_sink(std::function<void(const std::string&)> sink) {
+        status_sink_ = std::move(sink);
+    }
+
     // Volume keys (Fn + A/S/D): `step` -1 down, +1 up, 0 mute on/off. An app
     // with audio returns the new state to show briefly, e.g. "Volume 60%";
     // an empty string (the default) shows nothing.
@@ -120,6 +134,7 @@ public:
 
 private:
     NavProvider* nav_provider_{nullptr};
+    std::function<void(const std::string&)> status_sink_;
     Handoff handoff_;
     std::string help_doc_;
     int exit_code_ = 0;

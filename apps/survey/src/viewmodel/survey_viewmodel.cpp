@@ -67,6 +67,7 @@ lv_subject_t* SurveyViewModel::peaks_version_subject()  { return peaks_version_s
 lv_subject_t* SurveyViewModel::peaks_sel_subject()      { return peaks_sel_subject_.native(); }
 lv_subject_t* SurveyViewModel::sort_text_subject()      { return sort_text_subject_.native(); }
 lv_subject_t* SurveyViewModel::range_input_req_subject() { return range_input_req_subject_.native(); }
+lv_subject_t* SurveyViewModel::memory_req_subject() { return memory_req_subject_.native(); }
 
 void SurveyViewModel::set_smeter(int level) { smeter_subject_.set(level); }
 
@@ -270,6 +271,37 @@ void SurveyViewModel::nav_fill(int page, NavProvider::NavSlot out[5]) const {
     }
 }
 
+void SurveyViewModel::memorize() {
+    const int sel = peaks_sel_subject_.value();
+    if (sel < 0 || sel >= static_cast<int>(rows_.size())) {
+        show_status("No peak to save yet");
+        return;
+    }
+    // A peak sits on a sweep bin: round it to the kHz for a tidy memory.
+    const int64_t hz = (rows_[static_cast<size_t>(sel)].freq_hz + 500) / 1000 * 1000;
+    const std::string mode = toolkit::guess_mode(hz);
+    if (const auto known = toolkit::find_memory(hz, mode)) {
+        show_status("Already saved: " + known->name);
+        return;
+    }
+    memory_draft_ = {hz, mode};
+    memory_req_subject_.set(memory_req_subject_.value() + 1);
+}
+
+void SurveyViewModel::save_memory(const std::string& name, const std::string& group) {
+    show_status(toolkit::save_draft(memory_draft_, name, group));
+}
+
+bool SurveyViewModel::nav_has_hold(int page, int slot) const {
+    // Hold the tune dialog key to save the selected peak instead.
+    return static_cast<Page>(page) == Page::Waterfall && slot == 2;
+}
+
+std::string SurveyViewModel::nav_hold(int page, int slot) {
+    if (nav_has_hold(page, slot)) memorize();
+    return {};
+}
+
 void SurveyViewModel::nav_activate(int page, int slot) {
     switch (static_cast<Page>(page)) {
         case Page::Waterfall:
@@ -306,12 +338,13 @@ toolkit::i18n::Text SurveyViewModel::nav_hint(int page, int slot) const {
                                  "Herauszoomen: ein doppelt so breites Band absuchen",
                                  "Alejar: barre una banda el doble de ancha",
                                  "ズームアウト：2倍の幅でスキャン", "缩小：扫描两倍宽的频段"};
-                case 2: return {"Type the centre frequency and the span",
-                                 "Inserisci la frequenza centrale e l’ampiezza",
-                                 "Saisit la fréquence centrale et la largeur",
-                                 "Mittenfrequenz und Breite eingeben",
-                                 "Introduce la frecuencia central y el ancho",
-                                 "中心周波数と幅を入力", "输入中心频率和扫描宽度"};
+                case 2: return {"Tap: type the centre frequency and the span. Hold: save the selected peak as a memory (or press M).",
+                                 "Tocco: inserisci la frequenza centrale e l’ampiezza. Tieni premuto: salva il picco selezionato nelle memorie (o premi M).",
+                                 "Appui : saisit la fréquence centrale et la largeur. Maintien : enregistre le pic choisi en mémoire (ou touche M).",
+                                 "Tippen: Mittenfrequenz und Breite eingeben. Halten: den gewählten Peak speichern (oder M drücken).",
+                                 "Toque: introduce la frecuencia central y el ancho. Mantener: guarda el pico elegido en memoria (o pulsa M).",
+                                 "タップ：中心周波数と幅を入力。長押し：選択中のピークをメモリーに保存（M キーでも可）",
+                                 "轻按：输入中心频率和扫描宽度。长按：将选中的峰值存入存储（或按 M）"};
                 case 3: return {"Zoom in: sweep a band half as wide",
                                  "Ingrandisci: scansiona una banda larga la metà",
                                  "Zoom avant : balaye une bande deux fois plus étroite",

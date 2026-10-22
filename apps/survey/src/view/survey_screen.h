@@ -8,6 +8,7 @@
 
 #include "base_screen.h"
 #include "battery_badge.h"
+#include "memory_dialog.h"
 #include "survey_viewmodel.h"
 #include "sweep_source.h"
 
@@ -65,6 +66,7 @@ private:
     // Manual range dialog: type Centre then Span (MHz), Enter advances/commits,
     // Esc cancels. Mirrors the SDR app's frequency-entry modal (raw key capture).
     static void range_req_cb(lv_observer_t* observer, lv_subject_t* subject);
+    static void memory_req_cb(lv_observer_t* observer, lv_subject_t* subject);
     static void range_key_cb(uint32_t key, void* ctx);
     void open_range_dialog();
     void close_range_dialog(bool apply);
@@ -101,6 +103,9 @@ private:
     // The field still shows the seeded value: the first digit or dot replaces it.
     bool        range_fresh_ = true;
     lv_observer_t* range_req_observer_ = nullptr;
+    lv_observer_t* memory_req_observer_ = nullptr;
+    int         last_memory_req_    = 0;
+    std::unique_ptr<toolkit::MemoryDialog> memory_dialog_; // M: save the selected peak
     int         last_range_req_     = 0;
 };
 

@@ -98,6 +98,7 @@ lv_subject_t* SdrViewModel::peak_hold_subject()      { return peak_hold_subject_
 lv_subject_t* SdrViewModel::wf_split_subject()       { return wf_split_subject_.native(); }
 lv_subject_t* SdrViewModel::freq_input_req_subject() { return freq_input_req_subject_.native(); }
 lv_subject_t* SdrViewModel::ppm_input_req_subject() { return ppm_input_req_subject_.native(); }
+lv_subject_t* SdrViewModel::memory_req_subject() { return memory_req_subject_.native(); }
 lv_subject_t* SdrViewModel::status_text_subject() { return status_text_subject_.native(); }
 lv_subject_t* SdrViewModel::fine_tune_subject()      { return fine_tune_subject_.native(); }
 lv_subject_t* SdrViewModel::muted_subject()          { return muted_subject_.native(); }
@@ -548,6 +549,33 @@ void SdrViewModel::nav_activate(int page, int slot) {
     }
 }
 
+void SdrViewModel::memorize() {
+    // The channel at the moment of the key: a memory scan may retune while
+    // the dialog is open.
+    const int64_t hz = model_.vfo_hz();
+    const std::string mode = radio_mode_name(model_.mode());
+    if (const auto known = toolkit::find_memory(hz, mode)) {
+        show_status("Already saved: " + known->name);
+        return;
+    }
+    memory_draft_ = {hz, mode};
+    memory_req_subject_.set(memory_req_subject_.value() + 1);
+}
+
+void SdrViewModel::save_memory(const std::string& name, const std::string& group) {
+    show_status(toolkit::save_draft(memory_draft_, name, group));
+}
+
+bool SdrViewModel::nav_has_hold(int page, int slot) const {
+    // Hold the frequency entry key to save the tuned channel instead.
+    return static_cast<Page>(page) == Page::Tuning && slot == 2;
+}
+
+std::string SdrViewModel::nav_hold(int page, int slot) {
+    if (nav_has_hold(page, slot)) memorize();
+    return {};
+}
+
 bool SdrViewModel::nav_repeats(int page, int slot) const {
     // Held, tune down/up keep stepping, like the left/right arrows.
     return static_cast<Page>(page) == Page::Tuning && (slot == 1 || slot == 3);
@@ -575,10 +603,13 @@ toolkit::i18n::Text SdrViewModel::nav_hint(int page, int slot) const {
                                  "Descend d’un pas de réglage", "Einen Schritt tiefer abstimmen",
                                  "Baja la sintonía un paso",
                                  "1ステップ下へ同調", "向下调谐一步"};
-                case 2: return {"Type a frequency in MHz", "Inserisci una frequenza in MHz",
-                                 "Saisit une fréquence en MHz", "Frequenz in MHz eingeben",
-                                 "Introduce una frecuencia en MHz",
-                                 "周波数を MHz で入力", "以 MHz 输入频率"};
+                case 2: return {"Tap: type a frequency in MHz. Hold: save this channel as a memory (or press M).",
+                                 "Tocco: inserisci una frequenza in MHz. Tieni premuto: salva questo canale nelle memorie (o premi M).",
+                                 "Appui : saisit une fréquence en MHz. Maintien : enregistre ce canal en mémoire (ou touche M).",
+                                 "Tippen: Frequenz in MHz eingeben. Halten: diesen Kanal speichern (oder M drücken).",
+                                 "Toque: introduce una frecuencia en MHz. Mantener: guarda este canal en memoria (o pulsa M).",
+                                 "タップ：周波数を MHz で入力。長押し：このチャンネルをメモリーに保存（M キーでも可）",
+                                 "轻按：以 MHz 输入频率。长按：将此频道存入存储（或按 M）"};
                 case 3: return {"Tune up by one step", "Sali di un passo di sintonia",
                                  "Monte d’un pas de réglage", "Einen Schritt höher abstimmen",
                                  "Sube la sintonía un paso",

@@ -341,6 +341,11 @@ void show_status(const std::string& status) {
     lv_timer_set_repeat_count(overlays.toast_timer, 1);
 }
 
+// M: the app saves what it is tuned to (it may open a dialog first).
+void memorize_trampoline(void* ctx) {
+    static_cast<ShellViewModel*>(ctx)->on_memorize();
+}
+
 // Fn + A/S/D: the app changes its volume and the new state shows for a moment.
 void volume_trampoline(int step, void* ctx) {
     show_status(static_cast<ShellViewModel*>(ctx)->on_volume(step));
@@ -410,6 +415,8 @@ int run_app(ShellViewModel& shell,
     platform::set_volume_handler(volume_trampoline, &shell);
     HelpState help{&shell, &assets, nullptr};
     platform::set_help_handler(help_handler_trampoline, &help);
+    platform::set_memorize_handler(memorize_trampoline, &shell);
+    shell.set_status_sink([](const std::string& text) { show_status(text); });
 
     // PLUGIN HOOK: the UI is constructed here independently of how the display
     // was created above. For the CardputerZero emulator (which dlopen()s a
@@ -456,6 +463,8 @@ int run_app(ShellViewModel& shell,
     close_nav_hint();
     overlays = Overlays{};
     platform::set_help_handler(nullptr, nullptr);
+    platform::set_memorize_handler(nullptr, nullptr);
+    shell.set_status_sink(nullptr);
     help.viewer.reset();
     platform::set_key_capture(nullptr, nullptr);
 

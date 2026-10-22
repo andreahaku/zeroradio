@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "memories_store.h"
 #include "nav_provider.h"
 #include "sdr_model.h"
 #include "memory_scan.h"
@@ -56,6 +57,7 @@ public:
     lv_subject_t* wf_split_subject();   // visible waterfall rows (page-3 key 7)
     lv_subject_t* freq_input_req_subject();
     lv_subject_t* ppm_input_req_subject();
+    lv_subject_t* memory_req_subject();  // bumped: open the save dialog for memory_draft()
     // Text over the waterfall: "SCAN ..." while a memory scan runs, the
     // correction while calibrating, else "".
     lv_subject_t* status_text_subject();
@@ -91,6 +93,14 @@ public:
     // Feed the channel level (0..100) once per frame: sets the S-meter and
     // runs the squelch. Returns whether the audio may play.
     bool update_channel_level(int level, int64_t now_ms);
+
+    // --- Memories: M, or a hold of key 6 on the TUNE page ---
+    // Save the tuned channel. If a memory already has this frequency and mode
+    // it says so; otherwise the view opens the save dialog on memory_draft().
+    void memorize();
+    void on_memorize() override { memorize(); }
+    const toolkit::MemoryDraft& memory_draft() const { return memory_draft_; }
+    void save_memory(const std::string& name, const std::string& group);
 
     // --- Memory scan (SDR_SCAN from the Memories app) ---
     bool scanning() const { return scan_.has_value(); }
@@ -142,6 +152,8 @@ public:
     void nav_fill(int page, NavProvider::NavSlot out[5]) const override;
     void nav_activate(int page, int slot) override;
     bool nav_repeats(int page, int slot) const override;
+    bool nav_has_hold(int page, int slot) const override;
+    std::string nav_hold(int page, int slot) override;
     const char* nav_page_name(int page) const override;
     toolkit::i18n::Text nav_hint(int page, int slot) const override;
 
@@ -180,6 +192,8 @@ private:
     int                         wf_split_idx_{0};      // index into the split presets
     reactive::IntSubject        freq_input_req_subject_{0};
     reactive::IntSubject        ppm_input_req_subject_{0};
+    reactive::IntSubject        memory_req_subject_{0};
+    toolkit::MemoryDraft        memory_draft_;
     reactive::BoolSubject       fine_tune_subject_{false};
     reactive::BoolSubject       muted_subject_{false};
     reactive::IntSubject        volume_subject_{50};

@@ -113,6 +113,11 @@ SpectrumScreen::~SpectrumScreen() {
         lv_observer_remove(ppm_req_observer_);
         ppm_req_observer_ = nullptr;
     }
+    if (memory_req_observer_) {
+        lv_observer_remove(memory_req_observer_);
+        memory_req_observer_ = nullptr;
+    }
+    memory_dialog_.reset();
     if (toolbar_page_observer_) {
         lv_observer_remove(toolbar_page_observer_);
         toolbar_page_observer_ = nullptr;
@@ -303,6 +308,8 @@ void SpectrumScreen::build_content(lv_obj_t* content) {
     // Open the frequency dialog when the ViewModel bumps the request counter.
     freq_req_observer_ = lv_subject_add_observer(vm_.freq_input_req_subject(), freq_req_cb, this);
     ppm_req_observer_ = lv_subject_add_observer(vm_.ppm_input_req_subject(), ppm_req_cb, this);
+    memory_req_observer_ =
+        lv_subject_add_observer(vm_.memory_req_subject(), memory_req_cb, this);
     toolbar_page_observer_ =
         lv_subject_add_observer(vm_.toolbar_page_subject(), toolbar_page_cb, this);
 
@@ -371,6 +378,21 @@ void SpectrumScreen::toolbar_page_cb(lv_observer_t* observer, lv_subject_t* subj
     if (auto* self = static_cast<SpectrumScreen*>(lv_observer_get_user_data(observer))) {
         self->vm_.on_toolbar_page(lv_subject_get_int(subject));
     }
+}
+
+void SpectrumScreen::memory_req_cb(lv_observer_t* observer, lv_subject_t* subject) {
+    auto* self = static_cast<SpectrumScreen*>(lv_observer_get_user_data(observer));
+    if (!self) return;
+    const int v = lv_subject_get_int(subject);
+    if (v == self->last_memory_req_) return; // the initial (0) notification
+    self->last_memory_req_ = v;
+    const auto& d = self->vm_.memory_draft();
+    self->memory_dialog_ = std::make_unique<toolkit::MemoryDialog>(
+        self->assets(), self->vm_.is_dark_mode(), "Save memory",
+        toolkit::memory_info(d.hz, d.mode), toolkit::memory_label(d.hz, d.mode),
+        toolkit::kSavedGroup, [self](const std::string& name, const std::string& group) {
+            self->vm_.save_memory(name, group);
+        });
 }
 
 void SpectrumScreen::freq_key_cb(uint32_t key, void* ctx) {
