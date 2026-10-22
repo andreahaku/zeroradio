@@ -30,6 +30,9 @@ MemoriesScreen::~MemoriesScreen() {
     if (scan_dialog_) close_scan(false);
     if (search_observer_) lv_observer_remove(search_observer_);
     if (scan_observer_) lv_observer_remove(scan_observer_);
+    if (edit_observer_) lv_observer_remove(edit_observer_);
+    if (tick_timer_) lv_timer_delete(tick_timer_);
+    edit_dialog_.reset();
     if (selection_observer_) lv_observer_remove(selection_observer_);
     if (rows_observer_) lv_observer_remove(rows_observer_);
 }
@@ -90,6 +93,8 @@ void MemoriesScreen::build_content(lv_obj_t* content) {
     rows_observer_ = lv_subject_add_observer(vm_.rows_version_subject(), rows_cb, this);
     selection_observer_ = lv_subject_add_observer(vm_.selected_row_subject(), rows_cb, this);
     search_observer_ = lv_subject_add_observer(vm_.search_request_subject(), search_cb, this);
+    edit_observer_ = lv_subject_add_observer(vm_.edit_request_subject(), edit_cb, this);
+    tick_timer_ = lv_timer_create(tick_cb, 250, this);
     scan_observer_ = lv_subject_add_observer(vm_.scan_request_subject(), scan_cb, this);
     update_table();
 }
@@ -97,6 +102,27 @@ void MemoriesScreen::build_content(lv_obj_t* content) {
 void MemoriesScreen::rows_cb(lv_observer_t* observer, lv_subject_t*) {
     auto* self = static_cast<MemoriesScreen*>(lv_observer_get_user_data(observer));
     if (self) self->update_table();
+}
+
+void MemoriesScreen::tick_cb(lv_timer_t* timer) {
+    if (auto* self = static_cast<MemoriesScreen*>(lv_timer_get_user_data(timer))) {
+        self->vm_.tick(MemoriesViewModel::now_ms());
+    }
+}
+
+void MemoriesScreen::edit_cb(lv_observer_t* observer, lv_subject_t* subject) {
+    auto* self = static_cast<MemoriesScreen*>(lv_observer_get_user_data(observer));
+    if (!self) return;
+    const int request = lv_subject_get_int(subject);
+    if (request == self->last_edit_request_) return; // the initial (0) notification
+    self->last_edit_request_ = request;
+    const auto& d = self->vm_.edit_draft();
+    self->edit_dialog_ = std::make_unique<toolkit::MemoryDialog>(
+        self->assets(), self->vm_.is_dark_mode(), "Edit memory",
+        toolkit::memory_info(d.hz, d.mode.empty() ? "-" : d.mode), d.name, d.group,
+        [self](const std::string& name, const std::string& group) {
+            self->vm_.apply_edit(name, group);
+        });
 }
 
 void MemoriesScreen::search_cb(lv_observer_t* observer, lv_subject_t* subject) {

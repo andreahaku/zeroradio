@@ -7,11 +7,14 @@ Browse saved frequencies and open one in SDR. The list is grouped by the first t
 - **F/X or MEM 5/6**: move up or down.
 - **Enter or MEM 7**: open the selected frequency in SDR with its saved mode.
 - **MEM 8**: search memory names. Type a query and press Enter. Clear the query and press Enter to show everything. Esc cancels the dialog.
-- **4**: switch between the MEM and SCAN key pages.
+- **4**: switch between the MEM, SCAN and EDIT key pages.
 - **SCAN 5**: mark or unmark the selected memory. A `*` beside its name shows a mark. Marks remain after sorting or searching.
 - **SCAN 6**: scan marked memories, or every memory in the current group if none are marked.
 - **SCAN 7**: scan the current group even if other memories are marked.
 - **SCAN 8**: clear all marks.
+- **EDIT 5**: rename the selected memory or change its group. Type to replace a field, Enter moves from the name to the group and then saves, Esc cancels.
+- **EDIT 6**: switch the selected memory to the next mode: WFM, NFM, AM, USB, LSB, CW. It is saved at once.
+- **EDIT 7**: delete the selected memory. Press it a second time within 4 seconds to confirm; moving the cursor cancels.
 - **TAB**: switch sorting within each group between name and frequency.
 - **H**: open this help. Esc closes it.
 - **Esc**: return to the hub. Hold for three seconds to leave ZeroRadio.

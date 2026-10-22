@@ -36,6 +36,7 @@ void ShellViewModel::cycle_toolbar() {
     const int count = nav_page_count();
     const int next = count > 0 ? (toolbar_page_subject_.value() + 1) % count : 0;
     toolbar_page_subject_.set(next);
+    if (nav_provider_) nav_provider_->nav_page_changed(next);
     bump_nav_refresh();
 }
 
@@ -43,6 +44,7 @@ void ShellViewModel::cycle_toolbar_back() {
     const int count = nav_page_count();
     const int prev = count > 0 ? (toolbar_page_subject_.value() - 1 + count) % count : 0;
     toolbar_page_subject_.set(prev);
+    if (nav_provider_) nav_provider_->nav_page_changed(prev);
     bump_nav_refresh();
 }
 
