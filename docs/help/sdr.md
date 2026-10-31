@@ -51,6 +51,7 @@ At the narrowest zoom one pixel is about 300 Hz, and 1 ppm is 130 Hz on the airb
 - Arrows (F/X/Z/C): Z/C tune down/up by one step, F/X zoom in/out. Hold Z/C, or keys 5/7 on page 1, to keep tuning.
 - Fn+A mutes or unmutes, Fn+S and Fn+D turn the volume down and up, from any page.
 - TAB: switch to the Scanner app.
+- M: save the tuned frequency and mode as a memory. A dialog proposes a name, such as 145.500 NFM, and the group saved: type to replace them, Enter moves from the name to the group and then saves, Esc cancels. Holding 6 on page 1 does the same. If a memory already has this frequency and mode, the app says so instead.
 - SYM + 4 to 8: a tooltip that says what that key does on this page, in your language (English, Italian, French, German, Spanish, Japanese or Chinese).
 - H or Fn+H: this help. F/X scroll it, Esc closes it.
 - Esc: quit to the hub. Hold Esc 3 s to leave ZeroRadio for the launcher. Let go before 3 s to cancel.

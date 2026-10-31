@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -49,6 +50,38 @@ bool save_memories(const std::vector<Memory>& all);
 // add_memory() and remove_memory() hold a lock file (memories.json.lock) across
 // the load and the save, so concurrent writers never lose an update.
 bool add_memory(const Memory& m);
+
+// The first memory on this frequency in this mode, whatever its name: lets the
+// SDR and the Scanner say "already saved" instead of adding a second entry.
+std::optional<Memory> find_memory(int64_t hz, const std::string& mode);
+
+// The group a memory saved from the SDR or the Scanner goes in by default.
+inline constexpr const char* kSavedGroup = "saved";
+
+// The name proposed for a new memory: the frequency in MHz, to the kHz (or
+// to the 10 Hz when it is not a whole kHz, as 118.00833), then the mode:
+// "88.700 WFM".
+std::string memory_label(int64_t hz, const std::string& mode);
+
+// The channel line of the save dialog: "88.700 MHz  WFM".
+std::string memory_info(int64_t hz, const std::string& mode);
+
+// A mode for a frequency that comes without one (a Scanner peak): AM below
+// 30 MHz (shortwave), WFM in the FM broadcast band (87.5-108 MHz), AM in the
+// airband (108-137 MHz), NFM elsewhere. The Memories EDIT page changes it.
+std::string guess_mode(int64_t hz);
+
+// A channel about to be saved: the SDR's tuning or a Scanner peak. The save
+// dialog adds the name and the group.
+struct MemoryDraft {
+    int64_t hz = 0;
+    std::string mode;
+};
+
+// Saves the draft under `name`, in `group` (no tag when empty), and returns the
+// message to show: "Saved: <name>", or why it was not saved.
+std::string save_draft(const MemoryDraft& draft, const std::string& name,
+                       const std::string& group);
 
 // Removes the memory with this (hz, name) and saves. Returns false if there is
 // no such memory, or if the save failed.

@@ -81,7 +81,7 @@ void MemoriesScreen::build_content(lv_obj_t* content) {
     lv_obj_add_flag(table_, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
 
     empty_label_ = lv_label_create(content);
-    lv_label_set_text(empty_label_, "No memories. See Help to load an example list.");
+    lv_label_set_text(empty_label_, "No memories yet. Press M in the SDR or the Scanner to save one.");
     lv_obj_set_width(empty_label_, LV_PCT(100));
     lv_obj_set_style_pad_all(empty_label_, 8, 0);
     lv_obj_set_style_text_font(empty_label_, small_font ? small_font : &lv_font_montserrat_12, 0);

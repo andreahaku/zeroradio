@@ -73,6 +73,47 @@ int main() {
     check(add_memory(radar2), "same name, other frequency");
     check(load_memories().size() == 3, "three memories");
 
+    // find_memory(): the same frequency AND mode, whatever the name (the SDR
+    // asks before offering to save the tuned channel).
+    {
+        const auto hit = find_memory(128150000, "AM");
+        check(hit && hit->name == "Luqa Radar", "find by frequency and mode");
+        check(!find_memory(128150000, "NFM"), "same frequency, other mode: not found");
+        check(!find_memory(128150001, "AM"), "other frequency: not found");
+    }
+
+    // Labels for a memory saved from the SDR or the Scanner.
+    check(memory_label(88700000, "WFM") == "88.700 WFM", "label: kHz precision");
+    check(memory_label(118008300, "AM") == "118.0083 AM", "label: 100 Hz precision");
+    check(memory_label(118008330, "AM") == "118.00833 AM", "label: 8.33 kHz channel, 10 Hz");
+    check(memory_label(518000, "USB") == "0.518 USB", "label: below 1 MHz");
+    check(memory_info(127400000, "AM") == "127.400 MHz  AM", "dialog info line");
+    check(guess_mode(98500000) == "WFM", "FM broadcast band: WFM");
+    check(guess_mode(127400000) == "AM", "airband: AM");
+    check(guess_mode(108000000) == "AM", "airband starts at 108 MHz");
+    check(guess_mode(87499999) == "NFM", "below the FM band: NFM");
+    check(guess_mode(9500000) == "AM", "shortwave: AM");
+    check(guess_mode(29999999) == "AM", "below 30 MHz: AM");
+    check(guess_mode(30000000) == "NFM", "from 30 MHz: NFM");
+    check(guess_mode(156800000) == "NFM", "marine VHF: NFM");
+
+    // save_draft(): the dialog's name and group onto a draft, with the
+    // message to show.
+    {
+        MemoryDraft d{99600000, "WFM"};
+        check(save_draft(d, "Radio 99", "fm") == "Saved: Radio 99", "save a draft");
+        const auto hit = find_memory(99600000, "WFM");
+        check(hit && hit->name == "Radio 99" && hit->tags.size() == 1 && hit->tags[0] == "fm",
+              "draft saved with its group as the first tag");
+        check(save_draft(d, "Radio 99", "fm") == "Not saved: Radio 99 is already on 99.600",
+              "same name and frequency: refused");
+        check(save_draft({99700000, "WFM"}, "No group", "") == "Saved: No group", "empty group");
+        const auto bare = find_memory(99700000, "WFM");
+        check(bare && bare->tags.empty(), "empty group: no tag");
+        check(remove_memory(99600000, "Radio 99") && remove_memory(99700000, "No group"),
+              "drafts removed");
+    }
+
     check(remove_memory(128150000, "Luqa Radar"), "remove by (hz, name)");
     check(!remove_memory(128150000, "Luqa Radar"), "remove twice fails");
     all = load_memories();

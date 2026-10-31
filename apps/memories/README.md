@@ -52,7 +52,9 @@ The Luqa frequencies come from third-party sources, not the official AIP, so som
 
 ### Make your own list
 
-Copy the example and edit it with any text editor. Each entry has these fields:
+On the device, press M in the SDR to save the tuned frequency and mode, or in the Scanner to save the selected peak. A dialog asks for the name and the group (the first tag). Both apps save through `toolkit::save_draft()`, so they never write the file by hand.
+
+On a computer, copy the example and edit it with any text editor. Each entry has these fields:
 
 | Field | Required | Meaning |
 | --- | --- | --- |

@@ -16,6 +16,10 @@ Browse saved frequencies and open one in SDR. The list is grouped by the first t
 - **H**: open this help. Esc closes it.
 - **Esc**: return to the hub. Hold for three seconds to leave ZeroRadio.
 
-The status line shows the number of matches, sort order, and search query. If the list is empty, load a `memories.json` file in the shared ZeroRadio config directory. See the Memories README for an example.
+The status line shows the number of matches, sort order, and search query.
+
+## Adding memories
+
+Press M in the SDR to save the frequency and mode you are tuned to, or in the Scanner to save the selected peak. A dialog proposes a name and the group saved. Type to replace them, Enter moves from the name to the group and then saves. You can also copy a whole `memories.json` file into the shared ZeroRadio config directory: see the Memories README for the format and an example list.
 
 Before a scan starts, the app shows the number of channels. Press Enter to open the scanner in SDR or Esc to cancel. Channels run in frequency order. Each scan accepts up to 64 memories; a larger group is limited to its first 64, and the confirmation screen shows the original count.

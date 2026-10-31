@@ -8,6 +8,7 @@
 
 #include "base_screen.h"
 #include "battery_badge.h"
+#include "memory_dialog.h"
 #include "sdr_viewmodel.h"
 #include "spectrum_source.h"
 
@@ -81,6 +82,7 @@ private:
     // The same dialog takes the frequency correction in ppm (calibration).
     static void freq_req_cb(lv_observer_t* observer, lv_subject_t* subject);
     static void ppm_req_cb(lv_observer_t* observer, lv_subject_t* subject);
+    static void memory_req_cb(lv_observer_t* observer, lv_subject_t* subject);
     static void toolbar_page_cb(lv_observer_t* observer, lv_subject_t* subject);
     static void freq_key_cb(uint32_t key, void* ctx);
     void open_freq_dialog(bool ppm = false);
@@ -126,6 +128,9 @@ private:
     bool                dialog_ppm_       = false;   // the dialog takes ppm, not MHz
     lv_obj_t*           freq_info_label_  = nullptr; // ppm: what the value means in Hz
     lv_observer_t*      ppm_req_observer_ = nullptr;
+    lv_observer_t*      memory_req_observer_ = nullptr;
+    int                 last_memory_req_ = 0;
+    std::unique_ptr<toolkit::MemoryDialog> memory_dialog_; // M: save the tuned channel
     lv_observer_t*      toolbar_page_observer_ = nullptr;
     int                 last_ppm_req_     = 0;
 };

@@ -50,7 +50,7 @@ live data (independent of input, never blocks the UI):
 | --- | --- |
 | `app/` | `run_app()` (lifecycle: display, theme, key handlers, help viewer, loop; returns the shell's exit code), `ShellViewModel` (shell subjects, `on_tab`/`on_up`/`on_down`, `set_help_doc`, `request_home`, `request_handoff`), `NavProvider`, `handoff` (`run_handoff`, `find_sibling`), `docs` (`read_doc`), `AssetManager`, `persisted_state`. |
 | `reactive/` | LVGL-subject bindings (the one-way observe layer). |
-| `view/` | Theme, `ui_const.h` (Phosphor icon codepoints), `raster` (the RGB565 primitives and the waterfall colormap), `screens/base_screen`, and the widgets: `NavBar`, `IconButton`, `TitleBar`, `BatteryBadge`, `TextViewer` (+ `render_markdown`), `LocationDialog`. |
+| `view/` | Theme, `ui_const.h` (Phosphor icon codepoints), `raster` (the RGB565 primitives and the waterfall colormap), `screens/base_screen`, and the widgets: `NavBar`, `IconButton`, `TitleBar`, `BatteryBadge`, `TextViewer` (+ `render_markdown`), `LocationDialog`, `MemoryDialog`. |
 | `map/` | The vector base map: `VectorMap` (loads `.rmap` files) and `map_renderer` (`draw_base` with culling, `BaseMapCache`, `MapStyle` and `MapStyle::day()`). Used by the ADS-B, AIS and Meshtastic map screens. See [`mapdata-design.md`](mapdata-design.md). |
 | `platform/` | Key routing (`linux_input`), `Subprocess` (fork/exec with a non-blocking stdout pipe), `ChildService` and `find_tool()` (the decoder lifecycle), `battery` (the BQ27220 gauge), and the headless `remote_fb` display and input driver. |
 | `net/` | `FileJsonSource` (poll a file on a background thread) and `NmeaNetSource` (NMEA lines over UDP/TCP with multi-fragment reassembly). |
