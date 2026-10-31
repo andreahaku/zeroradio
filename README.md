@@ -4,6 +4,8 @@
 
 Radio tools for the [M5Stack CardputerZero](https://shop.m5stack.com/pages/m5-cardputerzero). Plug an RTL-SDR dongle into the USB-A port and ZeroRadio turns the CardputerZero into a pocket receiver: listen to a frequency, scan a band for activity, sniff 433/868 MHz sensors, and track aircraft and ships on a map. Every decoder runs on the device. No computer or network is needed.
 
+**[User manual](docs/manual.md)**: every key of every app, including the keys you hold and the key combinations that the bottom bar does not show.
+
 ![SDR — live WFM broadcast, scrolling waterfall](apps/sdr/docs/media/demo.gif)
 
 | Hub | SDR | Scanner |
@@ -51,7 +53,7 @@ The package pulls its Debian dependencies (`rtl-sdr`, `rtl-433`, `hackrf`, `pipe
 
 Open **ZeroRadio** from the launcher, move with F/X and press Enter to open an app. The menu starts on the app you used last. The last row, **About**, shows the version, the source code link with a QR code, the changelog and the credits.
 
-Inside every app:
+Inside every app (the [user manual](docs/manual.md) lists every key, app by app):
 
 | Key | Action |
 | --- | --- |
@@ -63,6 +65,7 @@ Inside every app:
 | Hold 8 on the ADS-B/AIS map | Follow the selected aircraft or ship (an orange dot left of its name in the title). Hold again to stop |
 | SYM + 4 to 8 | What that key does on this page, in your language |
 | Fn+A / Fn+S / Fn+D | SDR: mute, volume down, volume up |
+| M | SDR and Scanner: save the tuned frequency or the selected peak as a memory. Holding 6 on the first page does the same |
 | H or Fn+H | Help for this app |
 | TAB | Switch between SDR and Scanner |
 | Esc | Back to the hub |
@@ -120,6 +123,7 @@ tools/            map and city list generators, remote framebuffer viewer
 
 ## Documentation
 
+- [`docs/manual.md`](docs/manual.md): the user manual, with every key of every app.
 - [`docs/architecture.md`](docs/architecture.md): the toolkit, data flow and display backends.
 - [`docs/publishing.md`](docs/publishing.md): how to build, check and submit the package to the AppStore.
 - [`docs/mapdata-design.md`](docs/mapdata-design.md): the vector map format and its generator.

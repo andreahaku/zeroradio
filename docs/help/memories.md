@@ -14,7 +14,7 @@ Browse saved frequencies and open one in SDR. The list is grouped by the first t
 - **SCAN 8**: clear all marks.
 - **EDIT 5**: rename the selected memory or change its group. Type to replace a field, Enter moves from the name to the group and then saves, Esc cancels.
 - **EDIT 6**: switch the selected memory to the next mode: WFM, NFM, AM, USB, LSB, CW. It is saved at once.
-- **EDIT 7**: delete the selected memory. Press it a second time within 4 seconds to confirm; moving the cursor cancels.
+- **EDIT 7**: delete the selected memory. The key shows DEL?. Press it a second time within 4 seconds to confirm. DEL? goes away by itself after 4 seconds, and when you move the cursor or change the page.
 - **TAB**: switch sorting within each group between name and frequency.
 - **H**: open this help. Esc closes it.
 - **Esc**: return to the hub. Hold for three seconds to leave ZeroRadio.
