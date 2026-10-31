@@ -81,6 +81,8 @@ The tooltips of SYM + 4 to 8 come in English, Italian, French, German, Spanish, 
 
 ## SDR
 
+![SDR at 88.7 MHz with the 2 MHz zoom](media/sdr.png)
+
 The SDR shows the spectrum and the waterfall around the tuned frequency, and plays the audio on the speaker. It demodulates WFM (broadcast FM), NFM, AM, USB, LSB and CW.
 
 At the top of the screen:
@@ -144,6 +146,8 @@ Every app also has hold 4 (page before), SYM + 4 to 8 (what a key does), H (help
 
 ## Scanner
 
+![Scanner on the FM band](media/scanner.png)
+
 The Scanner sweeps a wide band, for example the whole FM broadcast band, and lists the strongest signals (peaks). Open a peak in the SDR to listen.
 
 | Page (key 4) | 5 | 6 | 7 | 8 |
@@ -173,6 +177,8 @@ The Scanner sweeps a wide band, for example the whole FM broadcast band, and lis
 Every app also has hold 4 (page before), SYM + 4 to 8 (what a key does), H (help), Esc (back to the menu) and hold Esc 3 s (leave ZeroRadio).
 
 ## Memories
+
+![Memories, EDIT page](media/memories-edit.png)
 
 Memories lists your saved frequencies, grouped by their group (the first tag). It opens one in the SDR with its mode, scans a group, and edits the list.
 
@@ -272,6 +278,8 @@ Every app also has hold 4 (page before), SYM + 4 to 8 (what a key does), H (help
 
 1. In the SDR, tune the frequency and pick the mode. In the Scanner, select a peak on the PEAKS page, or leave the strongest one selected.
 2. Press **M**. On the first page (TUNE in the SDR, SWEEP in the Scanner) you can also hold **6**.
+   ![Save memory dialog](media/sdr-save.png)
+
 3. The dialog proposes a name, such as `145.500 NFM`, and the last group you used. Type to replace them.
 4. Enter moves from the name to the group, then saves. Esc cancels.
 
@@ -293,6 +301,8 @@ The crystal of every dongle is a little off, so a station shows a little away fr
 1. Tune to a station whose frequency you know, for example an airport ATIS in AM.
 2. On the GAIN page, press 8 (CAL). The app zooms in as far as it goes. The line over the spectrum shows the correction in ppm, and how many Hz it moves the signals at this frequency.
 3. If the carrier sits left of the centre line, raise the correction with 7. If it sits right, lower it with 5. Key 6 types a value, for example the one `rtl_test -p` reports. The - key changes its sign.
+   ![Calibration](media/sdr-cal.png)
+
 4. Press 8 (OK). The zoom goes back to where it was. The correction is saved and applies to every frequency.
 
 A dongle with a TCXO, such as the RTL-SDR Blog V4, is usually within 1 or 2 ppm.
