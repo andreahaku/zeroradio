@@ -27,7 +27,7 @@ Sort (Peaks, key 8): power, frequency, age, each descending then ascending. The 
 - Enter: on the Peaks page, open the selected peak in the SDR.
 - Z/C (left/right arrows): move the swept band down/up by a quarter of its span on the Waterfall page.
 - TAB: switch to the SDR app.
-- M: save the selected peak (the cursor in the Peaks list, the strongest by default) as a memory, rounded to the kHz. A dialog proposes a name and the group saved: type to replace them, Enter moves from the name to the group and then saves, Esc cancels. Holding 6 on the Waterfall page does the same. The mode is a guess: AM below 30 MHz, WFM in the FM broadcast band, AM in the airband, NFM elsewhere. Change it on the Memories EDIT page.
+- M: save the selected peak (the cursor row in the Peaks list, the first row after a new sort) as a memory, rounded to the kHz. A dialog proposes a name and the group saved: type to replace them, Enter moves from the name to the group and then saves, Esc cancels. Holding 6 on the Waterfall page does the same. The mode is a guess: AM below 30 MHz, WFM in the FM broadcast band, AM in the airband, NFM elsewhere. Change it on the Memories EDIT page.
 - SYM + 4 to 8: a tooltip that says what that key does on this page, in your language (English, Italian, French, German, Spanish, Japanese or Chinese).
 - H or Fn+H: this help. F/X scroll it, Esc closes it.
 - Esc: quit to the hub. Hold Esc 3 s to leave ZeroRadio for the launcher. Let go before 3 s to cancel.

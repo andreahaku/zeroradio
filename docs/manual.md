@@ -169,7 +169,7 @@ The Scanner sweeps a wide band, for example the whole FM broadcast band, and lis
 | Z / C on SWEEP | Move the swept band down / up by a quarter of its width. Hold to keep moving |
 | F / X on PEAKS | Move the cursor |
 | Enter on PEAKS | Open the selected peak in the SDR |
-| M | Save the selected peak as a memory (the strongest one if you did not pick one) |
+| M | Save the selected peak as a memory: the cursor row of the PEAKS list. A new sort moves the cursor to the first row |
 | Hold 6 on SWEEP | Save a memory, like M. A short press opens the tune dialog |
 | TAB | Switch to the SDR |
 | SYM + . | The decimal point in the tune dialog |
@@ -242,7 +242,7 @@ ADS-B shows aircraft around you from their 1090 MHz broadcasts. AIS shows ships 
 | Page (key 4) | 5 | 6 | 7 | 8 |
 | --- | --- | --- | --- | --- |
 | LIST | Next sort | Previous contact | Next contact | Lock or unlock the contact |
-| RADAR / MAP | Zoom in | Zoom out (down to AUTO) | Trails on/off | Radar or map (hold: follow) |
+| RADAR / MAP | Zoom in | Zoom out (down to AUTO) | Trails on/off | Radar or map (hold on the map: follow) |
 | DETAIL | Zoom in | Zoom out | Trails on/off | Other traffic on/off |
 | SETUP | Previous row | Next row | Change the value | Quit |
 
@@ -276,7 +276,7 @@ Every app also has hold 4 (page before), SYM + 4 to 8 (what a key does), H (help
 
 ### Save a frequency
 
-1. In the SDR, tune the frequency and pick the mode. In the Scanner, select a peak on the PEAKS page, or leave the strongest one selected.
+1. In the SDR, tune the frequency and pick the mode. In the Scanner, move the cursor to a peak on the PEAKS page.
 2. Press **M**. On the first page (TUNE in the SDR, SWEEP in the Scanner) you can also hold **6**.
    ![Save memory dialog](media/sdr-save.png)
 

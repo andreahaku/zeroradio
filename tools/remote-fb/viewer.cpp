@@ -196,9 +196,16 @@ int main(int argc, char** argv) {
                 running.store(false);
             } else if (ev.type == SDL_KEYDOWN && ev.key.keysym.sym == SDLK_F12) {
                 // F12: save the frame at its native size, for screenshots.
+                // Skip names already on disk, so a restarted viewer (after an
+                // app hand-off) never overwrites an earlier shot.
                 static int shot = 0;
                 char name[32];
-                std::snprintf(name, sizeof(name), "remote-fb-%03d.ppm", ++shot);
+                for (;;) {
+                    std::snprintf(name, sizeof(name), "remote-fb-%03d.ppm", ++shot);
+                    FILE* taken = std::fopen(name, "rb");
+                    if (!taken) break;
+                    std::fclose(taken);
+                }
                 if (FILE* out = std::fopen(name, "wb")) {
                     std::fprintf(out, "P6\n%d %d\n255\n", W, H);
                     std::lock_guard<std::mutex> lock(fb_mutex);
