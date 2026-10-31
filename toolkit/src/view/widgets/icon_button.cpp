@@ -119,6 +119,27 @@ void IconButton::set_tab_colors(lv_color_t bg, lv_color_t fg) {
     set_icon_color(fg);
 }
 
+int32_t IconButton::text_width() const {
+    if (!font_ || text_.empty()) {
+        return 0;
+    }
+    lv_point_t size{};
+    lv_text_get_size(&size, text_.c_str(), font_, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+    return size.x;
+}
+
+void IconButton::fit_text(int32_t max_width) {
+    if (!core_obj_ || !label_) return;
+    int32_t width = text_width() + 2;
+    if (width < width_) width = width_;
+    if (width > max_width) width = max_width;
+    const int32_t extra = width - width_;
+    lv_obj_set_width(core_obj_, width);
+    lv_obj_set_style_margin_left(core_obj_, -(extra / 2), 0);
+    lv_obj_set_style_margin_right(core_obj_, -(extra - extra / 2), 0);
+    lv_obj_center(label_);
+}
+
 void IconButton::set_enabled(bool enabled) {
     enabled_ = enabled;
     if (!core_obj_) {

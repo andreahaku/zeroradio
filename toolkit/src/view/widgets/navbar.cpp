@@ -19,6 +19,11 @@ namespace {
 
 constexpr std::array<int32_t, 5> kNavButtonXOffsets = {36, 17, 2, -17, -36};
 
+// Widest text label each key can take without touching its neighbours. The
+// key centres sit 49-53 px apart; key 4 carries the 58 px page tab, which
+// leaves key 5 the least room.
+constexpr std::array<int32_t, 5> kMaxTextWidth = {58, 36, 46, 46, 46};
+
 // Page number shown on slot 0 (1-based).
 constexpr std::array<const char*, 5> kPageLabels = {"1", "2", "3", "4", "5"};
 
@@ -170,6 +175,13 @@ void NavBar::update_icon_buttons() {
         const bool placeholder = (text == nullptr || text[0] == '\0');
         button->set_font((use_text_font || placeholder) ? text_font_ : icon_font_);
         button->set_text(placeholder ? "\xC2\xB7" : text); // middot placeholder
+        // A text label wider than its key steps down to the smaller font, and
+        // the key widens to fit it ("WFM", "DEL?", "12.5k").
+        if (use_text_font && !placeholder && tab_font_ &&
+            button->text_width() + 2 > kMaxTextWidth[i]) {
+            button->set_font(tab_font_);
+        }
+        button->fit_text(kMaxTextWidth[i]);
         button->set_enabled((i == 0) ? true : (!placeholder && enabled));
         if (overlay_) { // only slots 1..4 get here
             button->set_icon_color(lv_color_white());

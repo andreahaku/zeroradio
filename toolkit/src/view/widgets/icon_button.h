@@ -41,6 +41,12 @@ public:
     // but taking the same room in the bar (the page name on key 4).
     void set_tab_style(const lv_font_t* font, lv_color_t bg, lv_color_t fg);
     void set_tab_colors(lv_color_t bg, lv_color_t fg); // after set_tab_style
+    // Width of the current text in the current font, in pixels.
+    int32_t text_width() const;
+    // Widen the button to fit its text, up to `max_width`, without moving the
+    // other keys: negative side margins keep its room in the flex row. A text
+    // still wider than `max_width` is clipped. Icons keep the base width.
+    void fit_text(int32_t max_width);
 
 private:
     static void theme_observer_cb(lv_observer_t* observer, lv_subject_t* subject);
