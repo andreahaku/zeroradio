@@ -14,7 +14,11 @@ Radio tools for the [M5Stack CardputerZero](https://shop.m5stack.com/pages/m5-ca
 
 | ISM | ADS-B | AIS |
 | --- | --- | --- |
-| ![ISM device list](docs/media/ism.png) | ![ADS-B map](docs/media/adsb.png) | ![AIS map](docs/media/ais.png) |
+| ![ISM device list](docs/media/ism.png) | ![ADS-B radar](docs/media/adsb.png) | ![AIS map](docs/media/ais.png) |
+
+| Memories | Save a memory (M) | Squelch | Calibration |
+| --- | --- | --- | --- |
+| ![Memories list with marks for a scan](docs/media/memories.png) | ![Save memory dialog](docs/media/sdr-save.png) | ![SDR squelch page](docs/media/sdr-squelch.png) | ![SDR calibration](docs/media/sdr-cal.png) |
 
 ## Apps
 

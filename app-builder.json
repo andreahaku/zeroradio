@@ -21,9 +21,9 @@
       "docs/media/hub.png",
       "docs/media/sdr.png",
       "docs/media/scanner.png",
-      "docs/media/ism.png",
-      "docs/media/adsb.png",
-      "docs/media/ais.png"
+      "docs/media/memories.png",
+      "docs/media/sdr-cal.png",
+      "docs/media/adsb.png"
     ],
     "icon": "assets/images/zeroradio.png",
     "license": "MIT",
