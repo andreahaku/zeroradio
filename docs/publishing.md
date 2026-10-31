@@ -57,11 +57,12 @@ Install the package the way the AppStore does, with apt resolving the dependenci
 sudo apt install ./zeroradio_<version>_arm64.deb
 ```
 
-Then open ZeroRadio from the launcher and check every app with a dongle attached: SDR audio, a Scanner sweep and Open in SDR, ISM devices, ADS-B aircraft, AIS ships, Settings > Location, H (help), TAB (SDR <-> Scanner), Esc, a 3 s Esc hold and its cancel, SYM + 4 to 8 (key tooltips), the arrows (F/X/Z/C) on every page, and the hub coming back to the app used last.
+Then open ZeroRadio from the launcher and check every app with a dongle attached: SDR audio, a Scanner sweep and Open in SDR, ISM devices, ADS-B aircraft, AIS ships, Settings > Location, Memories (open, SCAN, EDIT), M and a 6 hold in the SDR and the Scanner, the SDR squelch and CAL, H (help), TAB (SDR <-> Scanner), Esc, a 3 s Esc hold and its cancel, SYM + 4 to 8 (key tooltips), the arrows (F/X/Z/C) on every page, and the hub coming back to the app used last.
 
 ## 5. Screenshots and icon
 
-- Screenshots: `docs/media/*.png`, 320x170, taken from the device framebuffer (`/dev/fb0`, RGB565) and listed in `app-builder.json`.
+- Screenshots: `docs/media/*.png`, 320x170, listed in `app-builder.json`. Take them on the device with the remote-fb viewer: start an app with `REMOTE_FB=5800` and `XDG_CONFIG_HOME=/tmp/x` (so your own memories and settings stay out of the pictures), drive it from the viewer and press F12 to save the frame. See `tools/remote-fb/README.md`. A plain capture of `/dev/fb0` (RGB565) works too.
+- The [user manual](manual.md) and the in-app help (`docs/help/`) must match the keys of the release.
 - Icon: `assets/images/zeroradio.png` (256x256), rendered from `assets/images/zeroradio.svg` with `rsvg-convert -w 256 -h 256`.
 
 ## 6. Submit
